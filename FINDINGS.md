@@ -317,3 +317,39 @@ and matches extraction exactly for every retailer.
    found by searching outward from every tile.
 7. **Page furniture repeats, product names do not** - counting occurrences
    removes "NOVA REDNA CENA" and brand strips generically.
+
+## Lidl via free local OCR - honest result
+
+Built and measured over six leaflet pages (58 pages total, ~10s per page):
+
+    38 price groups found, 34 quarantined = 89% unusable, ~11% shippable
+
+**What works.** Prices that ARE read come out right. Page 3's "NAŠA MESNICA
+sveže mleto mešano meso" reads -14%, 2,89 from 3,37, matching the leaflet
+exactly, and page 4's jabolka reads 1,29 from 1,79 at -27%. The colour
+segmentation plus single-baseline strip genuinely solves the price-reading
+problem that defeats off-the-shelf OCR.
+
+**What does not.** Recall. Most tiles never produce a readable price group, and
+product names are unreliable - "NASAMESNICA", "lubliansha", "za kg",
+"Izdelki so dobavljivi samo". The default RapidOCR model has no Slovenian
+charset, so diacritics are lost and short names are mangled.
+
+Two OCR traps worth keeping:
+
+1. RapidOCR returns `[]` when an image has too little white margin. ~120px of
+   padding is required. It also cannot recognise a single isolated character at
+   all - always feed it a multi-digit strip.
+2. OCR usually loses the "%" glyph, so "-27%" arrives as "-27". Requiring the
+   "%" silently dropped every badge - and `discount_display` then COMPUTED a
+   percentage from old/new, so a badge that was never read looked like it had
+   been. Watch for fallbacks that disguise a failed read as a successful one.
+
+**Assessment.** At ~11% coverage with unreliable names, Lidl does not meet the
+standard the other four retailers do, and shipping it would break the promise
+that the email is complete for the stores it covers. Options, in order of
+likely payoff: Tesseract with the Slovenian language model (better names and
+probably better recall, trivial to install in CI); substantially more work on
+segmentation and pairing; a vision API for Lidl only (~EUR 1.50-3.50/month,
+previously declined); or leave Lidl out and note that she already has the
+Lidl Plus app, which covers Lidl better than we can.
