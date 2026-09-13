@@ -1,0 +1,7 @@
+playwright
+httpx
+jinja2
+pyyaml
+pymupdf
+pdfplumber
+pytest
