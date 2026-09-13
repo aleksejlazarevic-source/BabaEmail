@@ -1,5 +1,8 @@
 # BabaEmail
 
+**Read STATUS.md first** - current progress, and the open decision
+("the Lidl call") that blocks the next step.
+
 Daily email of real supermarket discounts for a 73-year-old in Ljubljana who
 reads Apple Mail on an iPhone 12. Slovenian. ~40-80 items. She never types and
 never has to tap anything — scrolling alone shows her the whole thing.
