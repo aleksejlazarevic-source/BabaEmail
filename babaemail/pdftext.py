@@ -140,10 +140,23 @@ LABEL_STOPWORDS = (
     "VSI KOSI", "SUPER & HIPER", "IZBRANI MARKETI", "PC30", "PC 30", "KOSA ALI",
     "TOČKA", "TOCKA", "NAKUPA", "MERCATORJEVE", "ZNAMKE", "GRATIS", "AKCIJA",
     "NOVA REDNA", "STARA CENA", "REDNA CENA", "SUPER CENA", "ZA KG", "ZA KOS",
+    "V MESNICI", "V PEKARNI", "PRIPRAVLJENO V",
     "CENEJE", "TO NI AKCIJA", "KLUB KARTICO", "PLUS KARTICO",
 )
 
 _LETTERS = re.compile(r"[A-Za-zČčŠšŽžĆćĐđ]")
+
+# Standalone marketing words. These appear as their own spans at the same size
+# as product names, so a substring stoplist is not enough - they are rejected
+# on an exact match of the whole span.
+EXACT_STOPWORDS = frozenset({
+    "SUPER", "CENA", "CENE", "POPUST", "POPUSTI", "PRIPRAVLJENO", "MESNICI",
+    "NOVO", "AKCIJA", "GRATIS", "DARILO", "PAKET", "NAJ", "HIT", "TEDEN",
+    "TEDNA", "IZBIRA", "KUPON", "BONUS", "EKSKLUZIVNO", "NOVOST", "ZNIŽANJE",
+    "PRIHRANEK", "BREZPLAČNO", "KLUB", "KARTICO", "PLUS", "VELIKO",
+    "SREDA", "SREDO", "PONEDELJEK", "TOREK", "ČETRTEK", "PETEK", "SOBOTA",
+    "NEDELJA", "VIKEND", "MESNICI", "PEKARNI", "TRŽNICI",
+})
 
 
 def is_label_candidate(s: Span, lo: float = 6.5, hi: float = 16.0) -> bool:
@@ -162,6 +175,8 @@ def is_label_candidate(s: Span, lo: float = 6.5, hi: float = 16.0) -> bool:
     if len(_LETTERS.findall(text)) < 3:
         return False
     upper = text.upper()
+    if upper in EXACT_STOPWORDS:
+        return False
     if any(w in upper for w in LABEL_STOPWORDS):
         return False
     # a bare price or measurement is not a name
@@ -341,6 +356,7 @@ def partition_by_anchor(labels: list[Span], anchors: list[Span],
 
 DIGITS_RE = re.compile(r"\d{1,4}")
 CENTS_RE = re.compile(r"\d{2}")
+PCT_INLINE_RE = re.compile(r"-?\s*(\d{1,2})\s*%")
 
 
 def price_near(anchor: Span, digit_runs: list[Span],
@@ -421,3 +437,166 @@ def assemble_name(best: Span | None, bucket: list[Span],
         current = nxt
     parts.sort(key=lambda s: (s.bbox[1], s.bbox[0]))
     return " ".join(s.text.strip() for s in parts).strip(" ,;:-")
+
+
+def percent_digit_ids(page_spans: list[Span]) -> frozenset[int]:
+    """Ids of digit runs that are the number part of a percentage.
+
+    A digit run with a "%" immediately to its right is a percentage and can
+    NEVER be a price's cents. Without this, Tus's badge digits get paired with
+    the euro figure: "SVINJSKA REBRA" at 4,79 with a -50% badge was read as
+    4,50, because the badge "50" (25.5pt) and the cents "79" (26.2pt) are
+    nearly the same size and both sit to the right of the "4".
+
+    That is a wrong price that passes every other check, so it is worth
+    isolating precisely.
+    """
+    out: set[int] = set()
+    marks = [s for s in page_spans if s.text.strip() == "%"]
+    for mark in marks:
+        # Only the SINGLE nearest digit run to the left belongs to this "%".
+        # Marking everything within a radius also swallowed the big euro figure
+        # sitting beside the badge, which deleted whole discounted tiles.
+        candidates = [s for s in page_spans
+                      if DIGITS_RE.fullmatch(s.text)
+                      and s.cx < mark.cx
+                      and abs(s.cy - mark.cy) <= max(mark.size, s.size)
+                      and mark.gap_to(s) <= max(mark.size, s.size) * 1.5]
+        if candidates:
+            out.add(id(min(candidates, key=lambda s: mark.gap_to(s))))
+    # inline forms like "-50%" carry their digits in the same span
+    for s in page_spans:
+        if PCT_INLINE_RE.fullmatch(s.text.strip()):
+            out.add(id(s))
+    return frozenset(out)
+
+
+def price_tiles(page_spans: list[Span], size_ratio: float = 0.8,
+                cents_gap: float = 45.0) -> list[tuple[Decimal | None, Span, Span | None]]:
+    """Find every big-price tile on a page, anchored on the price itself.
+
+    Needed where most tiles carry no discount badge at all - Tus prints "SUPER
+    CENA" on most products and a percentage on only a few - so badges cannot be
+    the anchor and the price must be.
+
+    The euro figure is identified relative to the largest digit run on the page
+    rather than by absolute size, for the same reason as `price_near`.
+    """
+    pct_ids = percent_digit_ids(page_spans)
+    digit_runs = [s for s in page_spans
+                  if DIGITS_RE.fullmatch(s.text) and id(s) not in pct_ids]
+    if not digit_runs:
+        return []
+    biggest = max(s.size for s in digit_runs)
+    euros = [s for s in digit_runs if s.size >= biggest * size_ratio]
+
+    out: list[tuple[Decimal | None, Span, Span | None]] = []
+    for euro in sorted(euros, key=lambda s: (round(s.bbox[1] / 20), s.bbox[0])):
+        cand = [s for s in digit_runs
+                if s is not euro
+                and CENTS_RE.fullmatch(s.text)
+                and s.size < euro.size * 0.85
+                and s.cx > euro.cx
+                and euro.gap_to(s) <= cents_gap]
+        price, cents = None, None
+        if cand:
+            cents = min(cand, key=lambda s: euro.gap_to(s))
+            try:
+                price = Decimal(f"{euro.text}.{cents.text}")
+            except Exception:  # noqa: BLE001
+                price = None
+        out.append((price, euro, cents))
+    return out
+
+
+def badge_near(anchor: Span, page_spans: list[Span], max_gap: float = 90.0) -> Decimal | None:
+    """Read a discount percentage that the PDF split into separate spans.
+
+    Tus renders "-50%" as three spans - "-", "50" and "%" - at three different
+    font sizes, so a single regex over one span never matches. Anchor on the "%"
+    and look left for the nearest digits on roughly the same line.
+    """
+    pcts = [s for s in page_spans if s.text.strip() == "%" or PCT_INLINE_RE.fullmatch(s.text.strip())]
+    best: Decimal | None = None
+    best_gap = float("inf")
+    for p in pcts:
+        gap = anchor.gap_to(p)
+        if gap > max_gap:
+            continue
+        m = PCT_INLINE_RE.fullmatch(p.text.strip())
+        if m:
+            value = Decimal(m.group(1))
+        else:
+            # bare "%": find the closest digit run to its left on the same line
+            left = [s for s in page_spans
+                    if DIGITS_RE.fullmatch(s.text)
+                    and s.cx < p.cx
+                    and abs(s.cy - p.cy) <= max(p.size, s.size)
+                    and p.gap_to(s) <= max(p.size, s.size) * 3]
+            if not left:
+                continue
+            digits = max(left, key=lambda s: s.cx)      # nearest to the % sign
+            try:
+                value = Decimal(digits.text)
+            except Exception:  # noqa: BLE001
+                continue
+        if not (Decimal(1) <= value <= Decimal(95)):
+            continue
+        if gap < best_gap:
+            best, best_gap = value, gap
+    return best
+
+
+def badges_by_anchor(page_spans: list[Span], anchors: list[Span],
+                     max_gap: float = 55.0,
+                     consumed: frozenset[int] = frozenset()) -> dict[int, Decimal]:
+    """Assign each discount percentage on the page to exactly one tile.
+
+    A percentage must belong to a single product. Searching outward from each
+    tile instead lets a PAGE-WIDE promotion be attached to every tile near it -
+    Tus prints a "SREDA -11%" Wednesday banner, which that way became a phantom
+    11% discount on dozens of unrelated products.
+
+    Assigning each percentage to its nearest anchor means one badge can only
+    ever belong to one product, and a banner far from any tile is dropped.
+
+    Handles percentages split across spans ("-", "50", "%"), which Tus does.
+
+    `consumed` holds ids of spans already used as a price's euro or cents.
+    Without it the CENTS get read as the percentage: Tus sets cents at 26.2pt
+    and badge digits at 25.5pt right beside a "%", so 3,21 became "-21%",
+    7,50 became "-50%" and 1,80 became "-80%" - 126 fabricated discounts in one
+    catalogue, every one of them caught by the reconcile gate.
+    """
+    scored: list[tuple[Span, Decimal]] = []
+    for sp in page_spans:
+        text = sp.text.strip()
+        m = PCT_INLINE_RE.fullmatch(text)
+        if m:
+            value = Decimal(m.group(1))
+        elif text == "%":
+            left = [s for s in page_spans
+                    if DIGITS_RE.fullmatch(s.text)
+                    and id(s) not in consumed
+                    and s.cx < sp.cx
+                    and abs(s.cy - sp.cy) <= max(sp.size, s.size)
+                    and sp.gap_to(s) <= max(sp.size, s.size) * 0.8]
+            if not left:
+                continue
+            try:
+                value = Decimal(max(left, key=lambda s: s.cx).text)
+            except Exception:  # noqa: BLE001
+                continue
+        else:
+            continue
+        if Decimal(1) <= value <= Decimal(95):
+            scored.append((sp, value))
+
+    out: dict[int, Decimal] = {}
+    if not anchors:
+        return out
+    for sp, value in scored:
+        i = min(range(len(anchors)), key=lambda k: anchors[k].gap_to(sp))
+        if anchors[i].gap_to(sp) <= max_gap and i not in out:
+            out[i] = value
+    return out
