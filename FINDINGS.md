@@ -218,3 +218,51 @@ How this was found: the user solved the Cloudflare check manually in their own
 Chrome and saved the page with Ctrl+S. Parsing that saved HTML revealed the
 `letak.spar.si` host. The manual step was a ONE-TIME discovery cost, not an
 ongoing dependency — nothing in the daily run needs it.
+
+## Hofer, part 2 — the API has NO discounts. Use the leaflet.
+
+Important correction to the section above. The `api.hofer.si` product-search
+API returns exact prices but **never an old price**:
+
+- `promotionKey=2026-09-10` -> 84 products, **0** with `wasPriceDisplay`
+- whole assortment, no promotionKey -> `totalCount` 822, **0** with `wasPriceDisplay`
+
+"Posebna ponudba" is Hofer's weekly *themed* range (Italian week, etc.), not a
+markdown. Their own banner says **"TO NI AKCIJA!"** — "this is not a sale".
+
+Hofer's actual price cuts are in the leaflet, which does publish them:
+
+    TO NI AKCIJA! / REDNE CENE SPUŠČAMO
+    SIR GAVDA 450 g   2,81   6,24/kg   za kos   STARA CENA: 3,09   -9%
+
+### Hofer leaflet chain (all plain httpx, no Cloudflare, no browser needed)
+
+1. `https://www.hofer.si/aktualni-letaki-in-brosure` — lists leaflet slugs.
+   Weekly slug looks like `letak_kw37_2026_dober_razlog_za_vsak_nakup_po_hofer_ceni`
+   (`kw{WW}_{YYYY}` plus a marketing suffix that DOES change — discover the slug
+   from this page, do not construct it).
+2. `https://letaki.hofer.si/<slug>/` — Publitas viewer HTML. Reachable with a
+   plain UA. Contains exactly one `.pdf` URL.
+3. `https://view.publitas.com/96384/<pubId>/pdfs/<uuid>.pdf` — the PDF.
+   The uuid is NOT derivable; scrape it from step 2 each time.
+
+Verified: 28 pages, 32.5 MB, **full text layer**.
+
+Use the API only to enrich (images via `assets`, exact integer prices,
+`comparisonDisplay` per-unit). The leaflet is the discount source of truth.
+
+## Summary — all five named retailers are reachable
+
+| Retailer | Source | Text layer | Discount markers |
+|---|---|---|---|
+| Mercator | direct dated PDF | yes | `-50%`, `PC30:`, old price |
+| Spar | `letak.spar.si` iPaper PDF | yes | `redna cena`, `CENEJE %`, `PC`, `s SPAR plus kartico` |
+| Tuš | direct dated PDF | yes | `-50%`, `SUPER CENA`, `s Tuš klub kartico` |
+| Hofer | `letaki.hofer.si` Publitas PDF | yes | `STARA CENA:`, `-9%` |
+| Lidl | leaflet PDF, images only | **no — OCR** | yellow badges, `z Lidl Plus` |
+
+Four of five parse deterministically from embedded text. Only Lidl needs OCR.
+
+**Loyalty-card qualifiers must be carried through to the email** — Spar plus,
+Tuš klub, Lidl Plus. She has the Lidl app; a card-only deal she cannot use is a
+wasted trip, which the contract treats as seriously as a wrong price.

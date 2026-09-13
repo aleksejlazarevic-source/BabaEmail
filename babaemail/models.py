@@ -87,13 +87,14 @@ class Deal:
     leaflet_id: str
     source_url: str
     valid_from: date
-    valid_to: date
+    valid_to: date | None   # None = retailer published no end date. NEVER invent one.
 
     price_old: Decimal | None = None
     brand: str | None = None
     unit_price: str | None = None       # e.g. "4,98 €/kg", as published
     image_url: str | None = None
     category: str | None = None         # filled by categorize.py
+    retailer_category: str | None = None  # retailer's own label; a hint for categorize.py
     source_page: int | None = None
     retailer_item_id: str | None = None
     flags: list[str] = field(default_factory=list)
