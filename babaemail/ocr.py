@@ -22,6 +22,8 @@ them back onto ONE baseline and recognise that strip as a line.
 from __future__ import annotations
 
 import math
+import os
+import pathlib
 import re
 from dataclasses import dataclass
 from decimal import Decimal
@@ -36,12 +38,41 @@ except Exception:  # noqa: BLE001  pragma: no cover
     cv2 = None
     RapidOCR = None
 
+try:
+    import pytesseract
+except Exception:  # noqa: BLE001  pragma: no cover
+    pytesseract = None
 
-# Lidl's price yellow, sampled from the leaflet.
+# Tesseract with the Slovenian model is preferred where it is installed:
+# RapidOCR's default model has no Slovenian charset, so it returns
+# "rdecajabolka" for "rdeča jabolka" and mangles short names outright.
+TESSERACT_LANG = "slv"
+_TESS_CHECKED: list[bool] = []
+
+# The Windows installer ships only English, and Program Files is not writable
+# without admin, so the Slovenian model lives in a project-local tessdata dir.
+_LOCAL_TESSDATA = pathlib.Path(__file__).resolve().parent.parent / "tessdata"
+if _LOCAL_TESSDATA.is_dir():
+    os.environ.setdefault("TESSDATA_PREFIX", str(_LOCAL_TESSDATA))
+
+# Bind the binary at import time. Doing it lazily inside the availability check
+# meant any direct pytesseract call before that check failed with a bare
+# FileNotFoundError.
+if pytesseract is not None:
+    for _cand in ("C:/Program Files/Tesseract-OCR/tesseract.exe",
+                  "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"):
+        if os.path.exists(_cand):
+            pytesseract.pytesseract.tesseract_cmd = _cand
+            break
+
+
+# Lidl's price yellow, sampled from the leaflet. Isolating it is what turns
+# text-printed-over-photography into clean, segmentable shapes.
 YELLOW_LO = dict(r=170, g=150, b=130, spread=70)
 
 # RapidOCR silently returns [] when an image has too little white margin.
-# This cost an hour to find; do not reduce it.
+# That cost an hour to find; do not reduce it. (Tesseract is not sensitive to
+# this, which is one more reason it is preferred.)
 OCR_PAD = 120
 
 
@@ -81,20 +112,117 @@ def _engine():
     return RapidOCR()
 
 
-def read_text(image: np.ndarray) -> list[OcrBox]:
-    """OCR an image, returning boxes. Good for names, unreliable for prices."""
+def read_text(image: np.ndarray) -> list["OcrBox"]:
+    """OCR an image, returning boxes.
+
+    Uses RapidOCR, deliberately, for whole leaflet pages.
+
+    The two engines are complementary and neither wins outright:
+
+      * RapidOCR has a neural text DETECTOR and finds the headline prices and
+        badges, which are yellow text printed over product photography.
+      * Tesseract's binariser cannot see them at all - on Lidl page 4 it
+        returns 22 lines, all small print, and misses every price - but it
+        reads Slovenian properly once given clean input, where RapidOCR has no
+        Slovenian charset.
+
+    So: RapidOCR locates text on the page, and Tesseract reads the isolated,
+    colour-masked price strips (`read_price_group`) and cropped names.
+    """
     engine = _engine()
     result, _ = engine(image)
     out: list[OcrBox] = []
     for box, text, conf in result or []:
-        xs = [p[0] for p in box]
-        ys = [p[1] for p in box]
+        xs = [pt[0] for pt in box]
+        ys = [pt[1] for pt in box]
         try:
             c = float(conf)
         except Exception:  # noqa: BLE001
             c = 0.0
         out.append(OcrBox(text=str(text).strip(), conf=c,
                           bbox=(min(xs), min(ys), max(xs), max(ys))))
+    return out
+
+
+def tesseract_available() -> bool:
+    """True when the Tesseract binary AND the Slovenian model are present."""
+    if not _TESS_CHECKED:
+        ok = False
+        if pytesseract is not None:
+            for candidate in (
+                None,
+                "C:/Program Files/Tesseract-OCR/tesseract.exe",
+                "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe",
+            ):
+                if candidate:
+                    if not os.path.exists(candidate):
+                        continue
+                    pytesseract.pytesseract.tesseract_cmd = candidate
+                try:
+                    langs = pytesseract.get_languages(config="")
+                    ok = TESSERACT_LANG in langs
+                    if ok:
+                        break
+                except Exception:  # noqa: BLE001
+                    continue
+        _TESS_CHECKED.append(ok)
+    return _TESS_CHECKED[0]
+
+
+def read_digits_tesseract(image: np.ndarray) -> str:
+    """Recognise a digits-only strip. Whitelisting the charset stops Tesseract
+    proposing letters for glyphs it is unsure about, which is most of the error
+    on a price strip."""
+    if pytesseract is None:
+        raise OcrUnavailable("pytesseract not installed")
+    cfg = "--psm 7 -c tessedit_char_whitelist=0123456789"
+    return pytesseract.image_to_string(image, config=cfg).strip()
+
+
+def read_text_tesseract(image: np.ndarray, lang: str = TESSERACT_LANG,
+                        min_conf: float = 30.0) -> list["OcrBox"]:
+    """OCR with the Slovenian model, returning LINE-level boxes.
+
+    Lines, not words: Tesseract splits "-27%" into "27" and "%" and "1,79" can
+    arrive in pieces, so word-level output matches no price or badge pattern at
+    all. Regrouping words back into their source line restores both.
+
+    --psm 3 (automatic page segmentation) massively outperforms --psm 11
+    (sparse text) on these leaflets: psm 11 returns character noise
+    ('na', 'n', 'ILI') while psm 3 reads "Slovenska rdeča jabolka" correctly.
+    """
+    if pytesseract is None:
+        raise OcrUnavailable("pytesseract not installed")
+    data = pytesseract.image_to_data(image, lang=lang, config="--psm 3",
+                                     output_type=pytesseract.Output.DICT)
+
+    lines: dict[tuple[int, int, int], dict] = {}
+    for i in range(len(data["text"])):
+        text = (data["text"][i] or "").strip()
+        if not text:
+            continue
+        try:
+            conf = float(data["conf"][i])
+        except Exception:  # noqa: BLE001
+            conf = -1.0
+        if conf < min_conf:
+            continue
+        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+        x, y = float(data["left"][i]), float(data["top"][i])
+        w, h = float(data["width"][i]), float(data["height"][i])
+        entry = lines.setdefault(key, {"words": [], "conf": [],
+                                       "bbox": [x, y, x + w, y + h]})
+        entry["words"].append(text)
+        entry["conf"].append(conf)
+        bb = entry["bbox"]
+        bb[0] = min(bb[0], x); bb[1] = min(bb[1], y)
+        bb[2] = max(bb[2], x + w); bb[3] = max(bb[3], y + h)
+
+    out: list[OcrBox] = []
+    for entry in lines.values():
+        text = " ".join(entry["words"])
+        conf = sum(entry["conf"]) / max(1, len(entry["conf"])) / 100.0
+        out.append(OcrBox(text=text, conf=conf, bbox=tuple(entry["bbox"])))
     return out
 
 
@@ -212,6 +340,13 @@ def read_price_group(mask: np.ndarray, labels: np.ndarray,
     strip = np.hstack(parts)
     strip = cv2.copyMakeBorder(strip, OCR_PAD, OCR_PAD, OCR_PAD, OCR_PAD,
                                cv2.BORDER_CONSTANT, value=255)
+    if tesseract_available():
+        # Whitelisting digits removes the whole class of "is that a 5 or an S"
+        # error, and unlike RapidOCR this is not sensitive to the margin size.
+        try:
+            return digits_to_price(read_digits_tesseract(strip))
+        except Exception:  # noqa: BLE001
+            pass
     boxes = read_text(cv2.cvtColor(strip, cv2.COLOR_GRAY2RGB))
     digits = "".join(re.sub(r"\D", "", b.text) for b in boxes)
     return digits_to_price(digits)

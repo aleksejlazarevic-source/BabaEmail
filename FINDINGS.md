@@ -353,3 +353,34 @@ probably better recall, trivial to install in CI); substantially more work on
 segmentation and pairing; a vision API for Lidl only (~EUR 1.50-3.50/month,
 previously declined); or leave Lidl out and note that she already has the
 Lidl Plus app, which covers Lidl better than we can.
+
+## Tesseract + Slovenian: tried, helps, does not solve Lidl
+
+Installed Tesseract 5.4 (winget, `UB-Mannheim.TesseractOCR`). The Windows
+installer ships ONLY English, and Program Files is not writable without admin,
+so `slv.traineddata` lives in a project-local `tessdata/` with
+`TESSDATA_PREFIX` pointed at it from `ocr.py`.
+
+**The two engines are complementary; neither wins outright.**
+
+| | RapidOCR | Tesseract + slv |
+|---|---|---|
+| Finds yellow prices over photography | **yes** (neural detector) | **no** - 22 lines on Lidl p4, all small print, every price missed |
+| Reads Slovenian | no charset - "rdecajabolka" | **yes** - "Slovenska rdeča jabolka" |
+| Digit strips | needs exactly ~120px padding, fragile | **robust at any padding**, digit whitelist |
+
+So the pipeline now uses RapidOCR to locate text on a page and Tesseract to read
+the colour-masked price strips.
+
+Two Tesseract settings that mattered:
+- `--psm 3` (auto page segmentation) vastly beats `--psm 11` (sparse text).
+  psm 11 returns character noise ('na', 'n', 'ILI', '<"'); psm 3 reads real
+  Slovenian.
+- Word-level output never matches a price or badge pattern, because Tesseract
+  splits "-27%" into "27" and "%". Regroup words into their source line.
+
+**Result: Lidl is unchanged at ~11% usable (34 of 38 groups quarantined).**
+Tesseract improved recognition; the bottleneck is DETECTION and PAIRING -
+finding each tile's badge and old price and attaching them to the right price.
+That is a substantially larger piece of work than recognition quality, and it
+is where any further free-OCR effort must go.
