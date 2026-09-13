@@ -181,3 +181,40 @@ than shipping something that works intermittently.
 Entry points found but not explored: `eurospin.si/letak/`,
 `eurospin.si/akcije/`, `eurospin.si/nazionale/` ("PRELISTAJ LETAK").
 No PDFs on the homepage.
+
+## Spar — SOLVED (supersedes the "blocked" section above)
+
+`www.spar.si` is behind Cloudflare and stays unreachable. **It is not needed.**
+
+The leaflets live on a **completely separate host with no protection at all**:
+
+    https://letak.spar.si/<slug>/getPdf.ashx        <- the PDF
+    https://letak.spar.si/<slug>/Image.ashx?PageNumber=N&ImageType=Normal
+    https://letak.spar.si/<slug>/                   <- iPaper viewer (HTML)
+
+Plain `httpx` with an ordinary User-Agent gets HTTP 200. No browser, no
+Cloudflare, no cookies, no manual step. Powered by iPaper (`ipapercms.dk`).
+
+Verified: `katalog-3726` = 21.8 MB / 43 pages, `katalog-3826` = 43.2 MB.
+**Full text layer** — names, prices, discount %, `redna cena` (old price),
+`PC` (30-day lowest), and `s SPAR plus kartico` (loyalty-card qualifier —
+capture it, a card-only deal she can't use is a wasted trip).
+
+Weekly slug pattern, derivable from the date with no page scrape:
+
+    katalog-{ISO week:02d}{YY}     e.g. week 37 of 2026 -> katalog-3726
+
+**GOTCHA: use GET, never HEAD.** `HEAD getPdf.ashx` returns 404 on this server
+while `GET` returns 200. A HEAD-based existence check would wrongly report the
+leaflet as missing and fire the NO_LEAFLET gate every single day.
+
+Themed catalogues (`katalog-interspar-1226`, `katalog-dom-0226`,
+`katalog-despar-planet-koper-1326`, ...) are NOT date-derivable and are only
+listed on the Cloudflare-protected `www.spar.si`. `letak.spar.si` exposes no
+index. The weekly grocery catalogue is the one that matters; treat the themed
+ones as out of scope unless a discovery route turns up.
+
+How this was found: the user solved the Cloudflare check manually in their own
+Chrome and saved the page with Ctrl+S. Parsing that saved HTML revealed the
+`letak.spar.si` host. The manual step was a ONE-TIME discovery cost, not an
+ongoing dependency — nothing in the daily run needs it.
