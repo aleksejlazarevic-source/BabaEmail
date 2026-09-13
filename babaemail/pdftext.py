@@ -337,3 +337,87 @@ def partition_by_anchor(labels: list[Span], anchors: list[Span],
         if anchors[i].gap_to(label) <= max_gap:
             buckets[i].append(label)
     return buckets
+
+
+DIGITS_RE = re.compile(r"\d{1,4}")
+CENTS_RE = re.compile(r"\d{2}")
+
+
+def price_near(anchor: Span, digit_runs: list[Span],
+               max_gap: float = 70.0,
+               cents_gap: float = 40.0) -> tuple[Decimal | None, Span | None]:
+    """Read a leaflet price laid out as a big euro figure plus raised cents.
+
+    Returns (price, euro_span).
+
+    Scale-relative on purpose. Font sizes for the same element vary from page to
+    page within a single catalogue (Spar's euro figure appears at 21.9, 23.0 and
+    23.2 in one leaflet), so absolute sizes silently lose whole pages. Instead:
+
+      * the euro part is the LARGEST digit run near the anchor;
+      * the cents are a 2-digit run that is smaller than it, sits to its right,
+        and is close by.
+
+    That relationship holds across every retailer in this project because they
+    all use the same price typography.
+    """
+    near_runs = [s for s in digit_runs
+                 if DIGITS_RE.fullmatch(s.text) and anchor.gap_to(s) <= max_gap]
+    if not near_runs:
+        return None, None
+    euro = max(near_runs, key=lambda s: (s.size, -anchor.gap_to(s)))
+
+    cand = [s for s in digit_runs
+            if s is not euro
+            and CENTS_RE.fullmatch(s.text)
+            and s.size < euro.size * 0.85
+            and s.cx > euro.cx
+            and euro.gap_to(s) <= cents_gap]
+    if not cand:
+        return None, euro
+    cents = min(cand, key=lambda s: euro.gap_to(s))
+    try:
+        return Decimal(f"{euro.text}.{cents.text}"), euro
+    except Exception:  # noqa: BLE001
+        return None, euro
+
+
+def assemble_name(best: Span | None, bucket: list[Span],
+                  size_tol: float = 0.35, x_tol: float = 6.0,
+                  line_gap: float = 6.0, max_parts: int = 3) -> str:
+    """Re-join a product name that the PDF split across lines.
+
+    Leaflets wrap names ("PISCANCJI" / "FILE"), and taking only the single best
+    span leaves grandma reading half a product name. Continuation lines share
+    the chosen span's font size and left edge and sit directly beneath it, so
+    they can be reattached without guessing.
+
+    Stops at the first line that reads as a description, so the size/pack text
+    underneath never gets glued onto the name.
+    """
+    if best is None:
+        return ""
+    parts = [best]
+    current = best
+    for _ in range(max_parts - 1):
+        nxt = None
+        for cand in bucket:
+            if cand in parts:
+                continue
+            if abs(cand.size - current.size) > size_tol:
+                continue
+            if abs(cand.bbox[0] - current.bbox[0]) > x_tol:
+                continue
+            gap = cand.bbox[1] - current.bbox[3]
+            if not (-2.0 <= gap <= line_gap):
+                continue
+            if _looks_like_description(cand.text):
+                continue
+            if nxt is None or cand.bbox[1] < nxt.bbox[1]:
+                nxt = cand
+        if nxt is None:
+            break
+        parts.append(nxt)
+        current = nxt
+    parts.sort(key=lambda s: (s.bbox[1], s.bbox[0]))
+    return " ".join(s.text.strip() for s in parts).strip(" ,;:-")

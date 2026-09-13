@@ -23,7 +23,7 @@ import pymupdf
 
 from ..models import Deal, SourceResult, SourceStatus, parse_price
 from ..pdftext import (Span, is_label_candidate, nearest, partition_by_anchor,
-                       pick_name, reconcile, spans)
+                       assemble_name, pick_name, reconcile, spans)
 from .base import UA, Source, classify_http_failure
 
 CATALOGUE_INDEX = "https://www.mercator.si/katalogi/"
@@ -171,7 +171,7 @@ class Mercator(Source):
 
             deal = Deal(
                 retailer=self.name,
-                name=(name_span.text.strip() if name_span else "") or "(neznan izdelek)",
+                name=assemble_name(name_span, buckets.get(i, [])) or "(neznan izdelek)",
                 leaflet_id=cat["slug"],
                 source_url=cat["url"],
                 valid_from=cat["valid_from"],
