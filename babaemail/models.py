@@ -77,32 +77,54 @@ class SourceStatus(Enum):
 class Deal:
     """One discounted product as published by a retailer.
 
+    Deliberately permissive about prices, because real leaflets are:
+
+    * Some tiles publish no single price at all - Mercator's "buy 2 or more,
+      all items -50%" is a real 50% offer with no absolute figure. Forcing a
+      price onto it would mean inventing one, so `price_new` is optional and
+      `condition` carries the terms.
+    * `discount_published` is the retailer's own badge (`-50%`). It is
+      authoritative and is preferred over anything we compute.
+    * `loyalty_required` marks Tus klub / SPAR plus / Lidl Plus deals. A deal
+      she cannot actually get is a wasted trip, which the contract treats as
+      seriously as a wrong price.
+
     `flags` carries quarantine reasons. A flagged Deal is still carried through
-    the pipeline and surfaced to Aleks — never dropped (contract rule 4).
+    the pipeline and surfaced to Aleks - never dropped (contract rule 4).
     """
 
     retailer: str
     name: str
-    price_new: Decimal
     leaflet_id: str
     source_url: str
     valid_from: date
     valid_to: date | None   # None = retailer published no end date. NEVER invent one.
 
+    price_new: Decimal | None = None
     price_old: Decimal | None = None
+    discount_published: Decimal | None = None   # the retailer's own badge
+    condition: str | None = None                # e.g. "ob nakupu 2 kosov ali vec"
+    loyalty_required: str | None = None         # e.g. "Tus klub", "SPAR plus"
+    price_30day_low: Decimal | None = None      # PC30 / PC - legally required in SI
     brand: str | None = None
-    unit_price: str | None = None       # e.g. "4,98 €/kg", as published
+    unit_price: str | None = None               # e.g. "4,98 EUR/kg", as published
     image_url: str | None = None
-    category: str | None = None         # filled by categorize.py
-    retailer_category: str | None = None  # retailer's own label; a hint for categorize.py
+    category: str | None = None                 # filled by categorize.py
+    retailer_category: str | None = None        # retailer's own label; a hint
     source_page: int | None = None
     retailer_item_id: str | None = None
     flags: list[str] = field(default_factory=list)
 
     @property
     def discount_pct(self) -> Decimal | None:
-        """Exact discount percentage, or None when there is no old price."""
-        if self.price_old is None or self.price_old <= 0:
+        """The discount, preferring the retailer's published badge.
+
+        Falls back to computing it from old and new price. Returns None when
+        the retailer published neither - we never guess a discount.
+        """
+        if self.discount_published is not None:
+            return self.discount_published
+        if self.price_old is None or self.price_new is None or self.price_old <= 0:
             return None
         return (self.price_old - self.price_new) / self.price_old * 100
 
@@ -114,12 +136,20 @@ class Deal:
         return None if pct is None else int(pct)
 
     @property
+    def has_absolute_price(self) -> bool:
+        return self.price_new is not None
+
+    @property
     def is_quarantined(self) -> bool:
-        return bool(self.flags)
+        return any(f.startswith("quarantine:") for f in self.flags)
 
     def flag(self, reason: str) -> None:
         if reason not in self.flags:
             self.flags.append(reason)
+
+    def quarantine(self, reason: str) -> None:
+        """Hold this item back from the email, but never discard it."""
+        self.flag(f"quarantine:{reason}")
 
     def identity(self) -> tuple[str, str, str]:
         """Stable key for day-over-day diffing and dedupe."""
