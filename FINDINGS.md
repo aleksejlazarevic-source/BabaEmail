@@ -121,3 +121,63 @@ she cannot actually get is a wasted trip, so this qualifier MUST be captured.
   the default Windows cp1252 stdout.
 - `import fitz` is deprecated — use `import pymupdf`.
 - `cv2` and `numpy` come free with rapidocr-onnxruntime.
+
+## Hofer — BEST SOURCE IN THE PROJECT
+
+Clean JSON API, no authentication, exact integer prices. No OCR, no PDF parsing.
+
+    GET https://api.hofer.si/v3/product-search
+        ?currency=EUR&serviceType=walk-in&limit=60&offset=0
+        &promotionKey=YYYY-MM-DD&sort=relevance&servicePoint=I032
+
+**CRITICAL GOTCHA: send ONLY `accept-language: sl-SI`.**
+Adding a `user-agent` header returns 403. Adding `Origin`/`Referer` returns 403.
+The browser itself sends an empty referer and no origin. Fewer headers = success.
+
+Other constraints found:
+- `limit` must be one of a fixed allowed set. **60 works; 100 and 200 return
+  HTTP 400** `"Page limit must be equal to some ..."`.
+- `promotionKey` is the offer start date (`2026-09-10`), matching the dated
+  pages at `hofer.si/posebna-ponudba/<date>`.
+- `servicePoint` is a store id (`I032` = 1230 Domžale). Ljubljana stores will
+  have their own ids — resolve the right one before going live.
+
+Response shape:
+
+    { "meta": { "pagination": { "offset", "limit", "totalCount" }, "facets": [...] },
+      "data": [ { sku, name, brandName, onSaleDate, onSaleDateDisplay,
+                  categories[], price: { amount, amountRelevantDisplay,
+                  wasPriceDisplay, savingsDisplay, comparisonDisplay,
+                  currencyCode, bottleDeposit } } ] }
+
+- `price.amount` is an **integer in cents** (1679 = 16,79 €). Exact. Never parse
+  the display string when the integer is available.
+- `price.wasPriceDisplay` is the old price; null when the item is not discounted.
+- `price.comparisonDisplay` is the per-unit price (per kg/l) — she buys in bulk.
+- **`meta.pagination.totalCount` is the independent completeness count** that
+  `verify.py` needs: extracted == totalCount, or the store fails its gate.
+
+## Spar — BLOCKED, exhausted
+
+`spar.si` (both `/letak` and `/katalogi`) sits behind a **Cloudflare managed
+challenge** ("Just a moment..." / "Trenutek..."). Every legitimate approach was
+tried and all returned 403 or never cleared the challenge:
+
+1. plain httpx / WebFetch
+2. headless Chromium (Playwright)
+3. headless + stealth init scripts (webdriver/languages/plugins/chrome spoofs)
+4. headed Chromium
+5. real system Chrome, persistent profile, headed, 30s wait
+6. real Microsoft Edge, persistent profile, headed, 30s wait
+7. curl_cffi TLS impersonation — chrome124, chrome120, chrome110, safari17_0
+
+What remains would be CAPTCHA-solving services or challenge-solver libraries:
+against Cloudflare's and Spar's terms, fragile, and they would fail in GitHub
+Actions regardless. **Treat Spar as not-covered** under contract rule 3 rather
+than shipping something that works intermittently.
+
+## Eurospin — not yet investigated
+
+Entry points found but not explored: `eurospin.si/letak/`,
+`eurospin.si/akcije/`, `eurospin.si/nazionale/` ("PRELISTAJ LETAK").
+No PDFs on the homepage.
