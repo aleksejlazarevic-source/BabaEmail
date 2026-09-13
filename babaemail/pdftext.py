@@ -154,6 +154,7 @@ EXACT_STOPWORDS = frozenset({
     "NOVO", "AKCIJA", "GRATIS", "DARILO", "PAKET", "NAJ", "HIT", "TEDEN",
     "TEDNA", "IZBIRA", "KUPON", "BONUS", "EKSKLUZIVNO", "NOVOST", "ZNIŽANJE",
     "PRIHRANEK", "BREZPLAČNO", "KLUB", "KARTICO", "PLUS", "VELIKO",
+    "ZAGRAB", "ZAGRABI", "PONUDBO", "PONUDBA", "PRILOŽNOST", "HOFER",
     "SREDA", "SREDO", "PONEDELJEK", "TOREK", "ČETRTEK", "PETEK", "SOBOTA",
     "NEDELJA", "VIKEND", "MESNICI", "PEKARNI", "TRŽNICI",
 })
@@ -600,3 +601,56 @@ def badges_by_anchor(page_spans: list[Span], anchors: list[Span],
         if anchors[i].gap_to(sp) <= max_gap and i not in out:
             out[i] = value
     return out
+
+
+DECIMAL_PRICE_RE = re.compile(r"\d{1,4},\d{2}")
+
+
+def decimal_price_tiles(page_spans: list[Span],
+                        size_ratio: float = 0.75) -> list[tuple[Decimal, Span]]:
+    """Tiles for leaflets that print a whole price as one string ("2,81").
+
+    Hofer does this, which makes it the simplest layout in the project: no
+    euro/cents pairing, so none of the ways that pairing goes wrong apply.
+    The headline price is identified relative to the largest such span on the
+    page, so it stays correct when the template changes size between pages.
+    """
+    prices = [s for s in page_spans if DECIMAL_PRICE_RE.fullmatch(s.text.strip())]
+    if not prices:
+        return []
+    biggest = max(s.size for s in prices)
+    out: list[tuple[Decimal, Span]] = []
+    for s in sorted((x for x in prices if x.size >= biggest * size_ratio),
+                    key=lambda s: (round(s.bbox[1] / 20), s.bbox[0])):
+        value = parse_money(s.text)
+        if value is not None:
+            out.append((value, s))
+    return out
+
+
+def parse_money(text: str) -> Decimal | None:
+    """Parse "2,81" / "1.299,99" into Decimal. None when it is not a price."""
+    t = text.strip().replace(".", "").replace(",", ".")
+    try:
+        return Decimal(t)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def drop_repeated(labels: list[Span], max_repeats: int = 2) -> list[Span]:
+    """Remove label spans that repeat on the page.
+
+    Page furniture repeats; product names do not. "NOVA REDNA CENA" appears
+    against every Hofer tile, "s Tus klub kartico" against every Tus one, and
+    brand strips like "MILSANI" recur down a column - all at the same size as
+    real names. Counting occurrences catches them generically, instead of
+    growing a per-retailer stoplist forever.
+
+    Items legitimately listed twice on one page (same product, two sizes) are
+    rare and the threshold leaves room for them.
+    """
+    counts: dict[str, int] = {}
+    for s in labels:
+        key = s.text.strip().casefold()
+        counts[key] = counts.get(key, 0) + 1
+    return [s for s in labels if counts[s.text.strip().casefold()] <= max_repeats]

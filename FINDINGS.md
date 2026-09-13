@@ -266,3 +266,54 @@ Four of five parse deterministically from embedded text. Only Lidl needs OCR.
 **Loyalty-card qualifiers must be carried through to the email** — Spar plus,
 Tuš klub, Lidl Plus. She has the Lidl app; a card-only deal she cannot use is a
 wasted trip, which the contract treats as seriously as a wrong price.
+
+## Header quirks - these look like bugs but are not
+
+Two hosts in this project REJECT requests that carry a User-Agent and ACCEPT
+requests that do not. Adding "proper" browser headers is what breaks them:
+
+    api.hofer.si/v3/product-search   -> 403 with a UA, 200 with only
+                                        `accept-language: sl-SI`
+    www.hofer.si/aktualni-letaki-...  -> 403 with a UA, 200 with none
+
+Meanwhile `letaki.hofer.si`, `view.publitas.com`, `letak.spar.si`,
+`www.mercator.si` and `www.tus.si` all behave normally and want an ordinary UA.
+
+Also: `letak.spar.si` does not implement HEAD (404 on HEAD, 200 on GET).
+
+## Extraction results, first full run (2026-09-13)
+
+| Retailer | Items | Declared | Quarantined | Discounts |
+|---|---|---|---|---|
+| Mercator | 228 | 228 | 8 (3.5%) | 220 |
+| Spar | 209 | 209 | 26 (12.4%) | 183 |
+| Tuš | 377 | 377 | 68 (18.0%) | 132 |
+| Hofer | 163 | 163 | 27 (16.6%) | 46 |
+| **Total** | **977** | **977** | **129 (13.2%)** | **581** |
+
+`declared` is the independent completeness count (badge or price-tile count)
+and matches extraction exactly for every retailer.
+
+### Traps found while building these, all of which produced plausible-but-wrong
+### output that only a cross-check caught
+
+1. **Percentage tolerance.** Retailers truncate the badge to a whole percent, so
+   rebuilding a price from it is a few cents out on nearly every item. Comparing
+   reconstructed PRICES quarantined 30% of good products; comparing PERCENTAGES
+   with ~1 point of slack is correct.
+2. **Cents read as a discount.** Tus sets cents at 26.2pt and badge digits at
+   25.5pt. 3,21 became "-21%", 7,50 "-50%", 1,80 "-80%" - 126 invented discounts
+   in one catalogue.
+3. **A badge read as cents.** The same collision in reverse turned SVINJSKA
+   REBRA at 4,79 into 4,50. A wrong price that passes every other check.
+   Fixed by: the digit run immediately left of a "%" is a percentage and can
+   never be a price's cents - and only the NEAREST such run counts, because a
+   radius also swallowed the euro figure and deleted whole tiles.
+4. **Name font size is not stable** even within one catalogue (7.8 / 9.0 / 12.0
+   in Mercator), so labels must be chosen by typography and content.
+5. **Greedy label claiming is order-sensitive** and let tiles steal neighbours'
+   names. Partitioning labels to their nearest tile is order-independent.
+6. **Page-wide promotions** ("SREDA -11%") must be assigned to one tile, not
+   found by searching outward from every tile.
+7. **Page furniture repeats, product names do not** - counting occurrences
+   removes "NOVA REDNA CENA" and brand strips generically.

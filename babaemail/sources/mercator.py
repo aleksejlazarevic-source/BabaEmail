@@ -22,7 +22,7 @@ import httpx
 import pymupdf
 
 from ..models import Deal, SourceResult, SourceStatus, parse_price
-from ..pdftext import (Span, is_label_candidate, nearest, partition_by_anchor,
+from ..pdftext import (Span, drop_repeated, is_label_candidate, nearest, partition_by_anchor,
                        assemble_name, pick_name, reconcile, spans)
 from .base import UA, Source, classify_http_failure
 
@@ -142,7 +142,7 @@ class Mercator(Source):
         cents = [s for s in sp if s.size_is(SZ_CENT) and re.fullmatch(r"\d{2}", s.text)]
         olds = [s for s in sp if s.size_is(SZ_OLD) and MONEY_RE.fullmatch(s.text)]
         pc30s = [s for s in sp if s.size_is(SZ_PC30) and "PC30" in s.text.upper()]
-        labels = [s for s in sp if is_label_candidate(s)]
+        labels = drop_repeated([s for s in sp if is_label_candidate(s)])
         conds = [s for s in sp if any(h in s.text.upper() for h in CONDITION_HINTS)]
 
         # Each tile's anchor is its big price where it has one, else the badge.

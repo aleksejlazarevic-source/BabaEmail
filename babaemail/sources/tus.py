@@ -21,7 +21,8 @@ import httpx
 import pymupdf
 
 from ..models import Deal, SourceResult, SourceStatus, parse_price
-from ..pdftext import (Span, assemble_name, badges_by_anchor, is_label_candidate,
+from ..pdftext import (Span, assemble_name, badges_by_anchor, drop_repeated,
+                       is_label_candidate,
                        nearest, partition_by_anchor, pick_name, price_tiles,
                        reconcile, spans)
 from .base import UA, Source, classify_http_failure
@@ -123,7 +124,7 @@ class Tus(Source):
         if not tiles:
             return [], 0
 
-        labels = [s for s in sp if is_label_candidate(s)]
+        labels = drop_repeated([s for s in sp if is_label_candidate(s)])
         olds = [s for s in sp if MONEY_RE.match(s.text)]
         loyal = [s for s in sp if LOYALTY_RE.search(s.text)]
 

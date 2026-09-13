@@ -20,7 +20,7 @@ import httpx
 import pymupdf
 
 from ..models import Deal, SourceResult, SourceStatus, parse_price
-from ..pdftext import (Span, is_label_candidate, nearest, partition_by_anchor,
+from ..pdftext import (Span, drop_repeated, is_label_candidate, nearest, partition_by_anchor,
                        assemble_name, pick_name, price_near, reconcile, spans)
 from .base import UA, Source, classify_http_failure
 
@@ -136,7 +136,7 @@ class Spar(Source):
         # 23.0 and 23.2 across one leaflet (see FINDINGS.md).
         digit_runs = [s for s in sp if re.fullmatch(r"\d{1,4}", s.text)]
         smalls = [s for s in sp if s.size_is(SZ_SMALL)]
-        labels = [s for s in sp if is_label_candidate(s)]
+        labels = drop_repeated([s for s in sp if is_label_candidate(s)])
 
         prices: list[Decimal | None] = []
         anchors: list[Span] = []
