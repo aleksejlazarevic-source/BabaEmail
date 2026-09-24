@@ -109,7 +109,9 @@ R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
     decide (flag ``lidl-plus-2-of-3:api+<reader>``). It ships with the
     API's name, old price, % and dates, flagged
     ``leaflet-confirmed:<sources>`` (e.g. ``leaflet-confirmed:vlm``) and
-    ``leaflet-page:<n>``. It is still quarantined when:
+    ``leaflet-page:<n>``. R4b: when the API has no old price and no %, a
+    reconciled OCR old/% (R1) is used (flag ``old-price-from-leaflet``).
+    It is still quarantined when:
       - the leaflet's Lidl Plus status is unknown or differs
         (``lidl-plus-mismatch`` / ``leaflet-lidl-plus-unknown``);
       - a reconciled OCR old price or % differs from the API's
@@ -146,9 +148,12 @@ R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
     another API item always wins over a brand match.)
 
 R5  Disagreement. A STRONG name match whose prices differ is quarantined as
-    ``api-leaflet-price-conflict: api X, leaflet Y (page N '<name>')``. Both
-    the API item and the tile are consumed by it: neither reappears as
-    unmatched.
+    ``api-leaflet-price-conflict: api X, leaflet Y (page N '<name>')``. The
+    API item is consumed by it: it never reappears as unmatched.
+R5b The leaflet is authoritative (lidl.si says so), so the conflicting TILE
+    is then judged on its own by R8, exactly like a tile with no API partner,
+    flagged ``leaflet-over-api:<erp> api X``. It ships only if the leaflet
+    readers prove it by themselves (kw39: ribeye 6.19 printed, API 6.49).
 
 R6  API-only. A candidate with no matched tile is quarantined as
     ``not-in-leaflet-reading``, never dropped. R6b (OFF unless
@@ -987,6 +992,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
     verified_keys: dict[tuple, str] = {}
 
     # --- R4/R5: matched pairs ----------------------------------------
+    overruled: dict[int, str] = {}      # R5b: conflict tiles, judged again by R8
     for ti, (ci, tier) in sorted(tile_of.items()):
         t, (c, is_listed) = tiles[ti], pool[ci]
         d = _deal_from_candidate(c, leaflet_id)
@@ -999,6 +1005,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             d.quarantine(f"api-leaflet-price-conflict: api {c.new_price}, leaflet "
                          f"{t.new_price} ({t.describe()})")
             records.append(MatchRecord("conflict", d, c, t, tier))
+            overruled[id(t)] = f"leaflet-over-api:{c.erp} api {c.new_price}"
             continue
         d.flag(f"leaflet-confirmed:{'+'.join(t.sources)}")
         if brand_only(c):
@@ -1050,7 +1057,13 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         elif lp != c.lidl_plus:
             d.quarantine(f"lidl-plus-mismatch: api {c.lidl_plus}, leaflet {lp} ({t.describe()})")
         op = t.ocr_old_pct
-        if op is not None and (op[0] != c.old_price or op[1] != c.pct):
+        if (op is not None and c.old_price is None and c.pct is None
+                and not c.conditional):
+            # R4b: the API has no old price, the leaflet prints one and OCR's
+            # old/new/% reconcile (R1): the leaflet is authoritative.
+            d.price_old, d.discount_published = op
+            d.flag("old-price-from-leaflet")
+        elif op is not None and (op[0] != c.old_price or op[1] != c.pct):
             d.quarantine(f"api-leaflet-old-price-conflict: api {c.old_price}/{c.pct}%, "
                          f"leaflet {op[0]}/{op[1]}% ({t.describe()})")
         lw_end = leaflet_window[1]
@@ -1087,6 +1100,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
 
     # --- R6: API-only -------------------------------------------------
     free_tiles = [t for i, t in enumerate(tiles) if i not in tile_of]
+    leaflet_tiles = free_tiles + [t for t in tiles if id(t) in overruled]
     unmatched_listed = []
     for ci, (c, is_listed) in enumerate(pool):
         if ci in used_c:
@@ -1108,7 +1122,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
 
     # --- R8: leaflet-only ---------------------------------------------
     suspect_tiles = {id(tiles[i]) for i in suspects}
-    for t in free_tiles:
+    for t in leaflet_tiles:
         pv = page_validity.get(t.page) if t.page is not None else None
         pv_inferred = pv is None and t.page in inferred
         if pv_inferred:
@@ -1119,6 +1133,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                  loyalty_required=LIDL_PLUS if t.lidl_plus else None, source_page=t.page)
         if t.page is not None:
             d.flag(f"leaflet-page:{t.page}")
+        if id(t) in overruled:
+            d.flag(overruled[id(t)])
         rule = "leaflet-only"
         dup = verified_keys.get((_name_key(t.name), t.new_price))
         op = t.ocr_old_pct

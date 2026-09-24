@@ -144,7 +144,38 @@ def test_ribeye_price_conflict_quarantined_with_both_numbers():
     # The ribeye tile is used up by the conflict, NOT given to the ramsteak at 6.19.
     ram = by_erp(res, "2")
     assert not ram.is_quarantined and ram.source_page == 34
-    assert len(res.deals) == 2
+    # R5b: the tile is judged on its own; one reader (VLM) cannot prove it
+    [tile] = leaflet_only(res)
+    assert "leaflet-over-api:1 api 6.49" in tile.flags and tile.is_quarantined
+    assert len(res.deals) == 3
+
+
+def test_leaflet_price_overrules_the_api_when_both_readers_prove_it():
+    res = run([], [vlm(2, "ŽAR LEGENDE Svež ribeye steak", "6.19"),
+                   bare(2, "6.19", "ŽAR LEGENDE Svež ribeye steak")],
+              listed=[cand("1", "Ribeye steak", "6.49", brand="Žar legende")],
+              page_validity={2: WEEK})
+    assert by_erp(res, "1").is_quarantined                  # the API's 6.49 never ships
+    [d] = leaflet_only(res)
+    assert not d.is_quarantined and d.price_new == D("6.19")
+    assert "leaflet-over-api:1 api 6.49" in d.flags
+
+
+def test_leaflet_old_price_fills_a_missing_api_one():
+    # kw39 p9 Culinea: API 3.99 with no old price; the leaflet prints 5.49 / -27%
+    res = run([cand("1", "Piščančje perutničke", "3.99", brand="Culinea")],
+              [vlm(9, "CULINEA Piščančje perutničke", "3.99"),
+               ocr(9, "3.99", "5.49", "27", name="CULINEA Piščančje perutničke")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined and "old-price-from-leaflet" in d.flags
+    assert (d.price_old, d.discount_published) == (D("5.49"), D("27"))
+
+
+def test_leaflet_old_price_never_overrides_a_different_api_one():
+    res = run([cand("1", "Piščančje perutničke", "3.99", "4.99", "20", brand="Culinea")],
+              [vlm(9, "CULINEA Piščančje perutničke", "3.99"),
+               ocr(9, "3.99", "5.49", "27", name="CULINEA Piščančje perutničke")])
+    assert any("old-price-conflict" in r for r in reasons(by_erp(res, "1")))
 
 
 def test_name_beats_price_even_when_another_product_has_the_leaflet_price():
