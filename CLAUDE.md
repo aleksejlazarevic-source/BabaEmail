@@ -1,7 +1,6 @@
 # BabaEmail
 
-**Read STATUS.md first** - current progress, and the open decision
-("the Lidl call") that blocks the next step.
+**Read STATUS.md first** - current progress and open decisions.
 
 Daily email of real supermarket discounts for a 73-year-old in Ljubljana who
 reads Apple Mail on an iPhone 12. Slovenian. ~40-80 items. She never types and
@@ -66,4 +65,5 @@ SONNET or HAIKU  (trivial)
 
 ## Environment
 
-Python 3.14 at `.venv/` (no system `python` on PATH; use `py` or `.venv/Scripts/python.exe`).
+Python 3.14 at `.venv/`. On this Linux PC: `.venv/bin/python` (on Windows it was
+`.venv/Scripts/python.exe`).
