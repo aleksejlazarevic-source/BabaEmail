@@ -1,0 +1,319 @@
+{
+ "numFound": 2,
+ "offset": 1,
+ "fetchsize": 1,
+ "items": [
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11276469",
+   "label": "",
+   "url": "",
+   "gridbox": {
+    "country": "SI",
+    "sequence": 1789830087431506,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "name": "BELBAKE",
+      "url": "/q/search?q=belbake",
+      "id": "BELE",
+      "showBrand": true
+     },
+     "canonicalPath": "/p/belbake-drobtine/p11276469",
+     "canonicalUrl": "/p/belbake-drobtine/p11276469",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11276469_794d8c5d",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11276469",
+     "flashSales": false,
+     "fullTitle": "BELBAKE Drobtine",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "6900339"
+     ],
+     "image": "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png",
+     "image_V1": {
+      "image": "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png",
+      "accessibility": "Paket drobtin z logotipom, ki piše „Passion for Baking“ in „Drobține“."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11276469,
+     "imageList": [
+      "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png",
+       "accessibility": "Paket drobtin z logotipom, ki piše „Passion for Baking“ in „Drobține“."
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "fullTitle": "BELBAKE Drobtine",
+      "moreDetails": "Dodatne podrobnosti o izdelku",
+      "title": "Drobtine",
+      "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zaloga hrane/Sestavine za peko",
+      "wonCategoryPrimaryPath": "0/17/1741/174112"
+     },
+     "lidlPlus": [],
+     "multipack": false,
+     "nat": "6900339",
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "basePrice": {
+       "prefix": false,
+       "text": "1 kg = 1.50"
+      },
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "discount": {
+       "absoluteDiscount": 0.1,
+       "deletedPrice": 0.85,
+       "discountHasStar": false,
+       "fromRecommendedPrice": false,
+       "hideBargainHint": false,
+       "bargainHintEnabled": false,
+       "bargainHintText": "BargainHint_Text",
+       "percentageDiscount": 11,
+       "showDiscount": true,
+       "showFrom": false,
+       "showPercentage": true,
+       "showUpTo": false
+      },
+      "displayedCurrency": "€",
+      "hasStar": true,
+      "hasVat": false,
+      "oldPrice": 0.85,
+      "packaging": {
+       "text": "500g"
+      },
+      "price": 0.75,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11276469,
+     "productType": "RETAIL",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1,
+      2
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "SI Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      },
+      "2": {
+       "regionName": "SI Region 2",
+       "isDefault": false,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentPrice": {
+        "basePrice": {
+         "prefix": false,
+         "text": "1 kg = 1.50"
+        },
+        "currencyCode": "EUR",
+        "currencyCodeSecond": "",
+        "currencySymbol": "€",
+        "currencySymbolSecond": "",
+        "discount": {
+         "absoluteDiscount": 0.1,
+         "deletedPrice": 0.85,
+         "discountHasStar": false,
+         "discountText": "-11%",
+         "fromNormalPriceForLidlPlus": false,
+         "fromRecommendedPrice": false,
+         "hideBargainHint": false,
+         "bargainHintEnabled": false,
+         "bargainHintText": "BargainHint_Text",
+         "percentageDiscount": 11,
+         "showDiscount": true,
+         "showFrom": false,
+         "showPercentage": true,
+         "showUpTo": false
+        },
+        "displayedCurrency": "€",
+        "endDate": "2026-10-07T21:59:59Z",
+        "endDateExclusive": "2026-10-07T22:00Z",
+        "hasStar": true,
+        "hasVat": true,
+        "oldPrice": 0.85,
+        "packaging": {
+         "text": "500g"
+        },
+        "price": 0.75,
+        "priceTheme": "white_red",
+        "specialTaxes": [],
+        "startDate": "2026-07-27T12:09:51.720Z",
+        "superscript": "",
+        "variantsHaveDifferentPrices": false
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789830087,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "Od 09.07.",
+         "type": "IN_STORE_FROM_DATE_PAST"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "Od 09.07.",
+          "type": "IN_STORE_FROM_DATE_PAST"
+         }
+        ],
+        "validFrom": 1783548000
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 1,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": true,
+     "storeStartDate": 1783548000,
+     "title": "Drobtine",
+     "timezoneId": "Europe/Ljubljana",
+     "zones": {}
+    },
+    "productId": 11276469,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10081957",
+        "name": "Znižujemo redne cene",
+        "url": "/c/znizujemo-redne-cene/a10081957",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "BELBAKE Drobtine",
+     "ean": "20156633",
+     "retailLists": [
+      []
+     ],
+     "lists": [],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068374",
+        "name": "Hrana in pijača",
+        "url": "/c/hrana-in-pijaca/s10068374",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10096095",
+        "name": "Iz shrambe",
+        "url": "/h/iz-shrambe/h10096095",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10096099",
+        "name": "Peka",
+        "url": "/h/peka/h10096099",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "174112",
+       "isMain": true,
+       "name": "Sestavine za peko",
+       "parent": "1741",
+       "superCategories": [
+        {
+         "code": "1741",
+         "name": "Zaloga hrane",
+         "parent": "17"
+        },
+        {
+         "code": "17",
+         "name": "Hrana in bližnja hrana",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Svetovi potreb",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "sl",
+    "eventType": "GRIDBOX",
+    "id": "11276469"
+   },
+   "tracking": {
+    "position": 315,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11276469",
+     "searchTrackingTitle": "Drobtine",
+     "searchTrackingPageSize": 60,
+     "searchTrackingPage": 5,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11276469",
+     "searchTrackingQuery": "",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 315,
+     "searchTrackingOrigPageSize": 60,
+     "searchTrackingChannel": "SI",
+     "category": "Food"
+    }
+   }
+  }
+ ]
+}

@@ -15,8 +15,22 @@ all fail (see FINDINGS.md):
   * Recognising each digit separately does not work either: the model is
     trained on text lines and returns nothing for a single character.
 
-What works: isolate the yellow, segment the digits geometrically, then paste
-them back onto ONE baseline and recognise that strip as a line.
+What works (2026-09, measured against a hand-verified answer key):
+
+  * Isolate the two price inks (Lidl yellow, Lidl red) with colour masks.
+  * Find each price GEOMETRICALLY: euro digits, a round dot on their baseline,
+    and two top-aligned cents at ~0.75x height. That places the decimal point
+    exactly and finds every priced tile on the answer-key pages.
+  * Rebuild the glyphs on one baseline at a normal text size (32-64 px;
+    Tesseract returns nothing for 250 px digits) and read them with a digit
+    whitelist at several sizes and modes. A value is accepted only on a clear
+    supermajority (`consensus`); disagreement leaves it None.
+  * Small struck-through old prices: a continuous ink channel, 4x upscale, the
+    strike line removed (`remove_strike`), glyphs segmented and the decimal
+    point placed from the geometry.
+  * Every OCR price must then pass the retailer's own arithmetic
+    (`reconciles`: Lidl truncates the badge, so the reduction lies in
+    [pct, pct+1)). Anything else is quarantined by the caller.
 """
 
 from __future__ import annotations
@@ -25,6 +39,8 @@ import math
 import os
 import pathlib
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
@@ -38,32 +54,49 @@ except Exception:  # noqa: BLE001  pragma: no cover
     cv2 = None
     RapidOCR = None
 
-try:
-    import pytesseract
-except Exception:  # noqa: BLE001  pragma: no cover
-    pytesseract = None
-
-# Tesseract with the Slovenian model is preferred where it is installed:
-# RapidOCR's default model has no Slovenian charset, so it returns
-# "rdecajabolka" for "rdeča jabolka" and mangles short names outright.
+# Tesseract is called as a binary rather than through pytesseract: one less
+# dependency, and the same code works on Linux (CI, the dev box) and Windows.
 TESSERACT_LANG = "slv"
 _TESS_CHECKED: list[bool] = []
 
-# The Windows installer ships only English, and Program Files is not writable
-# without admin, so the Slovenian model lives in a project-local tessdata dir.
+# The Slovenian model lives in a project-local tessdata dir (the Windows
+# installer ships only English and Program Files is not writable).
 _LOCAL_TESSDATA = pathlib.Path(__file__).resolve().parent.parent / "tessdata"
 if _LOCAL_TESSDATA.is_dir():
     os.environ.setdefault("TESSDATA_PREFIX", str(_LOCAL_TESSDATA))
 
-# Bind the binary at import time. Doing it lazily inside the availability check
-# meant any direct pytesseract call before that check failed with a bare
-# FileNotFoundError.
-if pytesseract is not None:
-    for _cand in ("C:/Program Files/Tesseract-OCR/tesseract.exe",
-                  "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"):
-        if os.path.exists(_cand):
-            pytesseract.pytesseract.tesseract_cmd = _cand
-            break
+
+@lru_cache(maxsize=1)
+def _tesseract_cmd() -> str | None:
+    found = shutil.which("tesseract")
+    if found:
+        return found
+    for cand in ("/usr/bin/tesseract", "/usr/local/bin/tesseract",
+                 "C:/Program Files/Tesseract-OCR/tesseract.exe",
+                 "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"):
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
+def _run_tesseract(image: np.ndarray, args: list[str]) -> str:
+    """Run the tesseract binary on an in-memory image, return stdout."""
+    cmd = _tesseract_cmd()
+    if cmd is None:
+        raise OcrUnavailable("tesseract binary not found")
+    if cv2 is None:
+        raise OcrUnavailable("opencv not installed")
+    ok, png = cv2.imencode(".png", image)
+    if not ok:
+        raise OcrUnavailable("could not encode image for tesseract")
+    # One thread per call: the reads are many and tiny, and Tesseract's
+    # OpenMP threads only contend with each other (and with parallel pages).
+    env = {**os.environ, "OMP_THREAD_LIMIT": "1"}
+    proc = subprocess.run([cmd, "stdin", "stdout", *args], input=png.tobytes(),
+                          capture_output=True, timeout=120, env=env)
+    if proc.returncode != 0:
+        raise OcrUnavailable(f"tesseract failed: {proc.stderr[-300:]!r}")
+    return proc.stdout.decode("utf-8", "replace")
 
 
 # Lidl's price yellow, sampled from the leaflet. Isolating it is what turns
@@ -148,23 +181,14 @@ def tesseract_available() -> bool:
     """True when the Tesseract binary AND the Slovenian model are present."""
     if not _TESS_CHECKED:
         ok = False
-        if pytesseract is not None:
-            for candidate in (
-                None,
-                "C:/Program Files/Tesseract-OCR/tesseract.exe",
-                "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe",
-            ):
-                if candidate:
-                    if not os.path.exists(candidate):
-                        continue
-                    pytesseract.pytesseract.tesseract_cmd = candidate
-                try:
-                    langs = pytesseract.get_languages(config="")
-                    ok = TESSERACT_LANG in langs
-                    if ok:
-                        break
-                except Exception:  # noqa: BLE001
-                    continue
+        cmd = _tesseract_cmd()
+        if cmd is not None:
+            try:
+                out = subprocess.run([cmd, "--list-langs"], capture_output=True,
+                                     timeout=30).stdout.decode("utf-8", "replace")
+                ok = TESSERACT_LANG in out.split()
+            except Exception:  # noqa: BLE001
+                ok = False
         _TESS_CHECKED.append(ok)
     return _TESS_CHECKED[0]
 
@@ -173,10 +197,8 @@ def read_digits_tesseract(image: np.ndarray) -> str:
     """Recognise a digits-only strip. Whitelisting the charset stops Tesseract
     proposing letters for glyphs it is unsure about, which is most of the error
     on a price strip."""
-    if pytesseract is None:
-        raise OcrUnavailable("pytesseract not installed")
-    cfg = "--psm 7 -c tessedit_char_whitelist=0123456789"
-    return pytesseract.image_to_string(image, config=cfg).strip()
+    return _run_tesseract(image, ["--psm", "7", "-c",
+                                  "tessedit_char_whitelist=0123456789"]).strip()
 
 
 def read_text_tesseract(image: np.ndarray, lang: str = TESSERACT_LANG,
@@ -191,10 +213,12 @@ def read_text_tesseract(image: np.ndarray, lang: str = TESSERACT_LANG,
     (sparse text) on these leaflets: psm 11 returns character noise
     ('na', 'n', 'ILI') while psm 3 reads "Slovenska rdeča jabolka" correctly.
     """
-    if pytesseract is None:
-        raise OcrUnavailable("pytesseract not installed")
-    data = pytesseract.image_to_data(image, lang=lang, config="--psm 3",
-                                     output_type=pytesseract.Output.DICT)
+    tsv = _run_tesseract(image, ["-l", lang, "--psm", "3", "-c", "tessedit_create_tsv=1"])
+    rows = [r.split("\t") for r in tsv.splitlines()]
+    head, rows = rows[0], [r for r in rows[1:] if len(r) == len(rows[0])]
+    data = {k: [r[i] for r in rows] for i, k in enumerate(head)}
+    for k in ("block_num", "par_num", "line_num", "left", "top", "width", "height"):
+        data[k] = [int(v) for v in data.get(k, [])]
 
     lines: dict[tuple[int, int, int], dict] = {}
     for i in range(len(data["text"])):
@@ -226,130 +250,293 @@ def read_text_tesseract(image: np.ndarray, lang: str = TESSERACT_LANG,
     return out
 
 
-def yellow_mask(rgb: np.ndarray) -> np.ndarray:
-    """Binary mask of Lidl's price yellow. Turns text-over-photo into clean
-    shapes, which is what makes the digits recoverable at all."""
+# ---------------------------------------------------------------------------
+# Colour isolation
+#
+# Lidl prints every price in one of two inks: Lidl yellow ~(253,241,1) or
+# Lidl red ~(237,28,36). The background varies (red, maroon, navy, light blue,
+# salmon, photography, yellow, orange-yellow, light grey, beige), so each ink
+# gets one mask that works on all of them.
+
+def glyph_masks(rgb: np.ndarray) -> dict[str, np.ndarray]:
+    """Binary masks of the two price inks, keyed "Y" and "R".
+
+    The yellow mask needs G > 205: the orange-yellow tile background
+    (252,193,50) is a BACKGROUND for red digits and must not read as yellow.
+    The red mask needs R > 180 so the maroon tile background (166,11,17) is
+    excluded; red digits never sit on maroon.
+    """
     a = rgb.astype(np.int16)
     R, G, B = a[:, :, 0], a[:, :, 1], a[:, :, 2]
-    m = ((R > YELLOW_LO["r"]) & (G > YELLOW_LO["g"]) & (B < YELLOW_LO["b"])
-         & ((R + G) / 2 - B > YELLOW_LO["spread"]))
-    return m.astype(np.uint8)
+    yellow = (R > 200) & (G > 205) & (B < 130) & (R - B > 110)
+    red = (R > 180) & (G < 110) & (B < 120) & (R - G > 110)
+    return {"Y": yellow.astype(np.uint8), "R": red.astype(np.uint8)}
 
 
-def digit_clusters(mask: np.ndarray, min_area: int = 200,
-                   min_height: int = 25) -> list[dict]:
-    """Connected components of the mask that are plausible glyphs."""
+def ink_channel(rgb: np.ndarray, ink: str) -> np.ndarray:
+    """Continuous 'how much of this ink' channel, for small text.
+
+    yellowness = min(R,G) - B : yellow ~240; red, maroon, navy, light blue,
+                                white, grey and teal photography all <= ~0.
+    redness    = R - max(G,B)  : red ~200; yellow ~12, orange-yellow ~59,
+                                grey/beige ~0-30.
+    A hard mask thins small anti-aliased glyphs to broken strokes; this keeps
+    the grey levels so they can be upscaled before thresholding.
+    """
+    a = rgb.astype(np.int16)
+    R, G, B = a[:, :, 0], a[:, :, 1], a[:, :, 2]
+    v = np.minimum(R, G) - B if ink == "Y" else R - np.maximum(G, B)
+    return np.clip(v, 0, 255).astype(np.uint8)
+
+
+def lp_blue_mask(rgb: np.ndarray) -> np.ndarray:
+    """The Lidl Plus logo blue ~(10,90,159)."""
+    a = rgb.astype(np.int16)
+    R, G, B = a[:, :, 0], a[:, :, 1], a[:, :, 2]
+    return ((R < 70) & (G > 55) & (G < 130) & (B > 120) & (B < 200)
+            & (B - R > 90)).astype(np.uint8)
+
+
+def yellow_mask(rgb: np.ndarray) -> np.ndarray:
+    """Kept for callers of the old API."""
+    return glyph_masks(rgb)["Y"]
+
+
+@dataclass(slots=True)
+class Blob:
+    x: int
+    y: int
+    w: int
+    h: int
+    area: int
+    index: int
+
+    @property
+    def x1(self) -> int:
+        return self.x + self.w
+
+    @property
+    def y1(self) -> int:
+        return self.y + self.h
+
+    @property
+    def fill(self) -> float:
+        return self.area / max(1, self.w * self.h)
+
+
+def components(mask: np.ndarray, min_h: int = 1,
+               min_area: int = 1) -> tuple[np.ndarray, list[Blob]]:
     if cv2 is None:
         raise OcrUnavailable("opencv not installed")
-    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    n, labels, st, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    out = [Blob(int(st[i][0]), int(st[i][1]), int(st[i][2]), int(st[i][3]),
+                int(st[i][4]), i)
+           for i in range(1, n) if st[i][3] >= min_h and st[i][4] >= min_area]
+    return labels, out
+
+
+# ---------------------------------------------------------------------------
+# Price structure
+#
+# A Lidl price is: 1-2 large euro digits, a large round dot on their baseline,
+# and exactly two cents digits about 0.75x as tall, TOP-aligned with the euros.
+# That signature is found geometrically, which also locates the decimal point
+# exactly - no "last two digits are the cents" guess is needed.
+
+@dataclass(slots=True)
+class PriceStructure:
+    ink: str
+    euros: list[Blob]
+    cents: list[Blob]
+    dot: Blob
+    height: int                      # euro digit height, px
+
+    @property
+    def bbox(self) -> tuple[int, int, int, int]:
+        return (self.euros[0].x, min(b.y for b in self.euros + self.cents),
+                self.cents[-1].x1, max(b.y1 for b in self.euros + [self.dot]))
+
+
+def find_price_structures(blobs: list[Blob], ink: str,
+                          min_height: int = 90) -> list[PriceStructure]:
+    digits = [b for b in blobs if b.h >= min_height * 0.6
+              and 0.15 < b.w / b.h < 1.2 and b.fill < 0.85]
+    found: dict[int, PriceStructure] = {}
+    for c1 in digits:
+        for c2 in digits:
+            if c2.x <= c1.x or abs(c2.h - c1.h) > 0.1 * c1.h or abs(c2.y - c1.y) > 0.08 * c1.h:
+                continue
+            gap = c2.x - c1.x1
+            if gap < -0.05 * c1.h or gap > 0.35 * c1.h:
+                continue
+            euros = [e for e in digits if e.h >= min_height
+                     and 0.6 < c1.h / e.h < 0.88 and abs(e.y - c1.y) < 0.1 * e.h
+                     and e.x1 <= c1.x + 0.1 * c1.h and c1.x - e.x1 < 0.9 * e.h]
+            if not euros:
+                continue
+            last = max(euros, key=lambda e: e.x)
+            he = last.h
+            chain = [last]
+            while True:
+                prev = [e for e in digits if abs(e.h - he) < 0.08 * he
+                        and abs(e.y - last.y) < 0.06 * he and e.x < chain[0].x
+                        and chain[0].x - e.x1 < 0.3 * he]
+                if not prev:
+                    break
+                chain.insert(0, max(prev, key=lambda e: e.x))
+            base = last.y1
+            dots = [d for d in blobs if 0.1 * he < d.h < 0.4 * he and 0.6 < d.w / d.h < 1.6
+                    and d.fill > 0.55 and abs(d.y1 - base) < 0.1 * he
+                    and last.x1 - 0.25 * he < d.x + d.w / 2 < c1.x + c1.w * 0.7]
+            if not dots:
+                continue
+            ps = PriceStructure(ink, chain, [c1, c2], dots[0], he)
+            prev_ps = found.get(c1.index)
+            if prev_ps is None or len(chain) > len(prev_ps.euros):
+                found[c1.index] = ps
+    # a third "cents" digit would mean c2 was itself a first cent: keep only
+    # structures whose cents are not another structure's euros
+    euro_ids = {e.index for ps in found.values() for e in ps.euros}
+    return [ps for ps in found.values() if not any(c.index in euro_ids for c in ps.cents)]
+
+
+# ---------------------------------------------------------------------------
+# Recognition
+#
+# Tesseract reads a clean black-on-white LINE well only when the glyphs are
+# a normal text size: 250px-tall digits come back empty. So every strip is
+# normalised to a small set of glyph heights and read several ways; callers
+# accept a value only when the readings agree.
+
+READ_HEIGHTS = (32, 48, 64)
+READ_PSMS = (7, 13)
+
+
+def glyph_strip(labels: np.ndarray, blobs: list[Blob], height: int = 64,
+                gap: int = 12, pad: int = 24) -> np.ndarray:
+    """Paste glyphs side by side on one baseline, each scaled to `height`.
+    Removes the raised-cents baseline that defeats line OCR."""
+    masks = [labels[b.y:b.y1, b.x:b.x1] == b.index for b in sorted(blobs, key=lambda b: b.x)]
+    return mask_strip(masks, height, gap, pad)
+
+
+def mask_strip(masks: list[np.ndarray], height: int = 64, gap: int = 12,
+               pad: int = 24) -> np.ndarray:
+    """One glyph per mask (already cropped), left to right."""
+    parts = []
+    for m in masks:
+        g = np.where(m, 0, 255).astype(np.uint8)
+        s = height / m.shape[0]
+        g = cv2.resize(g, (max(1, round(m.shape[1] * s)), height), interpolation=cv2.INTER_AREA)
+        # a narrow "1" pasted tight against its neighbours is often dropped;
+        # centre every glyph in a cell at least 0.6x as wide as it is tall
+        need = int(0.6 * height) - g.shape[1]
+        if need > 0:
+            g = cv2.copyMakeBorder(g, 0, 0, need // 2, need - need // 2,
+                                   cv2.BORDER_CONSTANT, value=255)
+        parts.append(g)
+        parts.append(np.full((height, gap), 255, np.uint8))
+    strip = np.hstack(parts[:-1])
+    return cv2.copyMakeBorder(strip, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)
+
+
+def read_strip_votes(strips: list[np.ndarray]) -> list[str]:
+    """Digit-whitelisted reads of prepared strips, in both line modes."""
+    return [_run_tesseract(st, ["--psm", str(psm), "-c", "tessedit_char_whitelist=0123456789"]).strip()
+            for st in strips for psm in READ_PSMS]
+
+
+def fit_height(ink: np.ndarray, height: int, pad: int = 20) -> np.ndarray | None:
+    """ink: bool/0-1 foreground image. Crop to content, scale so the content
+    is `height` px tall, return black-on-white with a margin."""
+    ys, xs = np.nonzero(ink)
+    if len(ys) == 0:
+        return None
+    crop = np.where(ink[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 0, 255).astype(np.uint8)
+    s = height / crop.shape[0]
+    crop = cv2.resize(crop, (max(1, round(crop.shape[1] * s)), height),
+                      interpolation=cv2.INTER_AREA)
+    return cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)
+
+
+def read_votes(ink: np.ndarray, whitelist: str, heights=READ_HEIGHTS,
+               psms=READ_PSMS) -> list[str]:
+    """Read a foreground image at several sizes and segmentation modes."""
     out = []
-    for i in range(1, count):
-        x, y, w, h, area = stats[i]
-        if area < min_area or h < min_height:
-            continue
-        out.append({"x": int(x), "y": int(y), "w": int(w), "h": int(h),
-                    "area": int(area), "index": i})
+    for h in heights:
+        img = fit_height(ink, h)
+        if img is None:
+            return []
+        for psm in psms:
+            out.append(_run_tesseract(img, ["--psm", str(psm), "-c",
+                                            f"tessedit_char_whitelist={whitelist}"]).strip())
     return out
 
 
-def group_into_prices(blobs: list[dict], page_height: int | None = None,
-                      x_gap_ratio: float = 1.0,
-                      y_overlap: float = 0.3) -> list[list[dict]]:
-    """Group glyph blobs into prices by adjacency.
+def consensus(votes: list[str], pattern: re.Pattern, min_share: float = 0.75,
+              max_dissent: int = 1, min_votes: int = 3) -> str | None:
+    """The reading a clear supermajority of votes agree on, or None.
 
-    Union-find over pairwise adjacency rather than a chain through x-order: a
-    leaflet page contains large yellow shapes (banners, badge plates) that sit
-    between the digits in x-order and sever a chain, leaving every digit in its
-    own group. Pairwise merging is immune to that.
+    A vote that does not match `pattern` (empty, a dropped digit, the wrong
+    digit count) is a failed read. The winner needs `min_share` of ALL votes
+    (failed reads count against it), and no contrary well-formed reading may
+    have more than `max_dissent` votes (callers may drop votes from renderings
+    that failed before reading, e.g. an unsegmentable old price): two renderings that both see a 2
+    where the rest see a 5 mean the digit is genuinely ambiguous.
 
-    Blobs far too large to be glyphs are dropped first - one banner on Lidl's
-    page 4 is 3.3 million pixels and 2286px tall.
-    """
-    if not blobs:
-        return []
-
-    def is_glyph(b: dict) -> bool:
-        if page_height and b["h"] > page_height * 0.12:
-            return False
-        if b["w"] > 0 and b["h"] / b["w"] > 12:      # a rule or thin divider
-            return False
-        if b["w"] > 0 and b["w"] / max(1, b["h"]) > 6:
-            return False
-        # a solid block is a plate, not a digit
-        return b["area"] <= b["w"] * b["h"] * 0.92
-
-    glyphs = [b for b in blobs if is_glyph(b)]
-    if not glyphs:
-        return []
-
-    parent = list(range(len(glyphs)))
-
-    def find(i: int) -> int:
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
-
-    def union(a: int, b: int) -> None:
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[rb] = ra
-
-    for i, a in enumerate(glyphs):
-        for j in range(i + 1, len(glyphs)):
-            b = glyphs[j]
-            left, right = (a, b) if a["x"] <= b["x"] else (b, a)
-            gap = right["x"] - (left["x"] + left["w"])
-            if gap > min(a["h"], b["h"]) * x_gap_ratio:
-                continue
-            top = max(a["y"], b["y"])
-            bottom = min(a["y"] + a["h"], b["y"] + b["h"])
-            tallest = max(a["h"], b["h"])
-            if tallest and (bottom - top) / tallest >= y_overlap:
-                union(i, j)
-
-    buckets: dict[int, list[dict]] = {}
-    for i, b in enumerate(glyphs):
-        buckets.setdefault(find(i), []).append(b)
-    return [sorted(g, key=lambda b: b["x"]) for g in buckets.values()]
-
-
-def read_price_group(mask: np.ndarray, labels: np.ndarray,
-                     group: list[dict], target_height: int = 120) -> Decimal | None:
-    """Recognise one price by rebuilding its digits on a single baseline.
-
-    This is the core trick. The digits are normalised to a common height and
-    pasted side by side, which removes the raised-superscript baseline that
-    defeats the text detector, then the strip is read as one line. The decimal
-    point is not reconstructed - the last two digits are the cents, which is
-    how every leaflet in this project prints prices.
-    """
-    if cv2 is None:
-        raise OcrUnavailable("opencv not installed")
-    parts = []
-    for b in sorted(group, key=lambda g: g["x"]):
-        comp = (labels[b["y"]:b["y"] + b["h"], b["x"]:b["x"] + b["w"]] == b["index"])
-        glyph = np.where(comp, 0, 255).astype(np.uint8)
-        scale = target_height / max(1, b["h"])
-        glyph = cv2.resize(glyph, (max(1, int(b["w"] * scale)), target_height),
-                           interpolation=cv2.INTER_AREA)
-        parts.append(glyph)
-        parts.append(np.full((target_height, 18), 255, np.uint8))
-    if not parts:
+    Measured on the training pages, a single rendering misreads an old price
+    about 4% of the time, sporadically and in different places, so strict
+    unanimity over 6-12 votes would reject ~1 in 4 good readings while adding
+    no protection against a SYSTEMATIC misread - that is the reconcile
+    gate's job, which every OCR price must still pass afterwards."""
+    valid = [v for v in votes if pattern.fullmatch(v)]
+    if len(valid) < min_votes:
         return None
-    strip = np.hstack(parts)
-    strip = cv2.copyMakeBorder(strip, OCR_PAD, OCR_PAD, OCR_PAD, OCR_PAD,
-                               cv2.BORDER_CONSTANT, value=255)
-    if tesseract_available():
-        # Whitelisting digits removes the whole class of "is that a 5 or an S"
-        # error, and unlike RapidOCR this is not sensitive to the margin size.
-        try:
-            return digits_to_price(read_digits_tesseract(strip))
-        except Exception:  # noqa: BLE001
-            pass
-    boxes = read_text(cv2.cvtColor(strip, cv2.COLOR_GRAY2RGB))
-    digits = "".join(re.sub(r"\D", "", b.text) for b in boxes)
-    return digits_to_price(digits)
+    ranked = sorted(set(valid), key=valid.count, reverse=True)
+    best = ranked[0]
+    if valid.count(best) < min_share * len(votes):
+        return None
+    if any(valid.count(r) > max_dissent for r in ranked[1:]):
+        return None
+    return best
+
+
+def read_glyphs(labels: np.ndarray, blobs: list["Blob"], n_digits: int) -> tuple[str | None, list[str]]:
+    """Read a run of digit glyphs whose count is known from the geometry."""
+    votes = read_strip_votes([glyph_strip(labels, blobs, height=h) for h in READ_HEIGHTS])
+    return consensus(votes, re.compile(rf"\d{{{n_digits}}}")), votes
+
+
+def remove_strike(bw: np.ndarray) -> np.ndarray:
+    """Remove a horizontal strike-through line from a 0/1 image of an old
+    price. Where a digit stroke crosses the line (ink directly above AND
+    below it) the line pixels are kept; everywhere else they are cleared."""
+    h, _ = bw.shape
+    cols = np.nonzero(bw.any(0))[0]
+    if len(cols) == 0:
+        return bw
+    x0, x1 = cols[0], cols[-1] + 1
+    rows = np.nonzero(bw.any(1))[0]
+    text_h = rows[-1] - rows[0] + 1
+    frac = bw[:, x0:x1].mean(1)
+    if frac.max() < 0.75:
+        return bw
+    # An upscaled 1-2px line can come out as two bands with a lighter middle,
+    # so take every near-full-width row close to the strongest one.
+    peak = int(np.argmax(frac))
+    span = max(4, int(0.25 * text_h))
+    hi = [r for r in range(max(0, peak - span), min(h, peak + span + 1)) if frac[r] > 0.7]
+    r0, r1 = min(hi), max(hi)
+    while r0 - 1 >= 0 and frac[r0 - 1] > 0.45:
+        r0 -= 1
+    while r1 + 1 < h and frac[r1 + 1] > 0.45:
+        r1 += 1
+    k = max(3, (r1 - r0 + 1) // 2)
+    out = bw.copy()
+    for x in range(x0, x1):
+        if not (bw[max(0, r0 - k):r0, x].any() and bw[r1 + 1:r1 + 1 + k, x].any()):
+            out[r0:r1 + 1, x] = 0
+    return out
 
 
 def digits_to_price(digits: str) -> Decimal | None:
@@ -361,27 +548,30 @@ def digits_to_price(digits: str) -> Decimal | None:
     return Decimal(f"{euros}.{digits[-2:]}")
 
 
+def reconciles(new: Decimal | None, old: Decimal | None,
+               pct: Decimal | None) -> bool:
+    """True when a published new price, old price and badge agree.
+
+    Lidl TRUNCATES the badge (1.99 from 3.49 is 42.98% and prints -42%), so
+    the actual reduction must lie in [pct, pct + 1). Exact Decimal
+    arithmetic, no tolerance: the old +-0.06 EUR check was both too loose on
+    cheap items and wrong in direction."""
+    if new is None or old is None or pct is None:
+        return False
+    if not (Decimal(0) < new < old) or not (Decimal(0) < pct < Decimal(100)):
+        return False
+    actual = (old - new) / old * 100
+    return pct <= actual < pct + 1
+
+
 def repair_with_reconcile(digits: str, old: Decimal | None,
-                          pct: Decimal | None,
-                          tolerance: Decimal = Decimal("0.06")) -> Decimal | None:
-    """Recover a price whose leading digit OCR dropped.
-
-    Constrained repair, not guessing: the old price and the badge percentage are
-    both published, so together they predict the new price. If the OCR digits
-    with a prefix restored land within a few cents of that prediction, the
-    prefix is determined by the retailer's own numbers rather than invented.
-
-    Used only when plain reading disagrees with the prediction, and returns
-    None when nothing fits - in which case the item is quarantined.
-    """
-    if old is None or pct is None or old <= 0:
-        return None
-    predicted = old * (Decimal(100) - pct) / Decimal(100)
+                          pct: Decimal | None) -> Decimal | None:
+    """Recover a price whose leading digit OCR dropped, when the published old
+    price and badge determine it. Returns None unless EXACTLY one prefix
+    reconciles - an ambiguous repair is a guess."""
     digits = re.sub(r"\D", "", digits or "")
-    if not digits:
+    if old is None or pct is None or not digits:
         return None
-    for prefix in ("", "1", "2", "3", "4", "5", "6", "7", "8", "9"):
-        candidate = digits_to_price(prefix + digits)
-        if candidate is not None and abs(candidate - predicted) <= tolerance:
-            return candidate
-    return None
+    fits = [c for p in ("", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+            if (c := digits_to_price(p + digits)) is not None and reconciles(c, old, pct)]
+    return fits[0] if len(fits) == 1 else None

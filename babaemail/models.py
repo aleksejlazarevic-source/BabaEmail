@@ -63,6 +63,30 @@ def parse_price(raw: str | int | float | Decimal | None) -> Decimal | None:
     return value
 
 
+CENT = Decimal("0.01")
+_MONEY_FIELDS = frozenset({"price_new", "price_old", "price_30day_low"})
+
+
+def money(value: Decimal | int | None, what: str = "price") -> Decimal | None:
+    """A price as Decimal with exactly two places: 3 -> Decimal("3.00").
+
+    Never rounds: a value with fractional cents (4.989) is a parsing bug and
+    raises instead of turning into a price nobody printed. Floats are refused
+    for the same reason (module docstring). None stays None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (Decimal, int)):
+        raise TypeError(f"{what} must be Decimal, got {type(value).__name__}: {value!r}")
+    d = Decimal(value)
+    if not d.is_finite():
+        raise ValueError(f"{what} is not a finite number: {value!r}")
+    q = d.quantize(CENT)
+    if q != d:
+        raise ValueError(f"{what} has fractional cents: {value!r}")
+    return q
+
+
 class SourceStatus(Enum):
     """Outcome of scraping one retailer. Only OK may contribute items."""
 
@@ -89,6 +113,14 @@ class Deal:
       she cannot actually get is a wasted trip, which the contract treats as
       seriously as a wrong price.
 
+    Prices (`price_new`, `price_old`, `price_30day_low`) are normalised by
+    `money()` on every assignment, at creation and after: always Decimal with
+    two places ("3.00", never "3"), never a float, never fractional cents.
+
+    `price_unit` is "kg" when the prices are per kilogram (Lidl "za kg", loose
+    produce), so the email can never show 5.99 as the price of one piece.
+    None means the price is for the item or pack as sold.
+
     `flags` carries quarantine reasons. A flagged Deal is still carried through
     the pipeline and surfaced to Aleks - never dropped (contract rule 4).
     """
@@ -102,6 +134,7 @@ class Deal:
 
     price_new: Decimal | None = None
     price_old: Decimal | None = None
+    price_unit: str | None = None               # "kg" = prices are per kilogram
     discount_published: Decimal | None = None   # the retailer's own badge
     condition: str | None = None                # e.g. "ob nakupu 2 kosov ali vec"
     loyalty_required: str | None = None         # e.g. "Tus klub", "SPAR plus"
@@ -114,6 +147,13 @@ class Deal:
     source_page: int | None = None
     retailer_item_id: str | None = None
     flags: list[str] = field(default_factory=list)
+
+    def __setattr__(self, name: str, value) -> None:
+        if name in _MONEY_FIELDS:
+            value = money(value, name)
+        elif name == "price_unit" and value not in (None, "kg"):
+            raise ValueError(f"price_unit must be None or 'kg', got {value!r}")
+        object.__setattr__(self, name, value)
 
     @property
     def discount_pct(self) -> Decimal | None:

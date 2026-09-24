@@ -6,3 +6,4 @@ out/
 *.sqlite3
 .env
 tessdata/
+.cache/

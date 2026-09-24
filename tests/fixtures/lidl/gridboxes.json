@@ -1,0 +1,2957 @@
+[
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "HARVEST BASKET",
+   "url": "/q/search?q=harvest+basket",
+   "id": "HABA",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/harvest-basket-pomfrit/p11000617",
+  "canonicalUrl": "/p/harvest-basket-pomfrit/p11000617",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11000617_ce3773ab",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11000617",
+  "flashSales": false,
+  "fullTitle": "HARVEST BASKET Pomfrit",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "11162"
+  ],
+  "image": "https://www.lidl.si/assets/gcp7232c93400ae4509a6efee948c39150d.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp7232c93400ae4509a6efee948c39150d.png",
+   "accessibility": "Vrečka ekstra tankega zamrznjenega pomfrita s sončničnim oljem, 1 kg."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11000617,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp7232c93400ae4509a6efee948c39150d.png",
+   "https://www.lidl.si/assets/gcp8073b2f480954e64922c317854942163.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp7232c93400ae4509a6efee948c39150d.png",
+    "accessibility": "Vrečka ekstra tankega zamrznjenega pomfrita s sončničnim oljem, 1 kg."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp8073b2f480954e64922c317854942163.png",
+    "accessibility": "Vrečka tanko rezanega pomfrita s sončničnim oljem, 1 kg."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>tanko narezan</li></ul>",
+   "fullTitle": "HARVEST BASKET Pomfrit",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Pomfrit",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Pijače/brezalkoholne pijače",
+   "wonCategoryPrimaryPath": "0/17/1720/172012"
+  },
+  "lidlPlus": [
+   {
+    "price": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kg = 1,19"
+     },
+     "hasStar": true,
+     "hasVat": false,
+     "packaging": {
+      "text": "1 kg"
+     },
+     "price": 1.19,
+     "priceTheme": "red_yellow",
+     "specialTaxes": [],
+     "superscript": ""
+    },
+    "lidlPlusText": "z Lidl Plus"
+   }
+  ],
+  "multipack": false,
+  "nat": "0001056",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11000617,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentLidlPlusPrice": {
+     "price": {
+      "basePrice": {
+       "prefix": false,
+       "text": "1 kg = 1,19"
+      },
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "discount": {
+       "absoluteDiscount": 0.8,
+       "deletedPrice": 1.99,
+       "discountHasStar": false,
+       "fromNormalPriceForLidlPlus": false,
+       "fromRecommendedPrice": false,
+       "hideBargainHint": false,
+       "bargainHintEnabled": false,
+       "bargainHintText": "BargainHint_Text",
+       "percentageDiscount": 40,
+       "showDiscount": true,
+       "showFrom": false,
+       "showPercentage": true,
+       "showUpTo": false
+      },
+      "displayedCurrency": "€",
+      "endDate": "2026-10-04T21:59:59Z",
+      "endDateExclusive": "2026-10-04T22:00Z",
+      "hasStar": true,
+      "hasVat": true,
+      "oldPrice": 1.99,
+      "packaging": {
+       "text": "1 kg"
+      },
+      "price": 1.19,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "startDate": "2026-09-18T07:55:38.723Z",
+      "superscript": "",
+      "variantsHaveDifferentPrices": false
+     },
+     "lidlPlusText": "z Lidl Plus",
+     "highlightText": "-40%"
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790154750,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 25.09. do 26.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 27.11. do 28.11.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1795734000,
+     "validUntil": 1795906799
+    },
+    {
+     "badges": [
+      {
+       "text": "Od 25.09. do 26.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790287200,
+     "validUntil": 1790459999
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790287200,
+  "storeEndDate": 1790459999,
+  "title": "Pomfrit",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "showBrand": false
+  },
+  "canonicalPath": "/p/piscancje-prsi/p11259243",
+  "canonicalUrl": "/p/piscancje-prsi/p11259243",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11259243_2ba80174",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11259243",
+  "flashSales": false,
+  "fullTitle": "Piščančje prsi",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "7309713"
+  ],
+  "image": "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+   "accessibility": "Paket piščančje polonije z visoko vsebnostjo beljakovin in brez glutena."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11259243,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+   "https://www.lidl.si/assets/gcp14ab3dfe09254551b91631a8ab8f2504.png",
+   "https://www.lidl.si/assets/gcpac9b1ebe175348b780ff6b8b95e3decb.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+    "accessibility": "Paket piščančje polonije z visoko vsebnostjo beljakovin in brez glutena."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp14ab3dfe09254551b91631a8ab8f2504.png",
+    "accessibility": "Pakiranje dimljenih piščančjih prsi, Slim & Fit, z nizko vsebnostjo maščob, brez glutena."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpac9b1ebe175348b780ff6b8b95e3decb.png",
+    "accessibility": "Pakiranje narezanih piščančjih prsi, z nizko vsebnostjo maščob in brez glutena, z informacijami o hranilni vrednosti."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>več vrst</li></ul>",
+   "fullTitle": "Piščančje prsi",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Piščančje prsi",
+   "wonCategoryPrimary": "Svetovi potreb/Bivalni prostori in pohištvo/Vrt in balkon",
+   "wonCategoryPrimaryPath": "0/14/1416"
+  },
+  "lidlPlus": [
+   {
+    "price": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kg = 7,92"
+     },
+     "discount": {
+      "discountHasStar": false,
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "showDiscount": false,
+      "showFrom": false,
+      "showPercentage": false,
+      "showUpTo": false
+     },
+     "hasStar": true,
+     "hasVat": false,
+     "packaging": {
+      "text": "125 g"
+     },
+     "price": 0.99,
+     "priceTheme": "red_yellow",
+     "specialTaxes": [],
+     "superscript": ""
+    },
+    "lidlPlusText": "z Lidl Plus",
+    "highlightText": "-56% na drugi kos"
+   }
+  ],
+  "multipack": false,
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11259243,
+  "productType": "RETAIL_HEAD",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentLidlPlusPrice": {
+     "price": {
+      "basePrice": {
+       "prefix": false,
+       "text": "1 kg = 7,92"
+      },
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "discount": {
+       "deletedPrice": 2.29,
+       "discountHasStar": false,
+       "discountText": "-56% na drugi kos",
+       "fromNormalPriceForLidlPlus": false,
+       "fromRecommendedPrice": false,
+       "hideBargainHint": false,
+       "bargainHintEnabled": false,
+       "bargainHintText": "BargainHint_Text",
+       "showDiscount": true,
+       "showFrom": false,
+       "showPercentage": true,
+       "showUpTo": false
+      },
+      "displayedCurrency": "€",
+      "endDate": "2026-10-04T21:59:59Z",
+      "endDateExclusive": "2026-10-04T22:00Z",
+      "hasStar": true,
+      "hasVat": true,
+      "oldPrice": 2.29,
+      "packaging": {
+       "text": "125 g"
+      },
+      "price": 0.99,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "startDate": "2026-09-18T07:55:39.504Z",
+      "superscript": "",
+      "variantsHaveDifferentPrices": false
+     },
+     "lidlPlusText": "z Lidl Plus",
+     "highlightText": "-56% na drugi kos"
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790032294,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 28.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 28.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790546400,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 0,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790546400,
+  "storeEndDate": 1790805599,
+  "title": "Piščančje prsi",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "showBrand": false
+  },
+  "canonicalPath": "/p/sadna-pijaca/p11266203",
+  "canonicalUrl": "/p/sadna-pijaca/p11266203",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11266203_c690b7a5",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11266203",
+  "flashSales": false,
+  "fullTitle": "Sadna pijača",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "7300205"
+  ],
+  "image": "https://www.lidl.si/assets/gcpc5527cb2f10245f9bbb1b176e0b2fd81.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcpc5527cb2f10245f9bbb1b176e0b2fd81.png",
+   "accessibility": "Paket šestih steklenic pomarančnega in limoninega soka z 20% sadja."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11266203,
+  "imageList": [
+   "https://www.lidl.si/assets/gcpc5527cb2f10245f9bbb1b176e0b2fd81.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcpc5527cb2f10245f9bbb1b176e0b2fd81.png",
+    "accessibility": "Paket šestih steklenic pomarančnega in limoninega soka z 20% sadja."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>pomaranča in limona</li></ul>",
+   "fullTitle": "Sadna pijača",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Sadna pijača",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Drogerija in nega/Nega telesa in obraza",
+   "wonCategoryPrimaryPath": "0/17/1745/174510"
+  },
+  "lidlPlus": [
+   {
+    "price": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 l = 4,37"
+     },
+     "discount": {
+      "discountHasStar": false,
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "showDiscount": false,
+      "showFrom": false,
+      "showPercentage": false,
+      "showUpTo": false
+     },
+     "hasStar": true,
+     "hasVat": false,
+     "packaging": {
+      "text": "1,5 l"
+     },
+     "price": 6.56,
+     "priceTheme": "red_yellow",
+     "specialTaxes": [],
+     "superscript": ""
+    },
+    "lidlPlusText": "z Lidl Plus",
+    "highlightText": "4+2 gratis"
+   }
+  ],
+  "multipack": false,
+  "nat": "0003399",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11266203,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentLidlPlusPrice": {
+     "price": {
+      "basePrice": {
+       "prefix": false,
+       "text": "1 l = 4,37"
+      },
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "discount": {
+       "discountHasStar": false,
+       "fromNormalPriceForLidlPlus": false,
+       "fromRecommendedPrice": false,
+       "showDiscount": false,
+       "showFrom": false,
+       "showPercentage": false,
+       "showUpTo": false
+      },
+      "displayedCurrency": "€",
+      "endDate": "2026-10-04T21:59:59Z",
+      "endDateExclusive": "2026-10-04T22:00Z",
+      "hasStar": true,
+      "hasVat": true,
+      "packaging": {
+       "text": "1,5 l"
+      },
+      "price": 6.56,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "startDate": "2026-09-18T07:55:38.712Z",
+      "superscript": "",
+      "variantsHaveDifferentPrices": false
+     },
+     "lidlPlusText": "z Lidl Plus",
+     "highlightText": "4+2 gratis"
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1789724027,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 25.09. do 26.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 25.09. do 26.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790287200,
+     "validUntil": 1790459999
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790287200,
+  "storeEndDate": 1790459999,
+  "title": "Sadna pijača",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "Naša mesnica",
+   "url": "/q/search?q=na%C5%A1a+mesnica",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/nasa-mesnica-svez-telecji-vrat/p11457289",
+  "canonicalUrl": "/p/nasa-mesnica-svez-telecji-vrat/p11457289",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11457289_4271cb4b",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11457289",
+  "flashSales": false,
+  "fullTitle": "Naša mesnica Svež telečji vrat",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "7309535"
+  ],
+  "image": "https://www.lidl.si/assets/gcp15432a1c7da645bc94ca12c79595c641.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp15432a1c7da645bc94ca12c79595c641.png",
+   "accessibility": "Telečji vrat Naša mesnica v plastični posodi"
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11457289,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp15432a1c7da645bc94ca12c79595c641.png",
+   "https://www.lidl.si/assets/gcp18b44a4b3fb54a9ea4d1dbc2ded5172d.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp15432a1c7da645bc94ca12c79595c641.png",
+    "accessibility": "Telečji vrat Naša mesnica v plastični posodi"
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp18b44a4b3fb54a9ea4d1dbc2ded5172d.png",
+    "accessibility": "Na žaru pečeni zrezki Naša mesnica, postreženi na krožniku s prilogo solate"
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>v kosu</li></ul>",
+   "fullTitle": "Naša mesnica Svež telečji vrat",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Svež telečji vrat",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Meso in perutnina/goveje meso",
+   "wonCategoryPrimaryPath": "0/17/1738/173811"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "7309535",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "price": 12.99,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11457289,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "discountHasStar": false,
+      "discountText": "za kg",
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "showDiscount": false,
+      "showFrom": false,
+      "showPercentage": false,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-10-04T21:59:59Z",
+     "endDateExclusive": "2026-10-04T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "price": 12.99,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-18T07:55:38.675Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1789724260,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790805599,
+  "title": "Svež telečji vrat",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "BARESA",
+   "url": "/q/search?q=baresa",
+   "id": "BARE",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/baresa-pasiran-paradiznik/p11256502",
+  "canonicalUrl": "/p/baresa-pasiran-paradiznik/p11256502",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11256502_97f3cb49",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11256502",
+  "flashSales": false,
+  "fullTitle": "BARESA Pasiran paradižnik",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "9001892"
+  ],
+  "image": "https://www.lidl.si/assets/gcp01c7a72e76f648afa9072cbfb1b26420.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp01c7a72e76f648afa9072cbfb1b26420.png",
+   "accessibility": "Embalaža paradižnikove mezge z ilustracijo svežih paradižnikov in lesa."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11256502,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp01c7a72e76f648afa9072cbfb1b26420.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp01c7a72e76f648afa9072cbfb1b26420.png",
+    "accessibility": "Embalaža paradižnikove mezge z ilustracijo svežih paradižnikov in lesa."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "fullTitle": "BARESA Pasiran paradižnik",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Pasiran paradižnik",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zaloga hrane/Konzervirano sadje in zelenjava",
+   "wonCategoryPrimaryPath": "0/17/1741/174113"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "9001892",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 l = 1,52"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "packaging": {
+    "text": "500 ml"
+   },
+   "price": 0.76,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11256502,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 l = 1,52"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "discountHasStar": false,
+      "discountText": "2+1 gratis",
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "showDiscount": false,
+      "showFrom": false,
+      "showPercentage": false,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-10-04T21:59:59Z",
+     "endDateExclusive": "2026-10-04T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "packaging": {
+      "text": "500 ml"
+     },
+     "price": 0.76,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-18T07:55:38.649Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1789723491,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790805599,
+  "title": "Pasiran paradižnik",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "Naše nam paše",
+   "url": "/q/search?q=na%C5%A1e+nam+pa%C5%A1e",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/nase-nam-pase-slovenska-namenska-moka/p11271569",
+  "canonicalUrl": "/p/nase-nam-pase-slovenska-namenska-moka/p11271569",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11271569_7072d819",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11271569",
+  "flashSales": false,
+  "fullTitle": "Naše nam paše Slovenska namenska moka",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "7306495"
+  ],
+  "image": "https://www.lidl.si/assets/gcp0059d9800bcd4bb6bab9a8dad4a7cd17.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp0059d9800bcd4bb6bab9a8dad4a7cd17.png",
+   "accessibility": "Paketi pšenične moke za domače pecivo, s sliko orehove potice."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11271569,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp0059d9800bcd4bb6bab9a8dad4a7cd17.png",
+   "https://www.lidl.si/assets/gcp3d6228c23d8c4f5196da8753eabf76c5.png",
+   "https://www.lidl.si/assets/gcp17e4177d22cb49918fd3787a9bab698b.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp0059d9800bcd4bb6bab9a8dad4a7cd17.png",
+    "accessibility": "Paketi pšenične moke za domače pecivo, s sliko orehove potice."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp3d6228c23d8c4f5196da8753eabf76c5.png",
+    "accessibility": "Paketi pšenične moke za domačo peko s sliko orehove potice."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp17e4177d22cb49918fd3787a9bab698b.png",
+    "accessibility": "Dva paketa moke za domače pecivo, s torto in zavitki, ter logotipom zelenega lista."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>tip 500</li></ul>",
+   "fullTitle": "Naše nam paše Slovenska namenska moka",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Slovenska namenska moka",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zaloga hrane/Sestavine za peko",
+   "wonCategoryPrimaryPath": "0/17/1741/174112"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "7306495",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 kg = 0,47"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "packaging": {
+    "text": "4x1 kg"
+   },
+   "price": 1.89,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11271569,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kg = 0,47"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "discountHasStar": false,
+      "discountText": "20% gratis**",
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "showDiscount": false,
+      "showFrom": false,
+      "showPercentage": false,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-10-04T21:59:59Z",
+     "endDateExclusive": "2026-10-04T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "packaging": {
+      "text": "4x1 kg"
+     },
+     "price": 1.89,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-18T07:55:38.528Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790127896,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790805599,
+  "title": "Slovenska namenska moka",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "BELBAKE",
+   "url": "/q/search?q=belbake",
+   "id": "BELE",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/belbake-drobtine/p11276469",
+  "canonicalUrl": "/p/belbake-drobtine/p11276469",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11276469_794d8c5d",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11276469",
+  "flashSales": false,
+  "fullTitle": "BELBAKE Drobtine",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "6900339"
+  ],
+  "image": "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png",
+   "accessibility": "Paket drobtin z logotipom, ki piše „Passion for Baking“ in „Drobține“."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11276469,
+  "imageList": [
+   "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcpc2748d6993a84216b9de3e61464d3b2c.png",
+    "accessibility": "Paket drobtin z logotipom, ki piše „Passion for Baking“ in „Drobține“."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "fullTitle": "BELBAKE Drobtine",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Drobtine",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zaloga hrane/Sestavine za peko",
+   "wonCategoryPrimaryPath": "0/17/1741/174112"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "6900339",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 kg = 1.50"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "discount": {
+    "absoluteDiscount": 0.1,
+    "deletedPrice": 0.85,
+    "discountHasStar": false,
+    "fromRecommendedPrice": false,
+    "hideBargainHint": false,
+    "bargainHintEnabled": false,
+    "bargainHintText": "BargainHint_Text",
+    "percentageDiscount": 11,
+    "showDiscount": true,
+    "showFrom": false,
+    "showPercentage": true,
+    "showUpTo": false
+   },
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "oldPrice": 0.85,
+   "packaging": {
+    "text": "500g"
+   },
+   "price": 0.75,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11276469,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kg = 1.50"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "absoluteDiscount": 0.1,
+      "deletedPrice": 0.85,
+      "discountHasStar": false,
+      "discountText": "-11%",
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "hideBargainHint": false,
+      "bargainHintEnabled": false,
+      "bargainHintText": "BargainHint_Text",
+      "percentageDiscount": 11,
+      "showDiscount": true,
+      "showFrom": false,
+      "showPercentage": true,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-10-07T21:59:59Z",
+     "endDateExclusive": "2026-10-07T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "oldPrice": 0.85,
+     "packaging": {
+      "text": "500g"
+     },
+     "price": 0.75,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-07-27T12:09:51.720Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1789830087,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 09.07.",
+      "type": "IN_STORE_FROM_DATE_PAST"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 09.07.",
+       "type": "IN_STORE_FROM_DATE_PAST"
+      }
+     ],
+     "validFrom": 1783548000
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": true,
+  "storeStartDate": 1783548000,
+  "title": "Drobtine",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "-",
+   "url": "/q/search?q=-",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/obrocki-lignjev/p11255022",
+  "canonicalUrl": "/p/obrocki-lignjev/p11255022",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11255022_ff4e60f2",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11255022",
+  "flashSales": false,
+  "fullTitle": "- Obročki lignjev",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "189295"
+  ],
+  "image": "https://www.lidl.si/assets/gcp35b7ea5bf6ca4b289b12ccd157c0dc53.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp35b7ea5bf6ca4b289b12ccd157c0dc53.png",
+   "accessibility": "Zamrznjeni panirani lignji v plastičnem pladnju, 400g"
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11255022,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp35b7ea5bf6ca4b289b12ccd157c0dc53.png",
+   "https://www.lidl.si/assets/gcp880efcf6787d486697b184639363a22d.png",
+   "https://www.lidl.si/assets/gcp00459fa2e4e34557968c9d9b36ef8c73.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp35b7ea5bf6ca4b289b12ccd157c0dc53.png",
+    "accessibility": "Zamrznjeni panirani lignji v plastičnem pladnju, 400g"
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp880efcf6787d486697b184639363a22d.png",
+    "accessibility": "Hrustljavi ocvrti kalamarijevi obročki s tatarsko omako in rezino limone na sivem krožniku."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp00459fa2e4e34557968c9d9b36ef8c73.png",
+    "accessibility": "Panirani lignjevi obročki FISCHERSTOLZ v 400 g pakiranju."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>panirani</li></ul>",
+   "fullTitle": "- Obročki lignjev",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Obročki lignjev",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zamrznjena hrana (Zamrznjena hrana)/Zamrznjene ribe in morski sadeži",
+   "wonCategoryPrimaryPath": "0/17/1716/171613"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "0189295",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 kg = 11,23"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "discount": {
+    "absoluteDiscount": 1.5,
+    "deletedPrice": 5.99,
+    "discountHasStar": false,
+    "fromRecommendedPrice": false,
+    "hideBargainHint": false,
+    "bargainHintEnabled": false,
+    "bargainHintText": "BargainHint_Text",
+    "percentageDiscount": 25,
+    "showDiscount": true,
+    "showFrom": false,
+    "showPercentage": true,
+    "showUpTo": false
+   },
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "oldPrice": 5.99,
+   "packaging": {
+    "text": "400 g"
+   },
+   "price": 4.49,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11255022,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kg = 11,23"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "absoluteDiscount": 1.5,
+      "deletedPrice": 5.99,
+      "discountHasStar": false,
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "hideBargainHint": false,
+      "bargainHintEnabled": false,
+      "bargainHintText": "BargainHint_Text",
+      "percentageDiscount": 25,
+      "showDiscount": true,
+      "showFrom": false,
+      "showPercentage": true,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-10-04T21:59:59Z",
+     "endDateExclusive": "2026-10-04T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "oldPrice": 5.99,
+     "packaging": {
+      "text": "400 g"
+     },
+     "price": 4.49,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-18T07:55:38.680Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futurePrices": [
+     {
+      "startDate": "2026-10-04T22:00:00.000Z",
+      "endDateExclusive": "2026-10-21T22:00:00.000Z",
+      "price": {
+       "basePrice": {
+        "prefix": false,
+        "text": "1 kg = 14.98"
+       },
+       "currencyCode": "EUR",
+       "currencyCodeSecond": "",
+       "currencySymbol": "€",
+       "currencySymbolSecond": "",
+       "displayedCurrency": "€",
+       "endDate": "2026-10-21T21:59:59Z",
+       "endDateExclusive": "2026-10-21T22:00Z",
+       "hasStar": true,
+       "hasVat": true,
+       "packaging": {
+        "text": "400 g"
+       },
+       "price": 5.99,
+       "priceTheme": "white_red",
+       "specialTaxes": [],
+       "startDate": "2026-10-04T22:00Z",
+       "superscript": "",
+       "variantsHaveDifferentPrices": false
+      }
+     }
+    ],
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790055852,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 26.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 28.10. do 30.10.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1793142000,
+     "validUntil": 1793401199
+    },
+    {
+     "badges": [
+      {
+       "text": "Od 03.12. do 05.12.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1796252400,
+     "validUntil": 1796511599
+    },
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 26.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790459999
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790459999,
+  "title": "Obročki lignjev",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "showBrand": false
+  },
+  "canonicalPath": "/p/namizno-belo-grozdje-brez-peck/p11030020",
+  "canonicalUrl": "/p/namizno-belo-grozdje-brez-peck/p11030020",
+  "category": "F+V",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11030020_d0a5ccb2",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11030020",
+  "flashSales": false,
+  "fullTitle": "Namizno belo grozdje brez pečk",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "80505"
+  ],
+  "image": "https://www.lidl.si/assets/gcpb0bc2cd700304b48bced26246f75417a.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcpb0bc2cd700304b48bced26246f75417a.png",
+   "accessibility": "Svež grozd zelenega grozdja z vodnimi kapljicami na črnem ozadju."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11030020,
+  "imageList": [
+   "https://www.lidl.si/assets/gcpb0bc2cd700304b48bced26246f75417a.png",
+   "https://www.lidl.si/assets/gcp0c1d17a6bb8a47d0a74114273fbc1848.png",
+   "https://www.lidl.si/assets/gcpca424217e5244265b4aec1b491082221.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcpb0bc2cd700304b48bced26246f75417a.png",
+    "accessibility": "Svež grozd zelenega grozdja z vodnimi kapljicami na črnem ozadju."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp0c1d17a6bb8a47d0a74114273fbc1848.png",
+    "accessibility": "Svež grozd belega grozdja z zelenimi listi in kapljicami vode."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpca424217e5244265b4aec1b491082221.png",
+    "accessibility": "Svež grozd belega grozdja z vodnimi kapljicami na beli podlagi."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "F+V",
+   "description": "<ul><li>Poreklo in sorta: glej etiketo</li></ul>",
+   "fullTitle": "Namizno belo grozdje brez pečk",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Namizno belo grozdje brez pečk",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Sadje in zelenjava/Sadje",
+   "wonCategoryPrimaryPath": "0/17/1710/171010"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "0080505",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "discount": {
+    "absoluteDiscount": 0.7,
+    "deletedPrice": 1.79,
+    "discountHasStar": false,
+    "fromRecommendedPrice": false,
+    "hideBargainHint": false,
+    "bargainHintEnabled": false,
+    "bargainHintText": "BargainHint_Text",
+    "percentageDiscount": 39,
+    "showDiscount": true,
+    "showFrom": false,
+    "showPercentage": true,
+    "showUpTo": false
+   },
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "oldPrice": 1.79,
+   "packaging": {
+    "text": "500 g"
+   },
+   "price": 1.09,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11030020,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "absoluteDiscount": 0.7,
+      "deletedPrice": 1.79,
+      "discountHasStar": false,
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "hideBargainHint": false,
+      "bargainHintEnabled": false,
+      "bargainHintText": "BargainHint_Text",
+      "percentageDiscount": 39,
+      "showDiscount": true,
+      "showFrom": false,
+      "showPercentage": true,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-09-27T21:59:59Z",
+     "endDateExclusive": "2026-09-27T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "oldPrice": 1.79,
+     "packaging": {
+      "text": "500 g"
+     },
+     "price": 1.09,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-11T10:43:55.921Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790187834,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 21.09. do 23.09.",
+      "type": "IN_STORE_PAST_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 09.10. do 10.10.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1791496800,
+     "validUntil": 1791669599
+    },
+    {
+     "badges": [
+      {
+       "text": "Od 28.09. do 03.10.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790546400,
+     "validUntil": 1791064799
+    },
+    {
+     "badges": [
+      {
+       "text": "Od 21.09. do 23.09.",
+       "type": "IN_STORE_PAST_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1789941600,
+     "validUntil": 1790200799
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": true,
+  "storeStartDate": 1789941600,
+  "storeEndDate": 1790200799,
+  "title": "Namizno belo grozdje brez pečk",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "Favorina",
+   "url": "/q/search?q=favorina",
+   "id": "FAVA",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/favorina-musik-pluschf-fruchtg-praline-4-kosi/p11000034",
+  "canonicalUrl": "/p/favorina-musik-pluschf-fruchtg-praline-4-kosi/p11000034",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11000034_8602719a",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11000034",
+  "flashSales": false,
+  "fullTitle": "Favorina Musik. Plüschf. Fruchtg. praline 4 kosi",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "1001202"
+  ],
+  "image": "https://www.lidl.si/assets/gcp7b569e37827a4991afbb814a20c00b73.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp7b569e37827a4991afbb814a20c00b73.png",
+   "accessibility": ""
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11000034,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp7b569e37827a4991afbb814a20c00b73.png",
+   "https://www.lidl.si/assets/gcpae3d098219754118b29bf5005ad8831b.png",
+   "https://www.lidl.si/assets/gcp2559c4d32d9d4742b5d7ecf1248e0852.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp7b569e37827a4991afbb814a20c00b73.png",
+    "accessibility": ""
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpae3d098219754118b29bf5005ad8831b.png",
+    "accessibility": ""
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcp2559c4d32d9d4742b5d7ecf1248e0852.png",
+    "accessibility": ""
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "fullTitle": "Favorina Musik. Plüschf. Fruchtg. praline 4 kosi",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Musik. Plüschf. Fruchtg. praline 4 kosi",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Sladkarije in prigrizki/čokoladni izdelki",
+   "wonCategoryPrimaryPath": "0/17/1744/174410"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "nat": "1001202",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11000034,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {},
+  "ribbons": [],
+  "renderedTs": 1790135027,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790805599,
+  "title": "Musik. Plüschf. Fruchtg. praline 4 kosi",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "awards": [],
+  "brand": {
+   "showBrand": false
+  },
+  "canonicalPath": "/p/leca/p10043885",
+  "canonicalUrl": "/p/leca/p10043885",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_10043885_ba9152a8",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "10043885",
+  "flashSales": false,
+  "fullTitle": "Leča",
+  "gs1Attributes": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "732913"
+  ],
+  "image": "https://imgproxy-retcat.assets.schwarz/8f1wkxDV6xhZ3BrF0eEgfgABGFJUGYO6mbZ1UH-mNhQ/sm:1/exar:1:ce/w:427/h:320/cz/M6Ly9wcm9kLWNhd/GFsb2ctbWVkaWEvc2kvMS9DRTY5QTdFQzE3OTY3RDA1QzY0QjlGQjR/DNzIxQzNDRkExOTBFRkQ0RjhCRjYyMUY4MUJFRTJBRUExNUY2Q0E4LmpwZw.jpg",
+  "image_V1": {
+   "image": "https://imgproxy-retcat.assets.schwarz/8f1wkxDV6xhZ3BrF0eEgfgABGFJUGYO6mbZ1UH-mNhQ/sm:1/exar:1:ce/w:427/h:320/cz/M6Ly9wcm9kLWNhd/GFsb2ctbWVkaWEvc2kvMS9DRTY5QTdFQzE3OTY3RDA1QzY0QjlGQjR/DNzIxQzNDRkExOTBFRkQ0RjhCRjYyMUY4MUJFRTJBRUExNUY2Q0E4LmpwZw.jpg",
+   "accessibility": "Konzerva leče Fresona, bogata z beljakovinami."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 10043885,
+  "imageList": [
+   "https://imgproxy-retcat.assets.schwarz/8f1wkxDV6xhZ3BrF0eEgfgABGFJUGYO6mbZ1UH-mNhQ/sm:1/exar:1:ce/w:427/h:320/cz/M6Ly9wcm9kLWNhd/GFsb2ctbWVkaWEvc2kvMS9DRTY5QTdFQzE3OTY3RDA1QzY0QjlGQjR/DNzIxQzNDRkExOTBFRkQ0RjhCRjYyMUY4MUJFRTJBRUExNUY2Q0E4LmpwZw.jpg"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://imgproxy-retcat.assets.schwarz/8f1wkxDV6xhZ3BrF0eEgfgABGFJUGYO6mbZ1UH-mNhQ/sm:1/exar:1:ce/w:427/h:320/cz/M6Ly9wcm9kLWNhd/GFsb2ctbWVkaWEvc2kvMS9DRTY5QTdFQzE3OTY3RDA1QzY0QjlGQjR/DNzIxQzNDRkExOTBFRkQ0RjhCRjYyMUY4MUJFRTJBRUExNUY2Q0E4LmpwZw.jpg",
+    "accessibility": "Konzerva leče Fresona, bogata z beljakovinami."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<p>Beljakovine prispevajo k:</p> <ul> <li>povečanju mi&scaron;ične mase</li> <li>vzdrževanju mi&scaron;ične mase</li> <li>ohranjanju zdravih kosti</li> </ul>",
+   "fullTitle": "Leča",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "supplementalDescription": "FRESHONA",
+   "title": "Leča"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 10043885,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regionsPrices": {},
+  "ribbons": [],
+  "renderedTs": 1777994875,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "V trgovini",
+      "type": "IN_STORE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "V trgovini",
+       "type": "IN_STORE"
+      }
+     ]
+    }
+   ],
+   "onlineAvailable": false,
+   "orderableQuantities": [],
+   "minOrderableQuantity": 1
+  },
+  "store": true,
+  "title": "Leča",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "showBrand": false
+  },
+  "canonicalPath": "/p/mango/p11029883",
+  "canonicalUrl": "/p/mango/p11029883",
+  "category": "F+V",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11029883_0033e504",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11029883",
+  "flashSales": false,
+  "fullTitle": "Mango",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "80711"
+  ],
+  "image": "https://www.lidl.si/assets/gcpb3b9f65af7984a51a3a096e1735145b6.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcpb3b9f65af7984a51a3a096e1735145b6.png",
+   "accessibility": "Cel mango in dva kosa manga z vodnimi kapljicami"
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11029883,
+  "imageList": [
+   "https://www.lidl.si/assets/gcpb3b9f65af7984a51a3a096e1735145b6.png",
+   "https://www.lidl.si/assets/gcpd974aaa2cc58442f982846f6d84bf3fe.png",
+   "https://www.lidl.si/assets/gcpb64f78583d794cb6b585a753a0b22ee8.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcpb3b9f65af7984a51a3a096e1735145b6.png",
+    "accessibility": "Cel mango in dva kosa manga z vodnimi kapljicami"
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpd974aaa2cc58442f982846f6d84bf3fe.png",
+    "accessibility": "Zrel mango in dve rezini manga na belem ozadju."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpb64f78583d794cb6b585a753a0b22ee8.png",
+    "accessibility": "Svež mango in rezine manga z vodnimi kapljicami na črnem ozadju."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "F+V",
+   "description": "<ul><li>Poreklo: Španija</li></ul>",
+   "fullTitle": "Mango",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Mango",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Sadje in zelenjava/Sadje",
+   "wonCategoryPrimaryPath": "0/17/1710/171010"
+  },
+  "lidlPlus": [
+   {
+    "price": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kos = 0,99"
+     },
+     "hasStar": true,
+     "hasVat": false,
+     "packaging": {
+      "text": "za kos"
+     },
+     "price": 0.99,
+     "priceTheme": "red_yellow",
+     "specialTaxes": [],
+     "superscript": ""
+    },
+    "lidlPlusText": "z Lidl Plus"
+   }
+  ],
+  "multipack": false,
+  "nat": "0080711",
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 kos = 1,19"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "discount": {
+    "absoluteDiscount": 0.5,
+    "deletedPrice": 1.69,
+    "discountHasStar": false,
+    "fromRecommendedPrice": false,
+    "hideBargainHint": false,
+    "bargainHintEnabled": false,
+    "bargainHintText": "BargainHint_Text",
+    "percentageDiscount": 29,
+    "showDiscount": true,
+    "showFrom": false,
+    "showPercentage": true,
+    "showUpTo": false
+   },
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "oldPrice": 1.69,
+   "packaging": {
+    "text": "za kos"
+   },
+   "price": 1.19,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11029883,
+  "productType": "RETAIL",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kos = 1,19"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "discount": {
+      "absoluteDiscount": 0.5,
+      "deletedPrice": 1.69,
+      "discountHasStar": false,
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "hideBargainHint": false,
+      "bargainHintEnabled": false,
+      "bargainHintText": "BargainHint_Text",
+      "percentageDiscount": 29,
+      "showDiscount": true,
+      "showFrom": false,
+      "showPercentage": true,
+      "showUpTo": false
+     },
+     "displayedCurrency": "€",
+     "endDate": "2026-09-27T21:59:59Z",
+     "endDateExclusive": "2026-09-27T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "oldPrice": 1.69,
+     "packaging": {
+      "text": "za kos"
+     },
+     "price": 1.19,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-11T10:57:50.704Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "currentLidlPlusPrice": {
+     "price": {
+      "basePrice": {
+       "prefix": false,
+       "text": "1 kos = 0,99"
+      },
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "discount": {
+       "absoluteDiscount": 0.5,
+       "deletedPrice": 1.49,
+       "discountHasStar": false,
+       "fromNormalPriceForLidlPlus": false,
+       "fromRecommendedPrice": false,
+       "hideBargainHint": false,
+       "bargainHintEnabled": false,
+       "bargainHintText": "BargainHint_Text",
+       "percentageDiscount": 33,
+       "showDiscount": true,
+       "showFrom": false,
+       "showPercentage": true,
+       "showUpTo": false
+      },
+      "displayedCurrency": "€",
+      "endDate": "2026-10-04T21:59:59Z",
+      "endDateExclusive": "2026-10-04T22:00Z",
+      "hasStar": true,
+      "hasVat": true,
+      "oldPrice": 1.49,
+      "packaging": {
+       "text": "za kos"
+      },
+      "price": 0.99,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "startDate": "2026-09-18T07:55:38.684Z",
+      "superscript": "",
+      "variantsHaveDifferentPrices": false
+     },
+     "lidlPlusText": "z Lidl Plus",
+     "highlightText": "-33%"
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790160212,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 08.10. do 10.10.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1791410400,
+     "validUntil": 1791669599
+    },
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 1,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790805599,
+  "title": "Mango",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "Gelatelli",
+   "url": "/q/search?q=gelatelli",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/gelatelli-sladoled-na-palcki/p11007967",
+  "canonicalUrl": "/p/gelatelli-sladoled-na-palcki/p11007967",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11007967_db8add2d",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11007967",
+  "flashSales": false,
+  "fullTitle": "Gelatelli Sladoled na palčki",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "21900"
+  ],
+  "image": "https://www.lidl.si/assets/gcp2a880aba64974727bee43339ad33142f.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp2a880aba64974727bee43339ad33142f.png",
+   "accessibility": "Pakiranje 8 sladoledov iz bele čokolade, z novo velikostjo porcije."
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11007967,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp2a880aba64974727bee43339ad33142f.png",
+   "https://www.lidl.si/assets/gcpa848695b67f04a23966bf30b219db747.png",
+   "https://www.lidl.si/assets/gcpb98cb432e06443e1912e506586a05ae8.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp2a880aba64974727bee43339ad33142f.png",
+    "accessibility": "Pakiranje 8 sladoledov iz bele čokolade, z novo velikostjo porcije."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpa848695b67f04a23966bf30b219db747.png",
+    "accessibility": "Škatla z 8 klasičnimi sladolednimi lučkami s čokoladnim prelivom, ki prikazuje novo velikost porcije in Nutri-Score."
+   },
+   {
+    "image": "https://www.lidl.si/assets/gcpb98cb432e06443e1912e506586a05ae8.png",
+    "accessibility": "Škatla s 6 čokoladnimi hrustljavimi sladoledi, 450 g / 600 ml."
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "description": "<ul><li>več vrst</li></ul>",
+   "fullTitle": "Gelatelli Sladoled na palčki",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "Sladoled na palčki",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zamrznjena hrana (Zamrznjena hrana)/Sladoled",
+   "wonCategoryPrimaryPath": "0/17/1716/171610"
+  },
+  "lidlPlus": [
+   {
+    "price": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 l = 2,15"
+     },
+     "discount": {
+      "discountHasStar": false,
+      "fromNormalPriceForLidlPlus": false,
+      "fromRecommendedPrice": false,
+      "showDiscount": false,
+      "showFrom": false,
+      "showPercentage": false,
+      "showUpTo": false
+     },
+     "hasStar": true,
+     "hasVat": false,
+     "packaging": {
+      "text": "6x100 ml"
+     },
+     "price": 1.29,
+     "priceTheme": "red_yellow",
+     "specialTaxes": [],
+     "superscript": ""
+    },
+    "lidlPlusText": "z Lidl Plus",
+    "highlightText": "-50% na drugi kos"
+   }
+  ],
+  "multipack": false,
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 l = 6.65"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "packaging": {
+    "text": "6x100ml"
+   },
+   "price": 3.99,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11007967,
+  "productType": "RETAIL_HEAD",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 l = 6.65"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "displayedCurrency": "€",
+     "endDate": "2026-10-21T21:59:59Z",
+     "endDateExclusive": "2026-10-21T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "packaging": {
+      "text": "6x100ml"
+     },
+     "price": 3.99,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-08-24T08:45:51.303Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "currentLidlPlusPrice": {
+     "price": {
+      "basePrice": {
+       "prefix": false,
+       "text": "1 l = 2,15"
+      },
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "discount": {
+       "deletedPrice": 3.99,
+       "discountHasStar": false,
+       "discountText": "-50% na drugi kos",
+       "fromNormalPriceForLidlPlus": true,
+       "fromRecommendedPrice": false,
+       "hideBargainHint": false,
+       "bargainHintEnabled": false,
+       "bargainHintText": "BargainHint_Text",
+       "showDiscount": true,
+       "showFrom": false,
+       "showPercentage": true,
+       "showUpTo": false,
+       "suffix": ""
+      },
+      "displayedCurrency": "€",
+      "endDate": "2026-10-04T21:59:59Z",
+      "endDateExclusive": "2026-10-04T22:00Z",
+      "hasStar": true,
+      "hasVat": true,
+      "oldPrice": 2.59,
+      "packaging": {
+       "text": "6x100 ml"
+      },
+      "price": 1.29,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "startDate": "2026-09-18T07:55:38.470Z",
+      "superscript": "",
+      "variantsHaveDifferentPrices": false
+     },
+     "lidlPlusText": "z Lidl Plus",
+     "highlightText": "-50% na drugi kos"
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1790141815,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 24.09. do 30.09.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 24.09. do 30.09.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790200800,
+     "validUntil": 1790805599
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 0,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790200800,
+  "storeEndDate": 1790805599,
+  "title": "Sladoled na palčki",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ },
+ {
+  "ageRestriction": false,
+  "hasColors": false,
+  "awards": [],
+  "brand": {
+   "name": "VITASIA",
+   "url": "/q/search?q=vitasia",
+   "id": "VITA",
+   "showBrand": true
+  },
+  "canonicalPath": "/p/vitasia/p11000214",
+  "canonicalUrl": "/p/vitasia/p11000214",
+  "category": "Food",
+  "cutoutimageV2": [],
+  "dealOfDay": {
+   "active": false
+  },
+  "designTheme": "default",
+  "disclaimers": [
+   {
+    "id": "code_11000214_67c18ed5",
+    "type": "CODE",
+    "value": "Basic"
+   }
+  ],
+  "displayFreeDelivery": false,
+  "energyLabels": [],
+  "erpNumber": "11000214",
+  "flashSales": false,
+  "fullTitle": "VITASIA",
+  "gs1Attributes": [],
+  "guaranteeLabels": [],
+  "havingPrice": true,
+  "havingThreesixty": false,
+  "havingVideos": false,
+  "highlightedSeals": 0,
+  "ians": [
+   "1008515"
+  ],
+  "image": "https://www.lidl.si/assets/gcp6ee5bd9eb9b24dafa3546d2a8454a686.png",
+  "image_V1": {
+   "image": "https://www.lidl.si/assets/gcp6ee5bd9eb9b24dafa3546d2a8454a686.png",
+   "accessibility": "VITASIA Mie rezanci, indonezijski stil, pripravljeni v 3-4 minutah, pakiranje 250 g"
+  },
+  "isLidlGiftCard": false,
+  "isUsedProduct": false,
+  "itemId": 11000214,
+  "imageList": [
+   "https://www.lidl.si/assets/gcp6ee5bd9eb9b24dafa3546d2a8454a686.png"
+  ],
+  "imageList_V1": [
+   {
+    "image": "https://www.lidl.si/assets/gcp6ee5bd9eb9b24dafa3546d2a8454a686.png",
+    "accessibility": "VITASIA Mie rezanci, indonezijski stil, pripravljeni v 3-4 minutah, pakiranje 250 g"
+   }
+  ],
+  "keyfacts": {
+   "analyticsCategory": "Food",
+   "fullTitle": "VITASIA",
+   "moreDetails": "Dodatne podrobnosti o izdelku",
+   "title": "VITASIA",
+   "wonCategoryPrimary": "Svetovi potreb/Hrana in bližnja hrana/Zaloga hrane/Juhe in omake",
+   "wonCategoryPrimaryPath": "0/17/1741/174111"
+  },
+  "lidlPlus": [],
+  "multipack": false,
+  "online": false,
+  "preventSelling": false,
+  "price": {
+   "basePrice": {
+    "prefix": false,
+    "text": "1 kg = 3,96"
+   },
+   "currencyCode": "EUR",
+   "currencyCodeSecond": "",
+   "currencySymbol": "€",
+   "currencySymbolSecond": "",
+   "displayedCurrency": "€",
+   "hasStar": true,
+   "hasVat": false,
+   "packaging": {
+    "text": "250 g"
+   },
+   "price": 0.99,
+   "priceTheme": "white_red",
+   "specialTaxes": [],
+   "variantsHaveDifferentPrices": false
+  },
+  "productId": 11000214,
+  "productType": "RETAIL_HEAD",
+  "productOrigin": "progress_event",
+  "quickAddToCart": false,
+  "regions": [
+   1,
+   2
+  ],
+  "regionsV2": {
+   "1": {
+    "regionName": "SI Region 1",
+    "isDefault": true,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   },
+   "2": {
+    "regionName": "SI Region 2",
+    "isDefault": false,
+    "regionPriceId": "1",
+    "status": "ONLINE",
+    "hasVat": false,
+    "priceHasZeroVat": false
+   }
+  },
+  "regionsPrices": {
+   "1": {
+    "currentPrice": {
+     "basePrice": {
+      "prefix": false,
+      "text": "1 kg = 3,96"
+     },
+     "currencyCode": "EUR",
+     "currencyCodeSecond": "",
+     "currencySymbol": "€",
+     "currencySymbolSecond": "",
+     "displayedCurrency": "€",
+     "endDate": "2026-10-04T21:59:59Z",
+     "endDateExclusive": "2026-10-04T22:00Z",
+     "hasStar": true,
+     "hasVat": true,
+     "packaging": {
+      "text": "250 g"
+     },
+     "price": 0.99,
+     "priceTheme": "white_red",
+     "specialTaxes": [],
+     "startDate": "2026-09-18T07:55:39.349Z",
+     "superscript": "",
+     "variantsHaveDifferentPrices": false
+    },
+    "futureLidlPlusPrices": []
+   }
+  },
+  "ribbons": [],
+  "renderedTs": 1789735035,
+  "seals": [],
+  "stockAvailability": {
+   "availabilityIndicator": 0,
+   "badgeInfo": {
+    "badges": [
+     {
+      "text": "Od 28.09. do 03.10.",
+      "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+     }
+    ]
+   },
+   "badgeInfoV2": [
+    {
+     "badges": [
+      {
+       "text": "Od 28.09. do 03.10.",
+       "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+      }
+     ],
+     "validFrom": 1790546400,
+     "validUntil": 1791064799
+    }
+   ],
+   "onlineAvailable": false,
+   "minOrderableQuantity": 0,
+   "backInStockNotification": false,
+   "backInStockNotificationSoldOut": false
+  },
+  "store": false,
+  "storeStartDate": 1790546400,
+  "storeEndDate": 1791064799,
+  "title": "VITASIA",
+  "timezoneId": "Europe/Ljubljana",
+  "zones": {}
+ }
+]

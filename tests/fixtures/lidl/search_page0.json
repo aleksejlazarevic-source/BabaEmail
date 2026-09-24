@@ -1,0 +1,334 @@
+{
+ "numFound": 2,
+ "offset": 0,
+ "fetchsize": 1,
+ "items": [
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11259243",
+   "label": "",
+   "url": "",
+   "gridbox": {
+    "country": "SI",
+    "sequence": 1789792753676824,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "showBrand": false
+     },
+     "canonicalPath": "/p/piscancje-prsi/p11259243",
+     "canonicalUrl": "/p/piscancje-prsi/p11259243",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11259243_2ba80174",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11259243",
+     "flashSales": false,
+     "fullTitle": "Piščančje prsi",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "7309713"
+     ],
+     "image": "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+     "image_V1": {
+      "image": "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+      "accessibility": "Paket piščančje polonije z visoko vsebnostjo beljakovin in brez glutena."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11259243,
+     "imageList": [
+      "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+      "https://www.lidl.si/assets/gcp14ab3dfe09254551b91631a8ab8f2504.png",
+      "https://www.lidl.si/assets/gcpac9b1ebe175348b780ff6b8b95e3decb.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.si/assets/gcp20956ee6b5dc40758d0c8c0e8545b67f.png",
+       "accessibility": "Paket piščančje polonije z visoko vsebnostjo beljakovin in brez glutena."
+      },
+      {
+       "image": "https://www.lidl.si/assets/gcp14ab3dfe09254551b91631a8ab8f2504.png",
+       "accessibility": "Pakiranje dimljenih piščančjih prsi, Slim & Fit, z nizko vsebnostjo maščob, brez glutena."
+      },
+      {
+       "image": "https://www.lidl.si/assets/gcpac9b1ebe175348b780ff6b8b95e3decb.png",
+       "accessibility": "Pakiranje narezanih piščančjih prsi, z nizko vsebnostjo maščob in brez glutena, z informacijami o hranilni vrednosti."
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "description": "<ul><li>več vrst</li></ul>",
+      "fullTitle": "Piščančje prsi",
+      "moreDetails": "Dodatne podrobnosti o izdelku",
+      "title": "Piščančje prsi",
+      "wonCategoryPrimary": "Svetovi potreb/Bivalni prostori in pohištvo/Vrt in balkon",
+      "wonCategoryPrimaryPath": "0/14/1416"
+     },
+     "lidlPlus": [
+      {
+       "price": {
+        "basePrice": {
+         "prefix": false,
+         "text": "1 kg = 7,92"
+        },
+        "discount": {
+         "discountHasStar": false,
+         "fromNormalPriceForLidlPlus": false,
+         "fromRecommendedPrice": false,
+         "showDiscount": false,
+         "showFrom": false,
+         "showPercentage": false,
+         "showUpTo": false
+        },
+        "hasStar": true,
+        "hasVat": false,
+        "packaging": {
+         "text": "125 g"
+        },
+        "price": 0.99,
+        "priceTheme": "red_yellow",
+        "specialTaxes": [],
+        "superscript": ""
+       },
+       "lidlPlusText": "z Lidl Plus",
+       "highlightText": "-56% na drugi kos"
+      }
+     ],
+     "multipack": false,
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "€",
+      "currencySymbolSecond": "",
+      "displayedCurrency": "€",
+      "hasStar": true,
+      "hasVat": false,
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11259243,
+     "productType": "RETAIL_HEAD",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1,
+      2
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "SI Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      },
+      "2": {
+       "regionName": "SI Region 2",
+       "isDefault": false,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentLidlPlusPrice": {
+        "price": {
+         "basePrice": {
+          "prefix": false,
+          "text": "1 kg = 7,92"
+         },
+         "currencyCode": "EUR",
+         "currencyCodeSecond": "",
+         "currencySymbol": "€",
+         "currencySymbolSecond": "",
+         "discount": {
+          "deletedPrice": 2.29,
+          "discountHasStar": false,
+          "discountText": "-56% na drugi kos",
+          "fromNormalPriceForLidlPlus": false,
+          "fromRecommendedPrice": false,
+          "hideBargainHint": false,
+          "bargainHintEnabled": false,
+          "bargainHintText": "BargainHint_Text",
+          "showDiscount": true,
+          "showFrom": false,
+          "showPercentage": true,
+          "showUpTo": false
+         },
+         "displayedCurrency": "€",
+         "endDate": "2026-10-04T21:59:59Z",
+         "endDateExclusive": "2026-10-04T22:00Z",
+         "hasStar": true,
+         "hasVat": true,
+         "oldPrice": 2.29,
+         "packaging": {
+          "text": "125 g"
+         },
+         "price": 0.99,
+         "priceTheme": "white_red",
+         "specialTaxes": [],
+         "startDate": "2026-09-18T07:55:39.504Z",
+         "superscript": "",
+         "variantsHaveDifferentPrices": false
+        },
+        "lidlPlusText": "z Lidl Plus",
+        "highlightText": "-56% na drugi kos"
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789792753,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "Od 28.09. do 30.09.",
+         "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "Od 28.09. do 30.09.",
+          "type": "IN_STORE_FROM_FUTURE_DATE_RANGE"
+         }
+        ],
+        "validFrom": 1790546400,
+        "validUntil": 1790805599
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 0,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": false,
+     "storeStartDate": 1790546400,
+     "storeEndDate": 1790805599,
+     "title": "Piščančje prsi",
+     "timezoneId": "Europe/Ljubljana",
+     "zones": {}
+    },
+    "productId": 11259243,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10024188",
+        "name": "Lidl Plus",
+        "url": "/c/lidl-plus/a10024188",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "Piščančje prsi",
+     "ean": "3838977037227",
+     "retailLists": [
+      [
+       {
+        "id": 3775
+       },
+       {
+        "id": 3580
+       }
+      ]
+     ],
+     "lists": [
+      3775,
+      3580
+     ],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068371",
+        "name": "Pohištvo in dodatki",
+        "url": "/c/pohistvo-in-dodatki/s10068371",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10067558",
+        "name": "Vrt in balkon",
+        "url": "/h/vrt-in-balkon/h10067558",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "1416",
+       "isMain": true,
+       "name": "Vrt in balkon",
+       "parent": "14",
+       "superCategories": [
+        {
+         "code": "14",
+         "name": "Bivalni prostori in pohištvo",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Svetovi potreb",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "sl",
+    "eventType": "GRIDBOX",
+    "id": "11259243"
+   },
+   "tracking": {
+    "position": 271,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11259243",
+     "searchTrackingTitle": "Pi%C5%A1%C4%8Dan%C4%8Dje+prsi",
+     "searchTrackingPageSize": 60,
+     "searchTrackingPage": 5,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11259243",
+     "searchTrackingQuery": "",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 271,
+     "searchTrackingOrigPageSize": 60,
+     "searchTrackingChannel": "SI",
+     "category": "Food"
+    }
+   }
+  }
+ ]
+}
