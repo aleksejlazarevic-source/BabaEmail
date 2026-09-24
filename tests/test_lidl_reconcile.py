@@ -762,3 +762,24 @@ def test_a_changed_letter_is_a_different_product():
 def test_typo_tier_needs_the_same_number_of_words():
     res = run([cand("1", "Sveži kunec", "8.99")], [vlm(38, "Sveži kunc s prilogo", "8.99")])
     assert any("not-in-leaflet-reading" in r for r in reasons(by_erp(res, "1")))
+
+
+# ---------------------------------------------------------------- R6b website-only
+
+def test_website_only_is_off_by_default():
+    res = run([cand("1", "SONDEY Linški keksi", "1.99", "2.19")], [])
+    assert any("not-in-leaflet-reading" in r for r in reasons(by_erp(res, "1")))
+
+
+def test_website_only_ships_flagged_when_switched_on():
+    res = run([cand("1", "SONDEY Linški keksi", "1.99", "2.19")], [], ship_website_only=True)
+    d = by_erp(res, "1")
+    assert not d.is_quarantined and "website-only" in d.flags
+
+
+def test_website_only_needs_an_old_price_and_a_clean_record():
+    res = run([cand("1", "Sveži kunec", "8.99"),
+               cand("2", "Tastino", "1.79", "2.59", flags=["sold_out:x"]),
+               cand("3", "Sadna pijača", "6.56", conditional="4+2 gratis")],
+              [], ship_website_only=True)
+    assert all(d.is_quarantined for d in res.deals)

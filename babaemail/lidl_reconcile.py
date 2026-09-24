@@ -151,7 +151,9 @@ R5  Disagreement. A STRONG name match whose prices differ is quarantined as
     unmatched.
 
 R6  API-only. A candidate with no matched tile is quarantined as
-    ``not-in-leaflet-reading``, never dropped. If some unmatched tile has the
+    ``not-in-leaflet-reading``, never dropped. R6b (OFF unless
+    ``ship_website_only``): a clean one ships flagged ``website-only``
+    instead (``website_only_ok``). If some unmatched tile has the
     same price but an unrelated name, that tile is named in the reason for the
     reviewer (it is NOT treated as a match). Unmatched ``listed`` items are
     ordinary shelf prices, not offers; they are returned in
@@ -759,6 +761,19 @@ def conditional_kind(c: LidlCandidate) -> tuple[str | None, str]:
     return None, "price meaning not provable"
 
 
+def website_only_ok(c: LidlCandidate) -> bool:
+    """R6b, only with ``ship_website_only``: an offer on Lidl's website that no
+    leaflet tile names. Nothing can cross-check it (on kw39 the website's
+    price differed from the printed leaflet for ~4 of ~125 products that both
+    show), so it ships flagged ``website-only`` for the email to label, and
+    only when the record itself is clean: a price, an old price above it, a
+    name, and one window with an end date."""
+    return (c.new_price is not None and c.old_price is not None
+            and c.old_price > c.new_price and bool(c.name)
+            and len(c.windows) == 1 and c.windows[0][1] is not None
+            and not c.conditional)
+
+
 def _deal_from_candidate(c: LidlCandidate, leaflet_id: str) -> Deal:
     start, end, multi = _window(c)
     d = Deal(
@@ -850,7 +865,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
               listed: Sequence[LidlCandidate] = (),
               page_validity: dict[int, tuple[date, date | None]] | None = None,
               year: int | None = None, leaflet_url: str = "",
-              ocr_pages: Iterable[int] | None = None) -> ReconcileResult:
+              ocr_pages: Iterable[int] | None = None,
+              ship_website_only: bool = False) -> ReconcileResult:
     """Apply R0-R8. Every candidate and every tile ends up in exactly one record,
     except unmatched ``listed`` items, which are returned separately.
 
@@ -1079,6 +1095,10 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             unmatched_listed.append(c)
             continue
         d = _deal_from_candidate(c, leaflet_id)
+        if ship_website_only and not d.is_quarantined and website_only_ok(c):
+            d.flag("website-only")
+            records.append(MatchRecord("api-only", d, c, None))
+            continue
         same_price = [t for t in free_tiles if t.new_price is not None
                       and t.new_price == c.new_price]
         hint = ("; same price, unrelated name: " + ", ".join(t.describe() for t in same_price)
