@@ -159,7 +159,9 @@ R7  API flags. Passed through as ``api:<flag>``. These quarantine because
     deletedPrice_differs, pct_inconsistent, old_price_not_higher,
     multiple_price_regions, no_name, no_price. A ``conditional`` price
     ("-80% na drugi kos", "2+1 gratis") quarantines as ``conditional-price``:
-    the number alone is not what one item costs. An API item with more than
+    the number alone is not what one item costs, UNLESS R7b
+    (``conditional_kind``) proves what it means from the numbers: then it
+    goes on through R4 like any other offer, with ``condition_kind`` set. An API item with more than
     one window in range quarantines as ``multiple-api-windows``.
     Informational flags (bonus_quantity, open_ended_window, ...) only flag.
 
@@ -678,6 +680,45 @@ def leaflet_units(t: LeafletTile) -> set[str]:
     return out
 
 
+_SECOND = re.compile(r"^\s*-\s*(\d{1,2})\s*%\s*na\s+drugi\s+kos\s*$", re.I)
+_BONUS_PACK = re.compile(r"^\s*(\d+)\s*\+\s*(\d+)\s*gratis\s*\*\*\s*$", re.I)
+_PACK_COUNT = re.compile(r"^\s*(\d+)\s*x\s*\d", re.I)
+
+
+def conditional_kind(c: LidlCandidate) -> tuple[str | None, str]:
+    """R7b: the conditional prices whose meaning can be proven from the numbers.
+
+    * "-P% na drugi kos": new is the second piece, old the first. Proven when
+      old > new and the printed P is Lidl's truncated badge for them (the R1
+      arithmetic: (1 - new/old) * 100 in [P, P+1)). kw39 Milka 1.99 / 0.39
+      (80.4%), chicken breast 2.29 / 0.99 (56.8%).
+    * "N+M gratis**": the ** footnote ("compared with our regular product")
+      marks a bonus PACK: one price for the pack as sold. Proven when the
+      packaging counts exactly N+M pieces ("14x95 g" for 10+4).
+    Anything else (a real multi-buy "13+5 gratis", "ob nakupu 2 kosov") is
+    not: the printed number is sometimes the bundle, sometimes one piece, and
+    on kw39 p10 sometimes a per-litre price. Returns (kind, condition text) or
+    (None, why not)."""
+    reason = c.conditional_reason or ""
+    if m := _SECOND.match(reason):
+        pct, new, old = Decimal(m.group(1)), c.new_price, c.old_price
+        if new is None or old is None:
+            return None, "second-item without both prices"
+        if not (0 < new < old):
+            return None, f"second-item prices not ordered: {old} / {new}"
+        implied = (1 - new / old) * 100
+        if not pct <= implied < pct + 1:
+            return None, f"second-item arithmetic fails: {old} -{pct}% != {new}"
+        return "second-item", f"-{pct}% na drugi kos"
+    if m := _BONUS_PACK.match(reason):
+        n, extra = int(m.group(1)), int(m.group(2))
+        pc = _PACK_COUNT.match(c.packaging or "")
+        if pc is None or int(pc.group(1)) != n + extra:
+            return None, f"bonus pack {n}+{extra} but packaging {c.packaging!r}"
+        return "bonus-pack", f"{n}+{extra} gratis"
+    return None, "price meaning not provable"
+
+
 def _deal_from_candidate(c: LidlCandidate, leaflet_id: str) -> Deal:
     start, end, multi = _window(c)
     d = Deal(
@@ -693,7 +734,14 @@ def _deal_from_candidate(c: LidlCandidate, leaflet_id: str) -> Deal:
         if f.startswith(QUARANTINE_API_FLAGS):
             d.quarantine(f"api-flag:{f}")
     if c.conditional:
-        d.quarantine(f"conditional-price:{c.conditional_reason}")
+        kind, why = conditional_kind(c)
+        if kind is None:
+            d.quarantine(f"conditional-price:{c.conditional_reason}: {why}")
+        else:
+            d.condition_kind = kind
+            d.condition = why
+            d.discount_published = None
+            d.flag(f"conditional-proven:{kind}")
     if multi:
         d.quarantine(f"multiple-api-windows:{c.windows}")
     return d

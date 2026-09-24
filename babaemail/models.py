@@ -63,6 +63,8 @@ def parse_price(raw: str | int | float | Decimal | None) -> Decimal | None:
     return value
 
 
+CONDITION_KINDS = ("second-item", "bonus-pack")
+
 CENT = Decimal("0.01")
 _MONEY_FIELDS = frozenset({"price_new", "price_old", "price_30day_low"})
 
@@ -121,6 +123,16 @@ class Deal:
     produce), so the email can never show 5.99 as the price of one piece.
     None means the price is for the item or pack as sold.
 
+    `condition_kind` says how to read a conditional price (`condition` has the
+    printed terms):
+      "second-item"  price_new is the price of the SECOND piece, price_old the
+                     first piece's full price ("-80% na drugi kos": 1.99, then
+                     0.39). discount_pct is the saving over the two pieces
+                     (40%, not the badge's 80%), so a filter never overstates it.
+      "bonus-pack"   price_new is the price of the pack as sold; `condition`
+                     says what is extra in it ("10+4 gratis"). No discount.
+    None means price_new is simply what the item or pack costs.
+
     `flags` carries quarantine reasons. A flagged Deal is still carried through
     the pipeline and surfaced to Aleks - never dropped (contract rule 4).
     """
@@ -137,6 +149,7 @@ class Deal:
     price_unit: str | None = None               # "kg" = prices are per kilogram
     discount_published: Decimal | None = None   # the retailer's own badge
     condition: str | None = None                # e.g. "ob nakupu 2 kosov ali vec"
+    condition_kind: str | None = None           # see CONDITION_KINDS
     loyalty_required: str | None = None         # e.g. "Tus klub", "SPAR plus"
     price_30day_low: Decimal | None = None      # PC30 / PC - legally required in SI
     brand: str | None = None
@@ -153,6 +166,9 @@ class Deal:
             value = money(value, name)
         elif name == "price_unit" and value not in (None, "kg"):
             raise ValueError(f"price_unit must be None or 'kg', got {value!r}")
+        elif name == "condition_kind" and value not in (None, *CONDITION_KINDS):
+            raise ValueError(f"condition_kind must be None or one of {CONDITION_KINDS}, "
+                             f"got {value!r}")
         object.__setattr__(self, name, value)
 
     @property
@@ -162,6 +178,10 @@ class Deal:
         Falls back to computing it from old and new price. Returns None when
         the retailer published neither - we never guess a discount.
         """
+        if self.condition_kind == "second-item":
+            if self.price_old is None or self.price_new is None or self.price_old <= 0:
+                return None
+            return (self.price_old - self.price_new) / (2 * self.price_old) * 100
         if self.discount_published is not None:
             return self.discount_published
         if self.price_old is None or self.price_new is None or self.price_old <= 0:

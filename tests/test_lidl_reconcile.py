@@ -1,5 +1,6 @@
 """Reconciliation rules, one synthetic case per rule (see lidl_reconcile docstring)."""
 
+import dataclasses
 from datetime import date
 from decimal import Decimal as D
 
@@ -240,12 +241,64 @@ def test_informational_flags_pass_through_without_quarantine():
     assert not d.is_quarantined and "api:bonus_quantity" in d.flags
 
 
-def test_conditional_price_quarantines():
+def test_second_item_deal_ships_when_the_arithmetic_holds():
+    # kw39 Milka: first bar 1.99, second 0.39 = -80.4%, badge "-80%"
     res = run([cand("1", "Čokolada", "0.39", "1.99", lp=True, conditional="-80% na drugi kos")],
               [vlm(1, "MILKA Čokolada", "0.39", lp=True)])
     d = by_erp(res, "1")
-    assert any("conditional-price" in r for r in reasons(d))
-    assert d.condition == "-80% na drugi kos"
+    assert not d.is_quarantined
+    assert (d.condition_kind, d.condition) == ("second-item", "-80% na drugi kos")
+    assert (d.price_new, d.price_old, d.discount_published) == (D("0.39"), D("1.99"), None)
+    assert d.discount_display == 40          # over two bars, never the badge's 80
+
+
+def test_second_item_deal_with_truncated_badge_ships():
+    # kw39 chicken breast: 2.29 / 0.99 is -56.8%, Lidl prints "-56%"
+    res = run([cand("1", "Piščančje prsi", "0.99", "2.29", lp=True, conditional="-56% na drugi kos")],
+              [vlm(38, "Piščančje prsi", "0.99", lp=True)])
+    assert not by_erp(res, "1").is_quarantined
+
+
+def test_second_item_deal_with_wrong_arithmetic_is_quarantined():
+    res = run([cand("1", "Čokolada", "0.59", "1.99", lp=True, conditional="-80% na drugi kos")],
+              [vlm(1, "MILKA Čokolada", "0.59", lp=True)])
+    d = by_erp(res, "1")
+    assert any("second-item arithmetic fails" in r for r in reasons(d))
+    assert d.condition_kind is None
+
+
+def test_second_item_deal_without_old_price_is_quarantined():
+    res = run([cand("1", "Čokolada", "0.39", lp=True, conditional="-80% na drugi kos")],
+              [vlm(1, "MILKA Čokolada", "0.39", lp=True)])
+    assert any("conditional-price" in r for r in reasons(by_erp(res, "1")))
+
+
+def bonus(erp, title, price, reason, packaging):
+    return dataclasses.replace(cand(erp, title, price, conditional=reason), packaging=packaging)
+
+
+def test_bonus_pack_ships_when_the_pack_counts_n_plus_m():
+    res = run([bonus("1", "Kokošja pašteta XXL", "14.99", "10+4 gratis**", "14x95 g")],
+              [vlm(35, "ARGETA Kokošja pašteta XXL", "14.99")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert (d.condition_kind, d.condition, d.price_new) == ("bonus-pack", "10+4 gratis", D("14.99"))
+    assert d.discount_pct is None
+
+
+def test_bonus_pack_with_other_pack_count_is_quarantined():
+    res = run([bonus("1", "Kokošja pašteta XXL", "14.99", "10+4 gratis**", "12x95 g")],
+              [vlm(35, "ARGETA Kokošja pašteta XXL", "14.99")])
+    assert any("bonus pack 10+4" in r for r in reasons(by_erp(res, "1")))
+
+
+def test_real_multibuy_stays_quarantined():
+    # kw39 Argus "13+5 gratis" (no **): 10.27 is the price of 18 cans; on p10
+    # "2+1 gratis" 0.76 is a per-litre price. The number's meaning is not provable.
+    res = run([bonus("1", "Argus Premium lager pivo", "10.27", "13+5 gratis", "0,5 l")],
+              [vlm(35, "ARGUS Svetlo pivo", "10.27", lp=False)])
+    d = by_erp(res, "1")
+    assert any("price meaning not provable" in r for r in reasons(d))
 
 
 # ---------------------------------------------------------------- dates
