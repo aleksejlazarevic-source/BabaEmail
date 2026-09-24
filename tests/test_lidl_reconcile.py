@@ -350,6 +350,66 @@ def test_ocr_and_vlm_prices_differ_are_two_unverified_tiles():
     assert len(leaflet_only(res)) == 2 and all(d.is_quarantined for d in res.deals)
 
 
+# R8b: a tile that prints only a price (no old price, no badge)
+
+def bare(page, price, name, badge=None, old=None, pct=None):
+    """OCR reading carrying the adapter's raw record, so 'saw no badge' is known."""
+    return LeafletReading("ocr", page, D(price), D(old) if old else None,
+                          D(pct) if pct else None, lidl_plus=False, name=name,
+                          bbox=(0, 0, 100, 100), raw={"badge": badge})
+
+
+def test_plain_price_tile_ships_without_old_price():
+    res = run([], [vlm(11, "LAŠKO Svetlo pivo", "4.19"), bare(11, "4.19", "LAŠKO Svetlo pivo")],
+              page_validity={11: WEEK})
+    [d] = leaflet_only(res)
+    assert not d.is_quarantined
+    assert (d.price_new, d.price_old, d.discount_published) == (D("4.19"), None, None)
+    assert "leaflet-only-confirmed:ocr+vlm:no-old-price" in d.flags
+
+
+def test_plain_price_tile_with_a_badge_stays_quarantined():
+    # FRUC "Z Lidl Plus 4+2 gratis": a flag badge, the price is per pack of 6
+    res = run([], [vlm(35, "FRUC Napitek pomaranča-limona", "6.56"),
+                   bare(35, "6.56", "FRUC Napitek pomaranča-limona", badge="flag")],
+              page_validity={35: WEEK})
+    assert "not reconciled" in reasons(leaflet_only(res)[0])[0]
+
+
+def test_plain_price_tile_needs_product_words_not_just_the_brand():
+    # every Vitasia tile starts "VITASIA": a shared brand does not tie OCR to the tile
+    res = run([], [vlm(44, "VITASIA Riževi rezanci", "0.99"),
+                   bare(44, "0.99", "VITASIA Stekleni juha")], page_validity={44: WEEK})
+    assert all(d.is_quarantined for d in res.deals)
+
+
+def test_plain_price_tile_one_generic_ocr_word_is_not_enough():
+    res = run([], [vlm(24, "SILVERCREST Komplet paličnega mešalnika", "19.99"),
+                   bare(24, "19.99", "kompl")], page_validity={24: WEEK})
+    assert all(d.is_quarantined for d in res.deals)
+
+
+def test_plain_price_tile_one_word_product_is_enough():
+    res = run([], [vlm(45, "VITASIA Liči", "1.89"), bare(45, "1.89", "VITASIA Liči")],
+              page_validity={45: WEEK})
+    [d] = leaflet_only(res)
+    assert not d.is_quarantined
+
+
+def test_plain_price_tile_needs_the_adapter_record():
+    # no raw record: OCR's opinion on the badge is unknown
+    res = run([], [vlm(11, "LAŠKO Svetlo pivo", "4.19"), ocr(11, "4.19", name="LAŠKO Svetlo pivo")],
+              page_validity={11: WEEK})
+    assert all(d.is_quarantined for d in res.deals)
+
+
+def test_plain_price_tile_where_ocr_read_an_old_price_is_not_plain():
+    res = run([], [vlm(11, "LAŠKO Svetlo pivo", "4.19"),
+                   bare(11, "4.19", "LAŠKO Svetlo pivo", badge="discount", old="5.99", pct="20")],
+              page_validity={11: WEEK})
+    assert all(d.is_quarantined for d in res.deals)
+
+
 def test_tile_without_price_is_kept_and_quarantined():
     [d] = leaflet_only(run([], [vlm(4, "Knorr juhe", None)]))
     assert "leaflet-no-price" in reasons(d)[0]

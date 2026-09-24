@@ -173,6 +173,14 @@ R8  Leaflet-only tiles (no API partner):
         API items on that page, all with one identical window (flag
         ``page-validity-inferred-from-api``). A tile's own EARLIER "velja do"
         date still shortens it.
+      - R8b, a tile that prints only a price (many Lidl tiles have no old
+        price or badge at all: kw39 Coca-Cola 3.99, Laško 4.19, Vitasia
+        Gyoza 2.69): the same, with "OCR old/% reconciled" replaced by
+        ``plain_price_tile``: OCR joined the tile by its own name text and saw
+        no badge and no old/%. Ships with no old price, flagged
+        ``leaflet-only-confirmed:ocr+vlm:no-old-price``. A tile whose OCR
+        name is missing, or whose OCR saw any badge (a "4+2 gratis" flag is a
+        badge), stays quarantined.
       - Otherwise quarantined: ``leaflet-only-unverified`` (VLM alone, OCR
         alone, or OCR not reconciled), ``leaflet-only-no-validity``,
         ``leaflet-no-price`` (a tile reported without a readable price), or
@@ -238,6 +246,14 @@ def from_vlm(r: VlmReading) -> LeafletReading:
                           valid_to_text=r.valid_to_text, unit=r.unit, raw=r.raw)
 
 
+def ocr_saw_bare_price(r: LeafletReading) -> bool:
+    """An OCR reading of a tile that prints ONLY a price: OCR looked for a
+    badge and found none (``raw["badge"] is None``) and read no old price or %.
+    A reading without that record (no ``raw``) has no opinion: False."""
+    return (r.source == "ocr" and isinstance(r.raw, dict) and "badge" in r.raw
+            and r.raw["badge"] is None and r.old_price is None and r.pct is None)
+
+
 def ocr_reconciled(r: LeafletReading) -> bool:
     """R1: old, new and the printed (truncated) % agree."""
     if r.source != "ocr" or None in (r.new_price, r.old_price, r.pct):
@@ -256,6 +272,10 @@ class LeafletTile:
     page: int | None
     new_price: Decimal | None
     readings: list[LeafletReading]
+    # True when an OCR reading joined this VLM tile because its OWN text shares
+    # a PRODUCT word (not a brand word) with the VLM name, not merely as the
+    # last leftover pair: the name then has two independent readers too.
+    ocr_name_paired: bool = False
 
     @property
     def sources(self) -> tuple[str, ...]:
@@ -494,6 +514,28 @@ def suspect_repeats(tiles: Sequence[LeafletTile]) -> set[int]:
     return {i for g in groups.values() if len(g) >= SUSPECT_REPEAT for i in g}
 
 
+def _share_product_word(a: str | None, b: str | None) -> bool:
+    """The two names share two product words, or the one word of a one-word
+    product ("VITASIA Liči"). Brand words do not count: every tile on a Vitasia
+    page starts "VITASIA". One generic word does not count either: an OCR name
+    read as just "kompl" or "omaka" fits half the page."""
+    brand = set(_stems(split_leaflet_name(a)[0])) | set(_stems(split_leaflet_name(b)[0]))
+    pa = [x for x in _stems(a) if x not in brand]
+    pb = [x for x in _stems(b) if x not in brand]
+    need = min(2, max(len(pa), len(pb)))
+    return need > 0 and _shared(pa, pb) >= need
+
+
+def plain_price_tile(t: LeafletTile) -> bool:
+    """R8b: a tile both readers saw, with no old price or badge to reconcile.
+    The OCR reading must have joined the VLM tile by its OWN name text
+    (``ocr_name_paired``), so price AND product each have two readers, and
+    every OCR reading on it must have seen a bare price (no badge, no old/%)."""
+    ocr = [r for r in t.readings if r.source == "ocr"]
+    return (t.ocr_name_paired and bool(ocr)
+            and all(ocr_saw_bare_price(r) and r.new_price == t.new_price for r in ocr))
+
+
 def build_tiles(readings: Iterable[LeafletReading]) -> list[LeafletTile]:
     by_page: dict[int | None, list[LeafletReading]] = {}
     for r in readings:
@@ -531,6 +573,7 @@ def build_tiles(readings: Iterable[LeafletReading]) -> list[LeafletTile]:
                         best = max(scored, key=lambda x: x[0])[1]
                 if best is not None:
                     best.readings.append(r)
+                    best.ocr_name_paired = _share_product_word(r.name, best.name)
                     free.remove(best)
                 else:
                     unpaired.append(r)
@@ -978,7 +1021,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                          f"{t.page} share this price and first word ({t.describe()})")
         elif dup is not None:
             d.quarantine(f"leaflet-duplicate-of:{dup} ({t.describe()})")
-        elif not (set(t.sources) == {"ocr", "vlm"} and op is not None
+        elif not (set(t.sources) == {"ocr", "vlm"}
+                  and (op is not None or plain_price_tile(t))
                   and len(t.lidl_plus_votes) == 1
                   and all(r.lidl_plus is not None for r in t.readings)):
             what = ("single reader" if len(t.sources) == 1
@@ -989,9 +1033,12 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             d.quarantine(f"leaflet-only-no-validity: page {t.page} validity unknown "
                          f"({t.describe()})")
         else:
-            d.price_old, d.discount_published = op
+            if op is not None:
+                d.price_old, d.discount_published = op
+                d.flag("leaflet-only-confirmed:ocr+vlm")
+            else:
+                d.flag("leaflet-only-confirmed:ocr+vlm:no-old-price")
             d.valid_from, d.valid_to = pv
-            d.flag("leaflet-only-confirmed:ocr+vlm")
             if pv_inferred:
                 d.flag(f"page-validity-inferred-from-api:{pv[0]}..{pv[1]}")
             tile_end = parse_tile_date(t.valid_to_text, year)
