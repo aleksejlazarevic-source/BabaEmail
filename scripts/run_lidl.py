@@ -80,6 +80,7 @@ def main() -> int:
                    "quarantine_reasons": dict(reasons.most_common())},
         "shipped": [dataclasses.asdict(d) for d in shipped],
         "quarantined": [dataclasses.asdict(d) for d in quarantined],
+        "notices": [dataclasses.asdict(n) for n in res.notices],
         "unmatched_listed": [{"erp": c.erp, "name": c.name, "price": c.new_price}
                              for c in (rr.unmatched_listed if rr else [])],
     }
@@ -98,9 +99,16 @@ def main() -> int:
         "quarantine reasons (an item can have several):",
         *[f"  {n:>4}  {k}" for k, n in reasons.most_common()],
         "",
+        "notices:",
+        *[f"  p{n.page} {n.kind}: " + (n.text if n.proven else f"HELD BACK ({n.reason})")
+          for n in res.notices],
+        *(["  none"] if not res.notices else []),
+        "",
         "shipped:",
-        *[f"  p{d.source_page or '?':<3} {d.price_new!s:>7}"
-          + (f" (was {d.price_old}, -{d.discount_published}%)" if d.price_old else "")
+        *[f"  p{d.source_page or '?':<3} {d.price_new!s:>7}{'/kg' if d.price_unit == 'kg' else ''}"
+          + (f" [{d.condition}, 1st {d.price_old}]" if d.condition_kind == "second-item"
+             else f" [{d.condition}]" if d.condition_kind
+             else f" (was {d.price_old}, -{d.discount_display}%)" if d.price_old else "")
           + f"{'  [Lidl Plus]' if d.loyalty_required else ''}  {d.name}  {d.valid_from}..{d.valid_to}"
           for d in sorted(shipped, key=lambda d: (d.source_page or 0, d.name))],
     ]

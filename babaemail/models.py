@@ -217,6 +217,25 @@ class Deal:
 
 
 @dataclass(slots=True)
+class Notice:
+    """A leaflet announcement with no product and no price ("Senior dan":
+    pensioners get 10 % off on 30. 9.). Shown only when ``proven``; otherwise
+    kept, with ``reason``, like a quarantined Deal (contract rule 4).
+    ``text`` is the Slovenian sentence the email shows, built only from
+    proven values; ``evidence`` is the printed text it was read from."""
+
+    retailer: str
+    kind: str                       # e.g. "senior-day"
+    page: int
+    day: date | None
+    pct: int | None
+    proven: bool
+    reason: str
+    text: str | None = None
+    evidence: str = ""
+
+
+@dataclass(slots=True)
 class SourceResult:
     """What one retailer adapter returns for one run.
 
@@ -238,6 +257,7 @@ class SourceResult:
     pages_parsed: int | None = None
     error: str | None = None
     raw_snapshot: Path | None = None
+    notices: list[Notice] = field(default_factory=list)   # never gate `contributes`
 
     @property
     def contributes(self) -> bool:

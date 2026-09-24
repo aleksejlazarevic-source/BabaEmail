@@ -14,6 +14,7 @@ So a deal ships only when the printed leaflet confirms it. The pipeline:
   2. the PDF, every page rendered at zoom 3
   3. classical OCR on every page (this module + ocr.py), in parallel
      processes: exact new prices, old price / % only when they reconcile
+     3b. plain page text for notices such as "Senior dan" (lidl_notices.py)
   4. the local VLM on every page (vlm.py, ollama, cached on disk): names,
      Lidl Plus, tile-level "velja do" dates
   5. lidl.si's own offer API over the leaflet window (lidl_api.py)
@@ -41,8 +42,9 @@ from __future__ import annotations
 import logging
 import os
 import re
+import subprocess
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
 from datetime import date
@@ -52,7 +54,7 @@ import httpx
 import numpy as np
 import pymupdf
 
-from .. import lidl_api, ocr, vlm
+from .. import lidl_api, lidl_notices, ocr, vlm
 from ..lidl_reconcile import LeafletReading, ReconcileResult, from_vlm, reconcile
 from ..models import SourceResult, SourceStatus
 from ..ocr import Blob, OcrUnavailable, PriceStructure
@@ -155,6 +157,20 @@ class Lidl(Source):
         missing = [p for p in pages if p not in ocr_readings]
         if missing:
             return res.fail(SourceStatus.PARSE_FAILED, f"ocr returned nothing for pages {missing}")
+
+        # 3b. notices (Senior dan, ...): plain page text. Optional: a failure
+        # here costs the notices, never the deals, and is recorded in stats.
+        t0 = time.monotonic()
+        try:
+            res.notices = self._read_notices(pngs, (meta["valid_from"], meta["valid_to"]))
+            for n in res.notices:
+                n.retailer = self.name
+        except (ocr.OcrUnavailable, OSError, subprocess.SubprocessError) as exc:
+            stats["notices_error"] = repr(exc)
+            log.warning("notices not read: %r", exc)
+        stats["notices_s"] = round(time.monotonic() - t0, 1)
+        stats["notices"] = [f"p{n.page} {n.kind} {'proven' if n.proven else 'held: ' + n.reason}"
+                            for n in res.notices]
 
         # 4. VLM, every page
         vlm_readings: dict[int, list[LeafletReading]] = {}
@@ -276,6 +292,14 @@ class Lidl(Source):
                 ex.shutdown(wait=False, cancel_futures=True)
                 raise
         return out
+
+    def _read_notices(self, pngs: dict[int, bytes],
+                      window: tuple[date, date | None]) -> list:
+        """Page text for every page (Tesseract, threads: it is a subprocess),
+        then lidl_notices.find_notices."""
+        with ThreadPoolExecutor(max_workers=min(self.ocr_workers, len(pngs))) as ex:
+            texts = dict(zip(pngs, ex.map(lidl_notices.page_text, pngs.values())))
+        return lidl_notices.find_notices(texts, window)
 
     def _read_vlm(self, pngs: dict[int, bytes],
                   ocr_readings: dict[int, list[LeafletReading]]) -> dict[int, list[LeafletReading]]:

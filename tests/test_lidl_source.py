@@ -6,7 +6,7 @@ from decimal import Decimal as D
 
 import pytest
 
-from babaemail import lidl_api, ocr, vlm
+from babaemail import lidl_api, lidl_notices, ocr, vlm
 from babaemail.lidl_api import CandidateList, LidlApiError, LidlCandidate
 from babaemail.lidl_reconcile import LeafletReading
 from babaemail.models import SourceStatus
@@ -92,6 +92,12 @@ def world(monkeypatch):
         assert (a, b) == WEEK, "the API window must be the leaflet's own window"
         return CandidateList(w["cands"], no_signal=[], no_price=[], stats={})
     monkeypatch.setattr(lidl_api, "fetch_candidates", fetch_candidates)
+
+    def page_text(png):
+        if isinstance(w.get("texts"), Exception):
+            raise w["texts"]
+        return (w.get("texts") or {}).get(png, "")
+    monkeypatch.setattr(lidl_notices, "page_text", page_text)
     return w
 
 
@@ -272,3 +278,24 @@ def test_session_autostart_off(monkeypatch):
     with pytest.raises(vlm.VlmUnavailable, match="autostart disabled"):
         with vlm.ollama_session("m", "http://127.0.0.1:11434", autostart=False):
             pass
+
+
+SENIOR_TEXT = ("Upokojenci ga lahko izkoristite ob nakupu na dan 30. 9. 2026 v vseh Lidlovih "
+               "trgovinah. Kupec ... prejme 10 % popust na posamezen nakup. Uveljavljanje "
+               "popusta: 10 % popust je mogoče uveljaviti zgolj na nakup, opravljen na ta dan.")
+
+
+def test_notices_are_read_and_attached(world):
+    world["texts"] = {PNGS[max(PNGS)]: SENIOR_TEXT}
+    res = Lidl(vlm_model="m:1", ollama_url="http://127.0.0.1:1").fetch(TODAY)
+    assert res.contributes
+    [n] = res.notices
+    assert n.proven and n.retailer == res.retailer and n.page == max(PNGS)
+
+
+def test_notice_failure_costs_the_notices_never_the_deals(world):
+    world["texts"] = ocr.OcrUnavailable("no tesseract")
+    lidl = Lidl(vlm_model="m:1", ollama_url="http://127.0.0.1:1")
+    res = lidl.fetch(TODAY)
+    assert res.contributes and res.notices == []
+    assert "no tesseract" in lidl.last_stats["notices_error"]
