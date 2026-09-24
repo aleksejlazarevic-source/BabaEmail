@@ -742,3 +742,23 @@ def test_backed_tile_wins_the_api_item_over_an_unbacked_duplicate():
 def test_r0c_is_off_without_ocr_pages():
     res = run([], [vlm(5, "Rezanci", "1.99")], listed=[cand("9", "Rezanci", "1.99")])
     assert not by_erp(res, "9").is_quarantined
+
+
+# ---------------------------------------------------------------- R2 typo tier
+
+def test_one_missing_letter_still_verifies():
+    res = run([cand("1", "Sveži kunec", "8.99")], [vlm(38, "OLIVIA Sveži kunc", "8.99")])
+    assert not by_erp(res, "1").is_quarantined
+    res = run([cand("2", "Masleni rogljiček", "0.29", "0.42", "30")],
+              [vlm(6, "Masleni rogliček", "0.29")])
+    assert not by_erp(res, "2").is_quarantined
+
+
+def test_a_changed_letter_is_a_different_product():
+    res = run([cand("1", "Piščančje mleko", "1.99")], [vlm(3, "Piščančje mleto", "1.99")])
+    assert any("not-in-leaflet-reading" in r for r in reasons(by_erp(res, "1")))
+
+
+def test_typo_tier_needs_the_same_number_of_words():
+    res = run([cand("1", "Sveži kunec", "8.99")], [vlm(38, "Sveži kunc s prilogo", "8.99")])
+    assert any("not-in-leaflet-reading" in r for r in reasons(by_erp(res, "1")))

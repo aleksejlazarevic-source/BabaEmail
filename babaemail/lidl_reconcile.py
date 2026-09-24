@@ -85,6 +85,10 @@ R2  Name match. Names are compared after stripping diacritics, case-folding,
       BRAND-DIFFERS  the product words are identical on both sides but the
               brands contradict ("PILOS Kavni napitek" vs API "Bellarom Kavni
               napitek"; "DULANO" vs "Dal Salumiere" panceta). Exact price only.
+      TYPO    no other tier, but the same words in the same order, at least
+              one of them with exactly one letter missing on one side ("Sveži
+              kunc" / "Sveži kunec"). Scored as STRONG, below any exact one. A
+              CHANGED letter never counts ("mleko" is milk, "mleto" minced).
       When the brands contradict and the product words are NOT identical, it is
       no match ("PICKIES Piščančja prekajena klobasa" vs "Pikok Hribovska
       piščančja klobasa" share two words but are different products).
@@ -468,7 +472,43 @@ def name_match(tile: LeafletTile, cand: LidlCandidate) -> NameMatch:
         return NameMatch("none", 0.0)       # "PICKIES ... piščančja klobasa" vs "Pikok ..."
     if t_brand and c_brand and sorted(t_brand) == sorted(c_brand):
         return NameMatch("brand", 0.5)
+    if _typo_same(tile.name, cand.title or cand.name, c_brand):
+        return NameMatch("strong", 1.0)     # below every exact STRONG score (> 1)
     return NameMatch("none", 0.0)
+
+
+def _words(text: str | None, drop: Sequence[str] = ()) -> list[str]:
+    """Whole folded words (not 5-letter stems), function words and brand stems dropped."""
+    return [w for w in _TOKEN.findall(fold(text or ""))
+            if w not in _STOP and len(w) >= 3 and not w.isdigit() and w[:_STEM] not in drop]
+
+
+def _one_letter_missing(a: str, b: str) -> bool:
+    """b is a with exactly one letter left out, or the other way round.
+    Never a changed letter: "mleko" (milk) vs "mleto" (minced) must not match."""
+    if len(a) < len(b):
+        a, b = b, a
+    if len(a) != len(b) + 1 or len(b) < 4:
+        return False
+    return any(a[:i] + a[i + 1:] == b for i in range(len(a)))
+
+
+def _typo_same(tile_name: str | None, api_name: str | None, api_brand: Sequence[str]) -> bool:
+    """R2 typo tier: the same words on both sides, in order, where at least one
+    word differs by exactly one missing letter (kw39: the VLM's "Sveži kunc"
+    for "Sveži kunec", "Masleni rogliček" for "Masleni rogljiček")."""
+    brand = list(api_brand) + _stems(split_leaflet_name(tile_name)[0])
+    a, b = _words(tile_name, brand), _words(api_name, brand)
+    if not a or len(a) != len(b):
+        return False
+    typos = 0
+    for x, y in zip(a, b):
+        if x == y:
+            continue
+        if not _one_letter_missing(x, y):
+            return False
+        typos += 1
+    return typos >= 1
 
 
 # ======================================================================
