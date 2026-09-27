@@ -218,6 +218,41 @@ def test_leaflet_price_overrules_the_api_when_both_readers_prove_it():
     assert "leaflet-over-api:1 api 6.49" in d.flags
 
 
+def test_leaflet_price_conflict_uses_complete_name_in_ocr_tile_text():
+    # kw39 p15: OCR selected the variant line "Sensitive" as its short name,
+    # but independently read the complete product name in the same tile text.
+    printed = LeafletReading(
+        "ocr", 15, D("5.89"), lidl_plus=False, name="Sensitive",
+        bbox=(0, 0, 100, 100), raw={"badge": None},
+        text=("za 130 pranj", "SILAN", "Mehčalec", "za perilo", "Sensitive"),
+    )
+    res = run(
+        [cand("1", "Mehčalec za perilo", "5.59", "7.99", "30", brand="SILAN")],
+        [vlm(15, "SILAN Mehčalec za perilo", "5.89"), printed],
+        page_validity={15: WEEK},
+    )
+    assert by_erp(res, "1").is_quarantined
+    [d] = [d for d in leaflet_only(res) if not d.is_quarantined]
+    assert (d.name, d.price_new, d.price_old, d.discount_published) == \
+           ("SILAN Mehčalec za perilo", D("5.89"), None, None)
+    assert d.loyalty_required is None
+    assert "leaflet-over-api:1 api 5.59" in d.flags
+    assert "leaflet-only-confirmed:ocr+vlm:no-old-price" in d.flags
+
+
+def test_ocr_tile_text_name_proof_requires_the_complete_vlm_name():
+    printed = LeafletReading(
+        "ocr", 15, D("5.89"), lidl_plus=False, name="Sensitive",
+        bbox=(0, 0, 100, 100), raw={"badge": None},
+        text=("SILAN", "Mehčalec", "Sensitive"),
+    )
+    res = run([], [vlm(15, "SILAN Mehčalec za perilo", "5.89"), printed],
+              page_validity={15: WEEK})
+    [d] = leaflet_only(res)
+    assert d.is_quarantined
+    assert "name has one reader" in reasons(d)[0]
+
+
 def test_leaflet_old_price_fills_a_missing_api_one():
     # kw39 p9 Culinea: API 3.99 with no old price; the leaflet prints 5.49 / -27%
     res = run([cand("1", "Piščančje perutničke", "3.99", brand="Culinea")],

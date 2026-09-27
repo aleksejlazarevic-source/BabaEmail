@@ -240,8 +240,9 @@ R8  Leaflet-only tiles (no API partner):
       - R8b, a tile that prints only a price (many Lidl tiles have no old
         price or badge at all: kw39 Coca-Cola 3.99, Laško 4.19, Vitasia
         Gyoza 2.69): the same, with "OCR old/% reconciled" replaced by
-        ``plain_price_tile``: OCR joined the tile by its own name text and saw
-        no badge and no old/%. Ships with no old price, flagged
+        ``plain_price_tile``: OCR joined the tile by its selected name, or its
+        tile-owned text contains the VLM's complete normalized name in order,
+        and OCR saw no badge and no old/%. Ships with no old price, flagged
         ``leaflet-only-confirmed:ocr+vlm:no-old-price``. A tile whose OCR
         name is missing, or whose OCR saw any badge (a "4+2 gratis" flag is a
         badge), stays quarantined.
@@ -669,13 +670,31 @@ def _share_product_word(a: str | None, b: str | None) -> bool:
     return need > 0 and _shared(pa, pb) >= need
 
 
+def _ocr_text_proves_name(r: LeafletReading, name: str | None) -> bool:
+    """The complete VLM name occurs, in order, in this tile's OCR-owned text.
+
+    OCR's name selector can choose a nearby variant line (kw39 p15: ``Sensitive``)
+    even though its full tile text independently read ``SILAN Mehčalec za perilo``.
+    Exact normalized containment is deliberately stronger than the fuzzy name
+    pairing used elsewhere: this proof is allowed to make a bare-price tile ship.
+    """
+    wanted = _TOKEN.findall(fold(name or ""))
+    seen = _TOKEN.findall(fold(" ".join(r.text)))
+    return (r.source == "ocr" and bool(wanted)
+            and any(seen[i:i + len(wanted)] == wanted
+                    for i in range(len(seen) - len(wanted) + 1)))
+
+
 def plain_price_tile(t: LeafletTile) -> bool:
     """R8b: a tile both readers saw, with no old price or badge to reconcile.
-    The OCR reading must have joined the VLM tile by its OWN name text
-    (``ocr_name_paired``), so price AND product each have two readers, and
-    every OCR reading on it must have seen a bare price (no badge, no old/%)."""
+    OCR must prove the VLM name through its selected name (``ocr_name_paired``)
+    or an exact complete-name occurrence in its tile-owned text, so price AND
+    product each have two readers. Every OCR reading must have seen a bare
+    price (no badge, no old/%)."""
     ocr = [r for r in t.readings if r.source == "ocr"]
-    return (t.ocr_name_paired and bool(ocr)
+    name_proven = (t.ocr_name_paired
+                   or bool(ocr) and all(_ocr_text_proves_name(r, t.name) for r in ocr))
+    return (name_proven and bool(ocr)
             and all(ocr_saw_bare_price(r) and r.new_price == t.new_price for r in ocr))
 
 
