@@ -8,8 +8,8 @@ import pytest
 
 from babaemail.lidl_api import LidlCandidate
 from babaemail.lidl_reconcile import (
-    LeafletReading, build_tiles, fold, from_vlm, ocr_reconciled, parse_tile_date,
-    reconcile, split_leaflet_name,
+    LeafletReading, agreed_leaflet_name, build_tiles, fold, from_vlm,
+    ocr_reconciled, parse_tile_date, reconcile, split_leaflet_name,
 )
 from babaemail.vlm import VlmReading
 
@@ -86,7 +86,7 @@ def test_brand_only_match_sarenka_vs_postrv_ships_with_ocr_corroboration():
     assert any(f.startswith("name-match:brand-only") for f in d.flags)
 
 
-def test_both_reader_names_replace_api_name_with_vlm_spelling():
+def test_genuinely_different_confirmed_name_replaces_api_name():
     res = run([cand("1", "Sveža postrv", "4.69", "5.69", "17", lp=True,
                     brand="Naša ribarnica")],
               [vlm(3, "NAŠA RIBARNICA Sveže šarenka", "4.69", lp=True),
@@ -98,6 +98,23 @@ def test_both_reader_names_replace_api_name_with_vlm_spelling():
     assert "name-from-leaflet:ocr+vlm (api name 'Naša ribarnica Sveža postrv')" in d.flags
 
 
+def test_shared_product_word_keeps_api_spelling():
+    res = run([cand("1", "Jesenska vresa", "5.49")],
+              [vlm(17, "Jesenjska vresa", "5.49"),
+               ocr(17, "5.49", name="Jesenska vresa")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert d.name == "Jesenska vresa"
+    assert not any(f.startswith("name-from-leaflet:") for f in d.flags)
+
+
+def test_shared_product_word_without_explicit_api_brand_keeps_api_name():
+    res = run([cand("1", "Pivo Tsingtao", "5.99")],
+              [vlm(51, "TSINGTAO Pivo Lager", "5.99"),
+               ocr(51, "5.99", name="TSINGTAO Pivo Lager")])
+    assert by_erp(res, "1").name == "Pivo Tsingtao"
+
+
 def test_one_reader_name_keeps_api_name():
     res = run([cand("1", "Sveža postrv", "4.69", "5.69", "17", lp=True,
                     brand="Naša ribarnica")],
@@ -106,13 +123,20 @@ def test_one_reader_name_keeps_api_name():
     assert by_erp(res, "1").name == "Naša ribarnica Sveža postrv"
 
 
-def test_brand_only_leaflet_names_keep_api_name():
-    res = run([cand("1", "VITASIA", "1.29", "1.99", "35")],
-              [vlm(3, "VITASIA", "1.29"),
-               ocr(3, "1.29", "1.99", "35", name="VITASIA")])
+def test_brand_only_leaflet_name_never_replaces_api_name():
+    c = cand("1", "Sladka čilijeva omaka", "1.99", brand="VITASIA")
+    [t] = build_tiles([vlm(43, "VITASIA", "1.99"),
+                       ocr(43, "1.99", name="VITASIA")])
+    assert agreed_leaflet_name(t, c) is None
+
+
+def test_brand_only_api_uses_product_name_partially_confirmed_by_ocr():
+    res = run([cand("1", "VITASIA", "1.99", "2.99", "33")],
+              [vlm(43, "VITASIA Sladka čilijeva omaka", "1.99"),
+               ocr(43, "1.99", "2.99", "33", name="omaka")])
     d = by_erp(res, "1")
     assert not d.is_quarantined
-    assert d.name == "VITASIA"
+    assert d.name == "VITASIA Sladka čilijeva omaka"
 
 
 def test_brand_only_match_without_corroboration_is_not_a_pair():

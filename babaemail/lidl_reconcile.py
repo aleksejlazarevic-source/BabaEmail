@@ -1100,6 +1100,15 @@ def api_triple_reconciles(c: LidlCandidate) -> bool:
 
 
 _FURNITURE = re.compile(r"(\s+(nepakirano|za\s+kg|za\s+kos))+\s*$", re.I)
+_DISPLAY_CATEGORY_WORDS = frozenset({"pivo"})
+
+
+def _display_product_stems(name: str | None, api_brand: Sequence[str]) -> list[str]:
+    """Product stems in a printed name, excluding its/API brand line."""
+    printed_brand, printed_product = split_leaflet_name(name)
+    brand = set(api_brand) | set(_stems(printed_brand))
+    text = printed_product if printed_brand else name
+    return [s for s in _stems(text) if s not in brand]
 
 
 def agreed_leaflet_name(t: LeafletTile, c: LidlCandidate) -> str | None:
@@ -1107,8 +1116,10 @@ def agreed_leaflet_name(t: LeafletTile, c: LidlCandidate) -> str | None:
 
     The VLM supplies the spelling. OCR must independently name the same product;
     a shared brand alone is never enough. A name containing only the matched
-    API brand is also not a product name. Trailing leaflet furniture belongs in
-    the unit fields, not the display name.
+    API brand is also not a product name. The API name is retained when it
+    already shares a meaningful product word with the printed name: in that
+    case lidl.si is the spelling authority. Trailing leaflet furniture belongs
+    in the unit fields, not the display name.
     """
     by_source = {
         src: list(dict.fromkeys(r.name.strip() for r in t.readings
@@ -1118,18 +1129,28 @@ def agreed_leaflet_name(t: LeafletTile, c: LidlCandidate) -> str | None:
     if any(len(by_source[src]) != 1 for src in by_source):
         return None
     ocr_name, vlm_name = by_source["ocr"][0], by_source["vlm"][0]
+    api_brand, api_product = _cand_parts(c)
+    ocr_product = _display_product_stems(ocr_name, api_brand)
+    vlm_product = _display_product_stems(vlm_name, api_brand)
+    if not ocr_product or not vlm_product:
+        return None                       # either reader supplied only a brand
     if not _share_product_word(ocr_name, vlm_name):
-        return None
-
-    # split_leaflet_name deliberately treats an all-caps-only name as product
-    # text. For this display decision we can also use the matched API's known
-    # brand, so "VITASIA" alone cannot masquerade as a product name.
-    api_brand = set(_cand_parts(c)[0])
-    for name in (ocr_name, vlm_name):
-        printed_brand, printed_product = split_leaflet_name(name)
-        product = [s for s in _stems(printed_product) if s not in api_brand]
-        if not product or (not printed_brand and set(_stems(name)) <= api_brand):
+        # A brand-only API name cannot be allowed to ship merely because the
+        # conservative general reader-agreement gate rejects a one-word OCR
+        # name. p43 OCR read "omaka" while VLM read the complete sauce name.
+        if api_product or not _shared(ocr_product, vlm_product):
             return None
+
+    # A shared broad category is not a name match when both sources already
+    # agree on an explicit brand (ARGUS "Premium lager pivo" / "Svetlo pivo").
+    # Without that brand agreement it remains evidence and prevents speculative
+    # renaming ("Pivo Tsingtao" / "TSINGTAO Pivo Lager").
+    ignored = (_DISPLAY_CATEGORY_WORDS
+               if c.brand and _leads_with(vlm_name, _stems(c.brand)) else ())
+    meaningful_api = [s for s in api_product if s not in ignored]
+    meaningful_vlm = [s for s in vlm_product if s not in ignored]
+    if _shared(meaningful_api, meaningful_vlm):
+        return None                       # same product name: keep API spelling
 
     name = _FURNITURE.sub("", vlm_name).strip()
     vlm_brand = split_leaflet_name(name)[0]
