@@ -315,8 +315,8 @@ def _proof(data):
         return None
     # A price qualifier may only be introduced when BOTH readers copied it.
     from_price = (words(model.get('badge_text')) == ['ze', 'od']
-                  and any(re.search(r'\bze\s*od\b', fold(t)) for t in texts)
-                  and not any(re.search(r'gratis|drugi\s+kos|nakup|kupon|%', fold(t)) for t in texts)
+                  and any(re.search(r'\bze\s*od\b', fold(t or '')) for t in texts)
+                  and not any(re.search(r'gratis|drugi\s+kos|nakup|kupon|%', fold(t or '')) for t in texts)
                   and tile.get('badge') == 'flag'
                   and tile.get('old_price') is None and tile.get('pct') is None)
     old, pct = _decimal(tile.get('old_price')), _decimal(tile.get('pct'))
@@ -357,9 +357,9 @@ def _multi_buy(data, model, price):
     n, m = map(int, badge.groups())
     texts = data.get('ocr_texts', ())
     if (not n or not m or data.get('ocr_badge_count') != f'{n}+{m}'
-            or not any(re.search(r'\bgratis\b', fold(t)) for t in texts)):
+            or not any(re.search(r'\bgratis\b', fold(t or '')) for t in texts)):
         return None
-    seen = {D.replace(',', '.') for t in texts for D in _SINGLE.findall(t)}
+    seen = {D.replace(',', '.') for t in texts for D in _SINGLE.findall(t or '')}
     vm = _SINGLE.fullmatch((model.get('single_piece_text') or '').strip())
     if len(seen) != 1 or vm is None:
         return None
@@ -368,8 +368,8 @@ def _multi_buy(data, model, price):
         return None
     # A printed exact-quantity restriction cannot contradict the badge or
     # disappear between readers. The N+M badge itself proves the bundle size.
-    oq = {int(q) for t in texts for q in _QUANTITY.findall(fold(t))}
-    vq = {int(q) for q in _QUANTITY.findall(fold(model.get('purchase_quantity_text')))}
+    oq = {int(q) for t in texts for q in _QUANTITY.findall(fold(t or ''))}
+    vq = {int(q) for q in _QUANTITY.findall(fold(model.get('purchase_quantity_text') or ''))}
     if oq != vq or (oq and oq != {n + m}):
         return None
     return dict(paid=n, free=m, single_price=str(single))

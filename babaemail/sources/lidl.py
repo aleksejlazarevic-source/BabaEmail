@@ -210,7 +210,11 @@ class Lidl(Source):
             crop_evidence = []
             crop_stats["crop_load_error"] = repr(exc)
             log.warning("crop evidence not loaded: %r", exc)
-        readings = lidl_crops.refine_readings(readings, crop_evidence)
+        try:
+            readings = lidl_crops.refine_readings(readings, crop_evidence)
+        except Exception as exc:
+            stats['crop_refine_error'] = stats.get('crop_refine_error', 0) + 1
+            log.warning("crop refinement skipped: %r", exc)
 
         # Identify held leaflet-only tiles before spending any crop VLM calls.
         # Selection uses only full-page OCR geometry and reconciliation output;
@@ -248,7 +252,11 @@ class Lidl(Source):
         stats["crops_s"] = round(time.monotonic() - t0, 1)
         stats.update(crop_stats)
         crop_evidence.extend(crop_read)
-        readings = lidl_crops.refine_readings(readings, crop_read)
+        try:
+            readings = lidl_crops.refine_readings(readings, crop_read)
+        except Exception as exc:
+            stats['crop_refine_error'] = stats.get('crop_refine_error', 0) + 1
+            log.warning("crop refinement skipped: %r", exc)
         stats["crop_evidence"] = len(crop_evidence)
 
         rr = reconcile(list(cands), readings, **reconcile_kw)

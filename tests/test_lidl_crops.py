@@ -17,6 +17,13 @@ WEEK = (date(2026, 9, 24), date(2026, 9, 30))
 NAME = 'BRAND Sadni piškoti'
 
 
+def test_null_quantity_is_unproven_and_does_not_crash():
+    with open('scratch/lidl_reconcile/x3/fruc-unusable-null-quantity.json') as f:
+        data = json.load(f)
+    assert _proof(data) is not None
+    assert refine_readings([], [data]) == []
+
+
 def evidence(*, name=NAME, price='2.89', badge=None, old=None, pct=None):
     return dict(version=1, page=4, page_sha256=hashlib.sha256(b'page').hexdigest(),
                 crop_sha256='crop', crop_box=[10, 20, 210, 220],

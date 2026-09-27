@@ -198,6 +198,17 @@ def test_bad_crop_cache_does_not_fail_lidl(world, monkeypatch):
     assert 'broken crop json' in lidl.last_stats['crop_load_error']
 
 
+def test_crop_refine_error_keeps_unrefined_deals(world, monkeypatch):
+    def broken_refinement(readings, evidence):
+        raise RuntimeError('broken crop proof')
+    monkeypatch.setattr(lidl_crops, 'refine_readings', broken_refinement)
+    lidl = Lidl()
+    res = lidl.fetch(TODAY)
+    assert res.status is SourceStatus.OK, res.error
+    assert {d.retailer_item_id for d in res.items if not d.is_quarantined} == {'1', '2'}
+    assert lidl.last_stats['crop_refine_error'] == 2
+
+
 def test_page_count_mismatch_is_a_failure(world):
     world["meta"]["pages"] = 64
     res = Lidl().fetch(TODAY)
