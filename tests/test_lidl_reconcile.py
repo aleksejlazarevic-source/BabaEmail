@@ -464,6 +464,16 @@ def test_plain_price_tile_with_a_badge_stays_quarantined():
     assert "OCR saw a badge (flag) it cannot prove" in reasons(leaflet_only(res)[0])[0]
 
 
+def test_api_match_cannot_erase_crop_proven_from_price_qualifier():
+    name = "Spomladanski zavitki"
+    r = bare(42, "1.99", name, badge="flag")
+    r = dataclasses.replace(r, raw={"badge": "flag", "crop_confirmation":
+                                   {"name": name, "from_price": True}})
+    res = run([cand("1", name, "1.99")], [vlm(42, name, "1.99"), r])
+    assert not res.shipped
+    assert any("leaflet-from-price-api-match" in f for f in by_erp(res, "1").flags)
+
+
 def test_plain_price_tile_needs_product_words_not_just_the_brand():
     # every Vitasia tile starts "VITASIA": a shared brand does not tie OCR to the tile
     res = run([], [vlm(44, "VITASIA Riževi rezanci", "0.99"),

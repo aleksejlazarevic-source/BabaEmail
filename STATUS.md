@@ -3,29 +3,35 @@
 Last session: 2026-09-24. Phase 0 (extraction) is done for all five stores.
 Nothing user-facing exists yet — no email has ever been generated or sent.
 
-## Lidl — solved (the old "Lidl call" is closed)
+## Lidl — X1 checkpoint in progress (2026-09-27)
 
-Lidl is read by three independent readers and a deal ships only when they
-prove it: lidl.si's hidden offer API (`lidl_api.py`), a local vision model
-(`vlm.py`, qwen2.5vl:7b via ollama, cached in `.cache/vlm/`) and the
-improved OCR (`ocr.py` + `sources/lidl.py`). The rules are R0-R8 in the
-`lidl_reconcile.py` docstring. **The leaflet is authoritative**: the API's
-price never ships over a printed one.
+The printed leaflet is authoritative. Three readers (API, local VLM, OCR)
+are reconciled under R0–R8 in `babaemail/lidl_reconcile.py`. Lidl is **not
+proven flawless**: held-back offers remain, and the independent full-leaflet
+answer key has not been consulted.
 
-Measured against 125 hand-checked deals (`scratch/lidl_truth*/`,
-`scratch/lidl_reconcile/eval.py` -> `eval.txt`):
+X1 uses cached full-page inputs plus targeted high-resolution label crops.
+`babaemail/lidl_crops.py` checks OCR/VLM name and price agreement and binds
+cached evidence to the exact page SHA256 and OCR price geometry. The live
+adapter consumes matching `.cache/lidl-crops/` evidence; new crops are
+collected explicitly with `scripts/read_lidl_crop.py`, not automatically.
 
-| set | deals | shipped | WRONG | held back |
-|---|---|---|---|---|
-| tune (10 pages) | 61 | 57 | 0 | 4 |
-| holdout (10 pages never tuned on) | 64 | 52 | 0 | 12 |
+Measured on the existing 125 checked deals, api+vlm+ocr:
 
-Full kw39 leaflet, live run (`scripts/run_lidl.py`, 2.6 min with the VLM
-cached, ~75 min cold): 223 shipped, the rest held back (many held-back
-"tiles" are junk: adverts, a till receipt, "?" names). Plus one proven
-notice: Senior dan 30. 9. 2026, 10 % (`lidl_notices.py`).
+| set | deals | before shipped | after shipped | wrong | harmful fields | held | missing |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| tune | 61 | 58 | 58 | 0 | 0 | 3 | 0 |
+| holdout | 64 | 55 | 60 | 0 | 0 | 4 | 0 |
 
-The Lidl step needs this PC (the VLM is ~2 min/page cold); once per leaflet.
+Full kw39 cached replay: **227 → 232 shipped**. Newly proven: p11 Mulino
+Bianco 2.89; p42 Gyoza 2.69, Čilijeva omaka 0.99, Spomladanski zavitki
+**že od 1.99**; p50 Panirano sadje 2.49. Plain-price items retain unknown
+discounts (`price_old`, `discount_published`, `discount_pct` are None).
+The from-price condition must always be shown. No website-only switch or
+sold-out policy was changed. Full logs: `scratch/lidl_reconcile/x1/`.
+
+The Lidl step needs this PC for new VLM reads. No cold full-leaflet run was
+performed for X1; crop collection uses qwen2.5vl:7b locally.
 
 ### Aleks's answers (2026-09-24) and what was done with them
 
@@ -44,25 +50,25 @@ The Lidl step needs this PC (the VLM is ~2 min/page cold); once per leaflet.
 4. Lidl Plus: she uses it. LP deals ship, labelled (`loyalty_required`).
 5. Senior dan and similar: show them. `SourceResult.notices`.
 6. Lidl misprints its own leaflet (3 found in the answer key). Noted.
-7. GitHub: save at checkpoints. Commits are local; **push needs
-   `gh auth login` + `gh auth setup-git` on this PC** (not logged in).
+7. GitHub: the push was completed on 24 Sep 2026. The old login blocker
+   is stale. X1 commits locally only; no push is authorized for this task.
 
-### What is still held back on the answer-key pages, and why
+### What is still held back on the checked pages, and why
 
-- Real multi-buys (Argus 13+5, Freshona 2+1, FRUC 4+2): meaning not provable
-  from the numbers. Would need the "cena za 1 kos" line read by two readers.
-- API says sold out (2), or API old prices disagree (Bon Gelati): correct.
-- Vitasia tiles where OCR read no name or only "Žepki": the name has one
-  reader. A crop-level second read of the name would free these.
-- Ribeye/Silan: website and leaflet disagree AND the leaflet tile's own
-  old price does not reconcile. Correctly held.
-- Lidl Plus not agreed between readers (Alesto), ambiguous jacket (Esmara).
+- p8 Slim & Fit 2.99 and p9 Chef Select medaljoni 7.99: existing API
+  sold-out quarantine; policy remains the owner's decision #9.
+- p15 Silan 5.89: API/leaflet price conflict and unreconciled leaflet old/%.
+- p37 Alesto 2.29: leaflet readers disagree on Lidl Plus.
+- p10 Freshona 2+1, p35 Argus 13+5 and FRUC 4+2: the conditional price
+  meaning still lacks the required two-reader proof.
 
 ### For the email layer (not built)
 
 - `condition_kind == "second-item"`: show "drugi kos -80 %: 0,39 € (prvi
   1,99 €)"; `discount_pct` is already the honest two-piece saving (40 %).
 - `condition_kind == "bonus-pack"`: pack price + "10+4 gratis".
+- `condition_kind == "from-price"`: always print "že od" next to the price;
+  it is a lower bound, and its discount is unknown.
 - `price_unit == "kg"`: always "/kg".
 - `website-only` flag (if switched on): its own labelled section.
 - `SourceResult.notices` with `proven`: a notice box; `text` is ready Slovenian.
@@ -76,7 +82,7 @@ The Lidl step needs this PC (the VLM is ~2 min/page cold); once per leaflet.
 | Tuš | dated PDF, text layer | 377 | 377 | 68 (18.0%) | 132 |
 | Hofer | Publitas PDF, text layer | 163 | 163 | 27 (16.6%) | 46 |
 | **Total** | | **977** | **977** | **129 (13.2%)** | **581** |
-| Lidl | API + VLM + OCR | 223 shipped (kw39) | — | see above | 0 wrong on 125 checked |
+| Lidl | API + VLM + OCR + cached crop proofs | 232 shipped (kw39 replay) | — | see above | 0 wrong on 125 checked |
 
 `declared` is the independent completeness count and matches extraction exactly
 for all four. Run any adapter with:

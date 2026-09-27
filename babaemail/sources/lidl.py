@@ -54,7 +54,7 @@ import httpx
 import numpy as np
 import pymupdf
 
-from .. import lidl_api, lidl_notices, ocr, vlm
+from .. import lidl_api, lidl_crops, lidl_notices, ocr, vlm
 from ..lidl_reconcile import LeafletReading, ReconcileResult, from_vlm, reconcile
 from ..models import SourceResult, SourceStatus
 from ..ocr import Blob, OcrUnavailable, PriceStructure
@@ -200,6 +200,14 @@ class Lidl(Source):
 
         # 6. reconcile
         readings = [r for p in pages for r in ocr_readings[p] + vlm_readings.get(p, [])]
+        # Optional targeted rereads, collected separately; never launch a
+        # second full-leaflet VLM pass. Page hashes exclude stale evidence.
+        try:
+            crop_evidence = lidl_crops.load_crops(pngs)
+            readings = lidl_crops.refine_readings(readings, crop_evidence)
+            stats["crop_evidence"] = len(crop_evidence)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            return res.fail(SourceStatus.PARSE_FAILED, f"crop evidence: {exc!r}")
         rr = reconcile(list(cands), readings, leaflet_id=ident,
                        leaflet_window=(meta["valid_from"], meta["valid_to"]),
                        listed=list(cands.no_signal), year=meta["valid_from"].year,

@@ -58,6 +58,20 @@ R0c OCR backing of VLM-only tiles. Every Lidl product tile prints its price
     0.89 on the čips tile, which prints 0.99, and OCR read one 0.89).
     Off when ``ocr_pages`` is None (no OCR in the run).
 
+R0d Targeted crop rereads (``lidl_crops``). A cached crop must belong to the
+    exact page image (SHA256), contain one OCR price structure, and locate
+    that structure at the full-page OCR's exact price coordinates. Its new
+    price must agree with both full-page readers. The crop VLM's COMPLETE
+    label name, including brand, must independently occur in crop OCR text
+    (case, accents and punctuation normalized; no fuzzy word matching).
+    Only then may it repair the paired names. Same-price collisions require
+    one unique matching VLM product name. If one OCR price has multiple VLM
+    variant names with identical brand/LP/date/pack, add the crop's proven
+    common label and retain the originals as unbacked readings (R0c), never
+    arbitrarily pick a variant. Existing LP votes/dates stay intact.
+    Crop old/% may supplement OCR only when OCR and crop VLM agree AND R1
+    reconciles a plain percentage badge; a VLM value alone is never used.
+
 R1  OCR old price / % count only when they RECONCILE: old > new, and the
     printed % is Lidl's truncated badge, so the implied reduction
     (1 - new/old) * 100 must lie in [printed, printed + 1). Otherwise the OCR
@@ -132,6 +146,8 @@ R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
         ``valid_to-from-leaflet``): the leaflet is authoritative, and a
         misread can then only hide days, never invent them;
       - a correctness-affecting API flag is present (R7).
+      - a crop proves the price is a lower bound ("že od"); the API cannot
+        turn that into an exact price (``leaflet-from-price-api-match``).
     Its end date is never later than the leaflet's own end
     (``leaflet_window``): a later API end is clipped, flag
     ``valid_to-clipped-to-leaflet``.
@@ -221,6 +237,13 @@ R8  Leaflet-only tiles (no API partner):
         ``leaflet-only-confirmed:ocr+vlm:no-old-price``. A tile whose OCR
         name is missing, or whose OCR saw any badge (a "4+2 gratis" flag is a
         badge), stays quarantined.
+      - R8c, a crop-proven "že od" lower bound: both crop readers must read
+        that qualifier, and R0d must prove the name/price. The original OCR
+        must have a flag badge, no old/%; all R8 name, LP and validity gates
+        still apply. Ships with ``condition_kind="from-price"`` and
+        ``condition="že od"``. The email MUST print the qualifier alongside
+        the price; old price and discount remain unknown (None).
+        A generic/unknown badge, including multi-buys, never qualifies.
       - Otherwise quarantined: ``leaflet-only-unverified`` (VLM alone, OCR
         alone, or OCR not reconciled), ``leaflet-only-no-validity``,
         ``leaflet-no-price`` (a tile reported without a readable price), or
@@ -646,13 +669,24 @@ def plain_price_tile(t: LeafletTile) -> bool:
             and all(ocr_saw_bare_price(r) and r.new_price == t.new_price for r in ocr))
 
 
+def from_price_tile(t: LeafletTile) -> bool:
+    """R8c: a two-reader crop proof of the literal lower-bound qualifier."""
+    ocr = [r for r in t.readings if r.source == "ocr"]
+    return (t.ocr_name_paired and bool(ocr)
+            and all(r.new_price == t.new_price and r.old_price is None and r.pct is None
+                    and isinstance(r.raw, dict) and r.raw.get("badge") == "flag"
+                    and r.raw.get("old_price") is None and r.raw.get("pct") is None
+                    and r.raw.get("crop_confirmation", {}).get("from_price") is True
+                    and r.raw["crop_confirmation"].get("name") == r.name for r in ocr))
+
+
 def _unverified_why(t: LeafletTile) -> list[str]:
     """Every R8 proof this tile lacks, in words (quarantine reasons)."""
     if len(t.sources) == 1:
         return ["single reader"]
     out = []
     ocr = [r for r in t.readings if r.source == "ocr"]
-    if t.ocr_old_pct is None and not plain_price_tile(t):
+    if t.ocr_old_pct is None and not (plain_price_tile(t) or from_price_tile(t)):
         badges = sorted({r.raw.get("badge") for r in ocr if isinstance(r.raw, dict)
                          and r.raw.get("badge")})
         if any(r.old_price is not None or r.pct is not None for r in ocr):
@@ -1186,6 +1220,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             overruled[id(t)] = f"leaflet-over-api:{c.erp} api {c.new_price}"
             continue
         d.flag(f"leaflet-confirmed:{'+'.join(t.sources)}")
+        if from_price_tile(t):
+            d.quarantine("leaflet-from-price-api-match: printed price is only a lower bound")
         if brand_only(c):
             d.name, src = leaflet_name(t, c, pool)
             d.flag(f"name-from-leaflet:{src} (api name {c.name!r})")
@@ -1323,7 +1359,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         elif dup is not None:
             d.quarantine(f"leaflet-duplicate-of:{dup} ({t.describe()})")
         elif not (set(t.sources) == {"ocr", "vlm"}
-                  and (op is not None or plain_price_tile(t))
+                  and (op is not None or plain_price_tile(t) or from_price_tile(t))
                   and len(t.lidl_plus_votes) == 1
                   and all(r.lidl_plus is not None for r in t.readings)):
             d.quarantine(f"leaflet-only-unverified: {'; '.join(_unverified_why(t))} "
@@ -1337,6 +1373,11 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                 d.flag("leaflet-only-confirmed:ocr+vlm")
             else:
                 d.flag("leaflet-only-confirmed:ocr+vlm:no-old-price")
+                if from_price_tile(t):
+                    d.condition_kind, d.condition = "from-price", "že od"
+                    d.flag("leaflet-price-from:crop-ocr+vlm")
+            if any(isinstance(r.raw, dict) and r.raw.get("crop_confirmation") for r in t.readings):
+                d.flag("leaflet-name-from:crop-ocr+vlm")
             d.valid_from, d.valid_to = pv
             if pv_inferred:
                 d.flag(f"page-validity-inferred-from-api:{pv[0]}..{pv[1]}")
