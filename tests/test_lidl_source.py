@@ -299,3 +299,68 @@ def test_notice_failure_costs_the_notices_never_the_deals(world):
     res = lidl.fetch(TODAY)
     assert res.contributes and res.notices == []
     assert "no tesseract" in lidl.last_stats["notices_error"]
+
+
+# ---------------------------------------------------------------- the OCR tile reader
+
+def _synthetic_tile(badge=None, speck=False):
+    """A zoom-3-sized Lidl tile: yellow "6.19" (raised, top-aligned cents, big
+    dot) on red, a white name block to its left, optionally a yellow flag box
+    above the price holding a word or only a speck."""
+    import numpy as np
+    cv2 = pytest.importorskip("cv2")
+    red, yel, white = (237, 28, 36), (253, 241, 1), (255, 255, 255)
+
+    def glyphs(text, scale, thick):
+        m = np.zeros((600, 1400), np.uint8)
+        cv2.putText(m, text, (20, 450), cv2.FONT_HERSHEY_DUPLEX, scale, 255, thick, cv2.LINE_AA)
+        ys, xs = np.nonzero(m > 127)
+        return (m > 127)[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+
+    def paste(img, mask, x, y, col):
+        h, w = mask.shape
+        img[y:y + h, x:x + w][mask] = col
+
+    img = np.full((1400, 1700, 3), red, np.uint8)
+    e, c = glyphs("6", 9, 30), glyphs("19", 6.5, 22)
+    ex, ey, he = 900, 1000, e.shape[0]
+    paste(img, e, ex, ey, yel)
+    paste(img, c, ex + e.shape[1] + int(0.3 * he), ey, yel)
+    r = int(0.12 * he)
+    cv2.circle(img, (ex + e.shape[1] + int(0.15 * he), ey + he - r), r, yel, -1)
+    paste(img, glyphs("ZAR LEGENDE", 2.0, 4), 100, 1000, white)
+    paste(img, glyphs("Svez ribeye steak", 2.0, 4), 100, 1080, white)
+    if badge or speck:
+        cv2.rectangle(img, (ex - 10, ey - 150), (ex + 520, ey - 20), yel, -1)
+        if badge:
+            paste(img, glyphs(badge, 2.6, 7), ex + 20, ey - 130, red)
+        else:
+            cv2.circle(img, (ex + 480, ey - 130), 4, red, -1)
+    return img
+
+
+def _read_synthetic(**kw):
+    if not ocr.tesseract_available():
+        pytest.skip("tesseract not installed")
+    [r] = lidl_mod.tiles_to_leaflet_readings(lidl_mod.read_page_tiles(_synthetic_tile(**kw), 2))
+    return r
+
+
+def test_reader_a_speck_in_a_box_above_the_price_is_not_a_badge():
+    """kw39 p2 ribeye: a patch of background above 6.19 held one speck; the
+    tile was read as flagged and could never ship as a plain price."""
+    r = _read_synthetic(speck=True)
+    assert r.new_price == D("6.19")
+    assert r.raw["badge"] is None and r.raw["raw"]["badge_speck"] is True
+    assert r.raw["price_bbox"] and r.raw["badge_bbox"]          # geometry kept
+
+
+def test_reader_a_real_flag_stays_a_flag_and_its_words_are_read():
+    r = _read_synthetic(badge="za kg")
+    assert r.raw["badge"] == "flag" and "za k" in r.raw["raw"]["flag_text"]
+
+
+def test_reader_records_the_tiles_own_text_lines():
+    r = _read_synthetic()
+    assert r.raw["badge"] is None
+    assert any("ribeye steak" in ln for ln in r.text)

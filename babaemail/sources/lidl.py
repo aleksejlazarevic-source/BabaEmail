@@ -352,6 +352,7 @@ def _ocr_page(page_no: int, png: bytes) -> list[LeafletReading]:
 # its cents. Pairing happens inside the tile, never page-wide by distance.
 
 DISCOUNT_RE = re.compile(r"-(\d{1,2})%")
+SPECK = 0.08       # badge "text" shorter than this x price height is not text
 
 
 @dataclass
@@ -386,6 +387,8 @@ class Tile:
                 "price": _s(self.price), "old_price": _s(self.old_price),
                 "pct": _s(self.pct), "lidl_plus": self.lidl_plus,
                 "badge": self.badge, "reconciled": self.reconciled,
+                "price_bbox": list(self.price_bbox),
+                "badge_bbox": list(self.badge_bbox) if self.badge_bbox else None,
                 "notes": self.notes, "raw": self.raw}
 
 
@@ -405,6 +408,7 @@ def read_page_tiles(rgb: np.ndarray, page_no: int) -> list[Tile]:
             tiles.append(_read_tile(rgb, masks, blue, labels, ps, page_no))
     tiles.sort(key=lambda t: (t.price_bbox[1] // 200, t.price_bbox[0]))
     _drop_borrowed_names(tiles)
+    _own_text_lines(tiles)
     return tiles
 
 
@@ -434,6 +438,26 @@ def _drop_borrowed_names(tiles: list[Tile]) -> None:
                for u in tiles if u is not t):
             t.raw["borrowed_name"] = t.raw.pop("name")
             t.raw.pop("brand", None)
+
+
+def _own_text_lines(tiles: list[Tile]) -> None:
+    """``raw["text_lines"]``: every text line Tesseract read around the tile's
+    price (``raw["region_lines"]``) that belongs to THIS tile by the same rule
+    as the name block (_drop_borrowed_names): no other price is nearer to it
+    among the prices it is above/left of. A second, independent reading of what
+    the tile prints (name words, "cena za 1 kos: 0.79", ...), for
+    lidl_reconcile; never a price reading of its own."""
+    for t in tiles:
+        own_anchor = _anchor(t)
+        keep = []
+        for ln in t.raw.get("region_lines", ()):
+            box = ln["bbox"]
+            own = _box_gap(box, own_anchor)
+            if any(_box_gap(box, _anchor(u)) < own and box[1] < _anchor(u)[3]
+                   and box[0] < _anchor(u)[2] for u in tiles if u is not t):
+                continue
+            keep.append(ln["text"])
+        t.raw["text_lines"] = keep
 
 
 def _read_tile(rgb, masks, blue, labels, ps: PriceStructure, page_no: int) -> Tile:
@@ -549,6 +573,14 @@ def _read_badge(t: Tile, box: dict, ps: PriceStructure) -> None:
                                 box["y"] + max(b.y1 for b in printed) + 10]
     kind, digits = _parse_discount_row(row, blobs, mh)
     t.raw["badge_shape"] = kind
+    t.raw["badge_main"] = [len(main), round(mh / ps.height, 3)]
+    if kind == "flag" and mh < SPECK * ps.height:
+        # Nothing printed in the "box": its only "text" is a speck (kw39 p2
+        # ribeye: a patch of red background above the price, 2% of the price
+        # height; real flag text is >= 11% on every kw39 page, and a real flag
+        # whose text is unreadable, p1 "1l = 0.88 EUR", still counts as one).
+        t.raw["badge_speck"] = True
+        return
     if kind == "discount":
         t.badge = "discount"
         got, votes = ocr.read_glyphs(labels, digits, len(digits))
@@ -559,12 +591,31 @@ def _read_badge(t: Tile, box: dict, ps: PriceStructure) -> None:
             t.notes.append("badge-unreadable")
     else:
         t.badge = "flag"               # "za kg", "220 g gratis", "32% gratis"...
+        t.raw["flag_text"] = _read_flag_text(labels, [b for b in blobs if b.h >= 0.25 * mh], mh)
     if above_lines:
         above = above_lines[-1]          # the line right above the discount
         a_ink = np.isin(labels, [b.index for b in above])
         txt = " ".join(ocr.read_votes(a_ink, "ZzLlIidDPpu s", heights=(40,), psms=(7,)))
         t.raw["badge_above"] = txt
         t.lp_text = bool(re.search(r"lidl|plus", txt, re.I))
+
+
+def _read_flag_text(labels, blobs: list[Blob], mh: int) -> str | None:
+    """The words printed in a flag badge ("že od", "4+2 gratis", "za kg"):
+    its text glyphs, black on white at a fixed line height, Tesseract slv."""
+    import cv2
+    if not blobs or mh <= 0:
+        return None
+    ink = np.isin(labels, [b.index for b in blobs])
+    ys, xs = np.nonzero(ink)
+    crop = np.where(ink[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 0, 255).astype(np.uint8)
+    s = 56 / mh
+    crop = cv2.resize(crop, (max(1, round(crop.shape[1] * s)), max(1, round(crop.shape[0] * s))),
+                      interpolation=cv2.INTER_AREA)
+    crop = cv2.copyMakeBorder(crop, 40, 40, 40, 40, cv2.BORDER_CONSTANT, value=255)
+    txt = ocr._run_tesseract(crop, ["-l", ocr.TESSERACT_LANG, "--psm", "6"])
+    txt = " ".join(txt.split())
+    return txt or None
 
 
 def _parse_discount_row(row: list[Blob], blobs: list[Blob], mh: int):
@@ -797,6 +848,8 @@ def _read_name(t: Tile, rgb, ps: PriceStructure) -> None:
                       "x0": X0 + bx0, "y0": Y0 + by0, "x1": X0 + bx1, "y1": Y0 + by1,
                       "h": by1 - by0})
     lines.sort(key=lambda d: d["y0"])
+    t.raw["region_lines"] = [{"text": d["text"], "bbox": [d["x0"], d["y0"], d["x1"], d["y1"]]}
+                             for d in lines]
     blocks: list[list[dict]] = []
     for ln in lines:
         for blk in blocks:
@@ -871,6 +924,7 @@ def tile_to_leaflet_reading(t: Tile):
         lidl_plus=lp,
         name=_reading_name(t),
         bbox=tuple(float(v) for v in t.bbox),
+        text=tuple(t.raw.get("text_lines", ())),
         raw=t.record(),
     )
 

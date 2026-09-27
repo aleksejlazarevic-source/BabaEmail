@@ -270,6 +270,9 @@ class LeafletReading:
     bbox: tuple[float, float, float, float] | None = None
     valid_to_text: str | None = None       # tile-level "velja do 26. 9.", as printed
     unit: str | None = None                # pack text as printed, e.g. "550 g / 1 kg = 8.53"
+    # OCR only: every text line printed around this tile's price that belongs
+    # to it (the name block, pack and unit-price lines, "cena za 1 kos: ...").
+    text: tuple[str, ...] = ()
     raw: object = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
