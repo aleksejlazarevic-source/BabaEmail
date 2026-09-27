@@ -86,12 +86,16 @@ def test_brand_only_match_sarenka_vs_postrv_ships_with_ocr_corroboration():
     assert any(f.startswith("name-match:brand-only") for f in d.flags)
 
 
-def test_brand_only_match_without_corroboration_is_quarantined_not_dropped():
+def test_brand_only_match_without_corroboration_is_not_a_pair():
+    # R3b: nothing but brand + price ties them, so neither consumes the other.
     res = run([cand("1", "Sveža postrv", "4.69", "5.69", "17", lp=True, brand="Naša ribarnica")],
               [vlm(3, "NAŠA RIBARNICA Sveža šarenka", "4.69", lp=True)])
     d = by_erp(res, "1")
-    assert "name-match-brand-only-unconfirmed" in reasons(d)[0]
-    assert len(res.deals) == 1                        # the tile is consumed, not duplicated
+    assert "not-in-leaflet-reading" in reasons(d)[0]
+    assert "brand-only name match NOT corroborated" in reasons(d)[0]
+    [tile] = [r.deal for r in res.records if r.rule == "leaflet-only"]
+    assert tile.is_quarantined                        # one reader: R8 cannot prove it
+    assert len(res.deals) == 2
 
 
 def test_same_brand_same_price_different_product_is_not_confirmed():
@@ -457,7 +461,7 @@ def test_plain_price_tile_with_a_badge_stays_quarantined():
     res = run([], [vlm(35, "FRUC Napitek pomaranča-limona", "6.56"),
                    bare(35, "6.56", "FRUC Napitek pomaranča-limona", badge="flag")],
               page_validity={35: WEEK})
-    assert "not reconciled" in reasons(leaflet_only(res)[0])[0]
+    assert "OCR saw a badge (flag) it cannot prove" in reasons(leaflet_only(res)[0])[0]
 
 
 def test_plain_price_tile_needs_product_words_not_just_the_brand():
@@ -549,7 +553,7 @@ def test_contradicting_brands_with_partial_overlap_are_not_a_match():
 def test_same_product_words_different_brand_needs_corroboration():
     c = cand("1", "Kavni napitek", "0.55", "0.79", "30", brand="Bellarom")
     res = run([c], [vlm(37, "PILOS Kavni napitek", "0.55")])
-    assert "name-match-brand-differs-unconfirmed" in reasons(by_erp(res, "1"))[0]
+    assert "brand-differs name match NOT corroborated" in reasons(by_erp(res, "1"))[0]
     res = run([c], [vlm(37, "PILOS Kavni napitek", "0.55"), ocr(37, "0.55", "0.79", "30")])
     assert not by_erp(res, "1").is_quarantined
 
@@ -605,7 +609,7 @@ def test_brand_only_match_with_different_or_approximate_pack_stays_quarantined(u
     res = run([cand_pack("1", "Sveža postrv", "4.69", lp=True, brand="Naša ribarnica", pack="550 g")],
               [LeafletReading("vlm", 3, D("4.69"), lidl_plus=True, name="NAŠA RIBARNICA Sveža šarenka",
                               unit=unit)])
-    assert "name-match-brand-only-unconfirmed" in reasons(by_erp(res, "1"))[0]
+    assert "brand-only name match NOT corroborated" in reasons(by_erp(res, "1"))[0]
 
 
 def test_pack_size_parsing():
@@ -814,3 +818,127 @@ def test_website_only_needs_an_old_price_and_a_clean_record():
                cand("3", "Sadna pijača", "6.56", conditional="4+2 gratis")],
               [], ship_website_only=True)
     assert all(d.is_quarantined for d in res.deals)
+
+
+# ---------------------------------------------------------------- R3b / R4c / R7c (2026-09-27)
+
+def test_uncorroborated_brand_match_leaves_the_proven_tile_to_the_leaflet():
+    """kw39 p50: API brand-only "VITASIA Rižev kis" 0.79 vs the printed, twice-read
+    "VITASIA Zeleni čaj" 0.79. The API item's name and fields must not be used;
+    the tile ships on the leaflet's own proof (R8b) and the API item is held."""
+    kis = cand("1", "Rižev kis", "0.79", brand="VITASIA")
+    kis.packaging = "250 ml"
+    res = run([kis], [vlm(50, "VITASIA Zeleni čaj", "0.79"),
+                      bare(50, "0.79", "VITASIA Zeleni čaj")], page_validity={50: WEEK})
+    [tile] = leaflet_only(res)
+    assert not tile.is_quarantined and tile.name == "VITASIA Zeleni čaj"
+    assert tile.price_new == D("0.79") and tile.price_old is None
+    api = by_erp(res, "1")
+    assert api.is_quarantined and "NOT corroborated" in reasons(api)[0]
+    assert len(res.shipped) == 1
+
+
+def test_badge_pct_resolves_a_tie_between_same_name_same_price_candidates():
+    """kw39 p57: printed "-34%" jacket 14.99; the API has a -34% offer (old 22.99)
+    and an un-discounted 14.99 jacket of the previous week, same name."""
+    offer = cand("1", "Moška jakna", "14.99", "22.99", "34", brand="Esmara Men",
+                 windows=[(date(2026, 9, 28), date(2026, 9, 30))])
+    other = cand("2", "Moška jakna", "14.99", brand="Esmara Men",
+                 windows=[(date(2026, 9, 24), date(2026, 9, 26))])
+    readings = [vlm(57, "ESMARA MEN Moška jakna", "14.99"), ocr(57, "14.99", pct="34")]
+    for order in ([offer], [other]):
+        res = run(order, readings, listed=[other] if order == [offer] else [offer])
+        [r] = [r for r in res.records if r.rule == "verified"]
+        d = r.deal
+        assert not d.is_quarantined, d.flags
+        assert d.retailer_item_id == "1"
+        assert (d.price_old, d.discount_published) == (D("22.99"), D("34"))
+        assert any(f.startswith("ambiguous-api-match-resolved-by-badge:-34%") for f in d.flags)
+
+
+def test_badge_pct_does_not_resolve_when_it_fits_none_or_the_numbers_fail():
+    a = cand("1", "Moška jakna", "14.99", "22.99", "34", brand="Esmara Men",
+             windows=[(date(2026, 9, 28), date(2026, 9, 30))])
+    b = cand("2", "Moška jakna", "14.99", brand="Esmara Men",
+             windows=[(date(2026, 9, 24), date(2026, 9, 26))])
+    for pct in ("30", None):
+        res = run([a], [vlm(57, "ESMARA MEN Moška jakna", "14.99"), ocr(57, "14.99", pct=pct)],
+                  listed=[b])
+        [r] = [r for r in res.records if r.rule == "verified"]
+        assert any("ambiguous-api-match" in q for q in reasons(r.deal))
+    bad = cand("1", "Moška jakna", "14.99", "22.99", "40", brand="Esmara Men",   # 34.8% != 40
+               windows=[(date(2026, 9, 28), date(2026, 9, 30))])
+    res = run([bad], [vlm(57, "ESMARA MEN Moška jakna", "14.99"), ocr(57, "14.99", pct="40")],
+              listed=[b])
+    [r] = [r for r in res.records if r.rule == "verified"]
+    assert any("ambiguous-api-match" in q for q in reasons(r.deal))
+
+
+def _gelati(flags=("deletedPrice_differs:3.99",)):
+    return cand("1", "Sladoled na palčki", "1.29", "2.59", lp=True, brand="Gelatelli",
+                conditional="-50% na drugi kos", flags=flags)
+
+
+def _gelati_ocr(old):
+    # the adapter withholds old/% from a conditional badge's reading; raw keeps it
+    return LeafletReading("ocr", 10, D("1.29"), lidl_plus=True, name="BON GELATI Sladoled na palčki",
+                          bbox=(0, 0, 100, 100), raw={"badge": "discount", "old_price": old})
+
+
+def test_leaflet_old_price_settles_the_api_deletedprice_doubt():
+    res = run([_gelati()], [vlm(10, "BON GELATI Sladoled na palčki", "1.29", lp=True),
+                            _gelati_ocr("2.59")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined, d.flags
+    assert d.condition_kind == "second-item" and (d.price_new, d.price_old) == (D("1.29"), D("2.59"))
+    assert "api-flag-settled-by-leaflet:deletedPrice_differs:3.99" in d.flags
+
+
+@pytest.mark.parametrize("old", ["3.99", None])
+def test_deletedprice_doubt_stays_when_the_leaflet_does_not_settle_it(old):
+    res = run([_gelati()], [vlm(10, "BON GELATI Sladoled na palčki", "1.29", lp=True),
+                            _gelati_ocr(old)])
+    assert "api-flag:deletedPrice_differs:3.99" in reasons(by_erp(res, "1"))[0]
+
+
+def test_deletedprice_doubt_on_plain_discount_needs_reconciled_ocr():
+    c = cand("1", "Mango", "0.99", "1.49", "33", flags=["deletedPrice_differs:1.99"])
+    res = run([c], [vlm(1, "Mango", "0.99"), ocr(1, "0.99", "1.49", "33", name="Mango")])
+    assert not by_erp(res, "1").is_quarantined
+    res = run([c], [vlm(1, "Mango", "0.99"), ocr(1, "0.99", "1.49", None, name="Mango")])
+    assert by_erp(res, "1").is_quarantined
+
+
+def test_inferred_page_window_is_clipped_to_the_leaflet_like_api_items():
+    """kw39 Vitasia pages print no end; the API says 28.9.-3.10.; the leaflet ends
+    30.9. A leaflet-only tile must not outlive what an API item on the same page
+    may show (R4 clips those to 30.9.)."""
+    nxt = (date(2026, 9, 28), date(2026, 10, 3))
+    res = run([cand("1", "Mango", "0.99", "1.49", "33", windows=[nxt]),
+               cand("2", "Hruške", "1.39", "1.99", "30", windows=[nxt])],
+              [vlm(50, "Mango", "0.99"), vlm(50, "Hruške", "1.39"),
+               vlm(50, "Bučke", "1.29"), ocr(50, "1.29", "1.79", "27")])
+    [d] = leaflet_only(res)
+    assert not d.is_quarantined
+    assert (d.valid_from, d.valid_to) == (date(2026, 9, 28), date(2026, 9, 30))
+    assert "valid_to-clipped-to-leaflet:page 2026-10-03" in d.flags
+    assert all(x.valid_to == date(2026, 9, 30) for x in res.shipped)
+
+
+def test_two_prints_of_one_product_each_get_the_item_their_badge_fits():
+    """kw39: the same "ESMARA MEN Moška jakna" 14.99 is printed plain on p33
+    (Thursday section) and "-34%" on p57 (Monday section). The API has a plain
+    14.99 item (24.-26.9.) and a -34% item (28.-30.9.)."""
+    plain = cand("2", "Moška jakna", "14.99", brand="Esmara Men",
+                 windows=[(date(2026, 9, 24), date(2026, 9, 26))])
+    offer = cand("1", "Moška jakna", "14.99", "22.99", "34", brand="Esmara Men",
+                 windows=[(date(2026, 9, 28), date(2026, 9, 30))])
+    res = run([offer], [vlm(33, "ESMARA MEN Moška jakna", "14.99"),
+                        bare(33, "14.99", "ESMARA MEN Moška jakna"),
+                        vlm(57, "ESMARA MEN Moška jakna", "14.99"),
+                        ocr(57, "14.99", pct="34")], listed=[plain])
+    got = {r.tile.page: r.deal for r in res.records if r.rule == "verified"}
+    assert not got[33].is_quarantined and not got[57].is_quarantined
+    assert got[33].retailer_item_id == "2" and got[33].price_old is None
+    assert got[57].retailer_item_id == "1" and got[57].price_old == D("22.99")
+    assert got[33].valid_to == date(2026, 9, 26) and got[57].valid_from == date(2026, 9, 28)

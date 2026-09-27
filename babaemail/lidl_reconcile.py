@@ -102,6 +102,16 @@ R3  One-to-one assignment. Every (tile, candidate) pair that is a STRONG
     is used at most once. Name wins over price, so a tile whose name clearly
     belongs to a differently-priced API item is reported as a conflict (R5)
     instead of being "confirmed" by some other product at the same price.
+    Among equally good names, a candidate the tile's printed badge fits (R4c)
+    is taken first.
+R3b A BRAND or BRAND-DIFFERS match is a pair only when something beyond brand +
+    price corroborates it (see R4: a reconciled OCR old price and % equal to
+    the API's, or the exact printed pack size). An uncorroborated one is not a
+    pair at all: the tile stays free for R8, where the leaflet may prove it
+    alone, and the API item stays free for its real tile; if it finds none it
+    is quarantined ``not-in-leaflet-reading`` naming the refused tile. (kw39
+    p50: API brand-only "VITASIA Rižev kis" 0.79 had consumed the printed,
+    twice-read "VITASIA Zeleni čaj" 0.79. Its fields must not be used.)
 
 R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
     and a Lidl Plus status on the leaflet equal to the API's. When the two
@@ -134,14 +144,21 @@ R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
     price and % are kept only if all of them carry the same ones
     (``:old-price-withheld`` otherwise). Otherwise it is quarantined as
     ``ambiguous-api-match``.
+R4c Ambiguity settled by the printed badge: when OCR read a "-P%" badge on the
+    tile, the one tied candidate that carries exactly P AND whose own
+    old/new/% reconcile (R1) is the printed one; when OCR saw a bare price (no
+    badge, no old/%), the one tied candidate with no old price and no %.
+    Flag ``ambiguous-api-match-resolved-by-badge:<-P%|no-badge>``. The badge
+    only SELECTS; the old price and % that ship are the API's. kw39: the same
+    "ESMARA MEN Moška jakna" 14.99 is printed plain on p33 and "-34%" on p57;
+    the API has a plain 14.99 item (24.-26.9.) and a 22.99/-34% one (28.-30.9.).
     A BRAND-DIFFERS match (R2) is treated like a BRAND match below.
     A BRAND or BRAND-DIFFERS match needs corroboration beyond price + name:
       - a reconciled OCR old price and % equal to the API's, or
       - the EXACT pack size printed on the tile ("550 g / 1 kg = 8.53") equal
         to the API's packaging ("550 g"). Approximate ("pribl. 1 kg"), per-kg
         and per-piece packs never count.
-    Otherwise it is quarantined as ``name-match-brand-only-unconfirmed`` /
-    ``name-match-brand-differs-unconfirmed``. Same brand + same price alone is
+    Otherwise R3b never pairs them. Same brand + same price alone is
     not enough: the kw39 ribeye and ramsteak are both "Žar legende" at 6.19.
     (Both are 300 g too. That is why the brand tier also requires the brand
     to be unique at that price on both sides, and why a STRONG name match to
@@ -175,6 +192,14 @@ R7  API flags. Passed through as ``api:<flag>``. These quarantine because
     goes on through R4 like any other offer, with ``condition_kind`` set. An API item with more than
     one window in range quarantines as ``multiple-api-windows``.
     Informational flags (bonus_quantity, open_ended_window, ...) only flag.
+R7c ``deletedPrice_differs`` (the API record holds two different old prices)
+    is settled by the leaflet, and then only flags
+    (``api-flag-settled-by-leaflet:...``), when OCR read the struck-through
+    price (consensus) equal to the API's old price AND the numbers prove the
+    offer: R1 on OCR's own old/% for a plain discount, R7b's arithmetic for
+    "-P% na drugi kos" (there OCR keeps the old price out of its reading, and
+    the badge % is often unreadable). kw39 p10 Bon Gelati: printed 2.59 /
+    1.29 "-50% na drugi kos", API old 2.59 and a stray deletedPrice 3.99.
 
 R8  Leaflet-only tiles (no API partner):
       - OCR + VLM on the same tile, new prices equal, OCR old/% reconciled
@@ -185,7 +210,9 @@ R8  Leaflet-only tiles (no API partner):
         INFERRED from the API: at least INFER_MIN shipped, leaflet-confirmed
         API items on that page, all with one identical window (flag
         ``page-validity-inferred-from-api``). A tile's own EARLIER "velja do"
-        date still shortens it.
+        date still shortens it, and, as in R4, the end is never later than
+        the leaflet's own end (``valid_to-clipped-to-leaflet:page ...``; kw39
+        Vitasia pages print no end, the API says 3.10., the leaflet 30.9.).
       - R8b, a tile that prints only a price (many Lidl tiles have no old
         price or badge at all: kw39 Coca-Cola 3.99, Laško 4.19, Vitasia
         Gyoza 2.69): the same, with "OCR old/% reconciled" replaced by
@@ -199,6 +226,9 @@ R8  Leaflet-only tiles (no API partner):
         ``leaflet-no-price`` (a tile reported without a readable price), or
         ``leaflet-duplicate-of:<erp>`` when a verified API item already has
         this name and price (the same product printed twice).
+        ``leaflet-only-unverified`` names every missing proof: single reader,
+        OCR old/% not reconciled, a badge OCR cannot prove, a name with one
+        reader, Lidl Plus not agreed.
 
 A Deal never gets an old price or a % from the VLM.
 """
@@ -329,6 +359,34 @@ class LeafletTile:
             if ocr_reconciled(r) and r.new_price == self.new_price:
                 return r.old_price, r.pct
         return None
+
+    @property
+    def ocr_badge_pct(self) -> Decimal | None:
+        """The "-NN%" badge OCR read on this tile (consensus, a discount-shaped
+        badge), whether or not an old price was read. None unless every OCR
+        reading of the tile that has one agrees. Selection evidence only
+        (R4 tie-break); it never ships on its own."""
+        v = {r.pct for r in self.readings
+             if r.source == "ocr" and r.pct is not None and r.new_price == self.new_price}
+        return v.pop() if len(v) == 1 else None
+
+    @property
+    def ocr_printed_old(self) -> Decimal | None:
+        """The struck-through price OCR read on this tile (consensus of all its
+        renderings), INCLUDING one withheld from the reading because the badge
+        is conditional ("-50% na drugi kos": there it is the first piece's
+        price). Only ever compared with another reader's value, never shipped
+        on its own."""
+        v = set()
+        for r in self.readings:
+            if r.source != "ocr" or r.new_price != self.new_price:
+                continue
+            old = r.old_price
+            if old is None and isinstance(r.raw, dict) and r.raw.get("old_price"):
+                old = Decimal(str(r.raw["old_price"]))
+            if old is not None:
+                v.add(old)
+        return v.pop() if len(v) == 1 else None
 
     @property
     def pack(self) -> str | None:
@@ -585,6 +643,29 @@ def plain_price_tile(t: LeafletTile) -> bool:
             and all(ocr_saw_bare_price(r) and r.new_price == t.new_price for r in ocr))
 
 
+def _unverified_why(t: LeafletTile) -> list[str]:
+    """Every R8 proof this tile lacks, in words (quarantine reasons)."""
+    if len(t.sources) == 1:
+        return ["single reader"]
+    out = []
+    ocr = [r for r in t.readings if r.source == "ocr"]
+    if t.ocr_old_pct is None and not plain_price_tile(t):
+        badges = sorted({r.raw.get("badge") for r in ocr if isinstance(r.raw, dict)
+                         and r.raw.get("badge")})
+        if any(r.old_price is not None or r.pct is not None for r in ocr):
+            out.append("OCR old/% not reconciled")
+        elif badges:
+            out.append(f"OCR saw a badge ({'/'.join(badges)}) it cannot prove")
+        if not t.ocr_name_paired:
+            names = [r.name for r in ocr]
+            out.append(f"name has one reader (OCR name {names[0] if names else None!r})")
+        if not out:
+            out.append("OCR old/% not reconciled")
+    if len(t.lidl_plus_votes) != 1 or any(r.lidl_plus is None for r in t.readings):
+        out.append("Lidl Plus not agreed")
+    return out
+
+
 def build_tiles(readings: Iterable[LeafletReading]) -> list[LeafletTile]:
     by_page: dict[int | None, list[LeafletReading]] = {}
     for r in readings:
@@ -779,7 +860,26 @@ def website_only_ok(c: LidlCandidate) -> bool:
             and not c.conditional)
 
 
-def _deal_from_candidate(c: LidlCandidate, leaflet_id: str) -> Deal:
+def old_price_doubt_settled(t: LeafletTile, c: LidlCandidate) -> bool:
+    """R7c: the API's ``deletedPrice_differs`` flag says its record holds two
+    different old prices. The printed leaflet settles which one is real when
+    OCR read the struck-through price (consensus) equal to the API's old price
+    AND the numbers prove the offer: R1 on OCR's own old/% for a plain
+    discount, R7b's arithmetic for "-P% na drugi kos" (there OCR withholds the
+    old price from its reading, and the badge % is often unreadable). kw39 p10
+    Bon Gelati: printed 2.59 / 1.29 "-50% na drugi kos", API old 2.59 and a
+    stray deletedPrice 3.99."""
+    old = t.ocr_printed_old
+    if old is None or old != c.old_price:
+        return False
+    if c.conditional:
+        return conditional_kind(c)[0] == "second-item"
+    return t.ocr_old_pct == (c.old_price, c.pct)
+
+
+def _deal_from_candidate(c: LidlCandidate, leaflet_id: str, settled: Sequence[str] = ()) -> Deal:
+    """``settled``: API flag prefixes the leaflet has settled (R7c); they are
+    kept as flags but do not quarantine."""
     start, end, multi = _window(c)
     d = Deal(
         retailer=RETAILER, name=c.name, leaflet_id=leaflet_id, source_url=c.url,
@@ -791,7 +891,9 @@ def _deal_from_candidate(c: LidlCandidate, leaflet_id: str) -> Deal:
     )
     for f in c.flags:
         d.flag(f"api:{f}")
-        if f.startswith(QUARANTINE_API_FLAGS):
+        if f.startswith(tuple(settled)):
+            d.flag(f"api-flag-settled-by-leaflet:{f}")
+        elif f.startswith(QUARANTINE_API_FLAGS):
             d.quarantine(f"api-flag:{f}")
     if c.conditional:
         kind, why = conditional_kind(c)
@@ -824,6 +926,41 @@ def _brand_only_unique(c: LidlCandidate, t: LeafletTile,
     return (pack is not None and t.pack == pack
             and sum(pack_size(c2.packaging) == pack for c2 in c_same) == 1
             and sum(t2.pack == pack for t2 in t_same) == 1)
+
+
+def brand_corroboration(t: LeafletTile, c: LidlCandidate) -> str | None:
+    """R2/R4: what, beyond brand + price, says a BRAND or BRAND-DIFFERS match is
+    the same product: the reconciled OCR old price and % equal to the API's, or
+    the exact printed pack size equal to the API's packaging. The flag to record,
+    or None: then it is not a match at all (R3 never pairs it)."""
+    op = t.ocr_old_pct
+    if op is not None and op == (c.old_price, c.pct):
+        return "name-match-corroborated:ocr-old-price"
+    api_pack = pack_size(c.packaging)
+    if api_pack and api_pack == t.pack:
+        return f"name-match-corroborated:pack-size:{api_pack}"
+    return None
+
+
+def badge_fit(t: LeafletTile, c: LidlCandidate) -> bool | None:
+    """R4c: does the API item fit what the tile prints above its price?
+    OCR read a "-P%" badge: the item must carry exactly P, and its own
+    old/new/% must reconcile (R1). OCR saw a bare price (no badge, no old/%):
+    the item must carry no old price and no %. None: no evidence either way."""
+    pct = t.ocr_badge_pct
+    if pct is not None:
+        return c.pct == pct and api_triple_reconciles(c)
+    if any(ocr_saw_bare_price(r) and r.new_price == t.new_price for r in t.readings):
+        return c.old_price is None and c.pct is None
+    return None
+
+
+def api_triple_reconciles(c: LidlCandidate) -> bool:
+    """R1 applied to the API's own old / new / %."""
+    new, old, pct = c.new_price, c.old_price, c.pct
+    if None in (new, old, pct) or old <= new or new <= 0:
+        return False
+    return pct <= (1 - new / old) * 100 < pct + 1
 
 
 _FURNITURE = re.compile(r"(\s+(nepakirano|za\s+kg|za\s+kos))+\s*$", re.I)
@@ -918,6 +1055,10 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
 
     suspects = suspect_repeats(tiles)
     pairs = []
+    # R3b: brand-tier matches that nothing corroborates are not pairs. The tile
+    # stays free for R8 (the leaflet may prove it alone) and the API item stays
+    # free for its real tile; both are named in the API item's reason.
+    uncorroborated: dict[int, list[int]] = {}
     for ti, t in enumerate(tiles):
         if t.new_price is None or ti in suspects:
             continue
@@ -926,21 +1067,40 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                 continue
             m = name_match(t, c)
             same = c.new_price == t.new_price
-            if m.tier == "strong" or (m.tier == "brand-differs" and same):
+            if m.tier == "strong":
                 pairs.append((m.score, same, ti, ci, m.tier))
-            elif m.tier == "brand" and same and brand_only(c):
-                if _brand_only_unique(c, t, pool, tiles):
-                    pairs.append((m.score, same, ti, ci, m.tier))
-            elif m.tier == "brand" and same:
+                continue
+            if not same or m.tier not in ("brand", "brand-differs"):
+                continue
+            if m.tier == "brand" and brand_only(c):
+                eligible = _brand_only_unique(c, t, pool, tiles)
+            elif m.tier == "brand":
                 bk = brand_key(_tile_parts(t)[0])
-                if (cand_brand_price.get((bk, c.new_price)) == 1
-                        and tile_brand_price.get((bk, t.new_price)) == 1):
-                    pairs.append((m.score, same, ti, ci, m.tier))
+                eligible = (cand_brand_price.get((bk, c.new_price)) == 1
+                            and tile_brand_price.get((bk, t.new_price)) == 1)
+            else:
+                eligible = True
+            if not eligible:
+                continue
+            if brand_corroboration(t, c) is None:
+                uncorroborated.setdefault(ci, []).append((ti, m.tier))
+                continue
+            pairs.append((m.score, same, ti, ci, m.tier))
     # A tile that OCR can back is preferred over one it cannot (kw39 p47: the
     # VLM invented "Wok Spices 0.69" beside the real "Začimbe 0.69" tile).
     unbackable = lambda ti: tiles[ti].sources == ("vlm",) and ocr_pages is not None \
         and ti not in maybe_backed  # noqa: E731
-    pairs.sort(key=lambda p: (unbackable(p[2]), -p[0], not p[1], p[2], p[3]))
+    # R4c: among equally good names, the candidate the tile's printed badge
+    # fits is taken first, so two prints of one product (kw39: a plain 14.99
+    # jacket on p33, a "-34%" 14.99 jacket on p57) each get their own item.
+    fit_cache: dict[tuple[int, int], bool | None] = {}
+
+    def fit(ti: int, ci: int) -> bool | None:
+        if (ti, ci) not in fit_cache:
+            fit_cache[(ti, ci)] = badge_fit(tiles[ti], pool[ci][0])
+        return fit_cache[(ti, ci)]
+    pairs.sort(key=lambda p: (unbackable(p[2]), -p[0], not p[1], fit(p[2], p[3]) is not True,
+                              p[2], p[3]))
     tile_of: dict[int, tuple[int, str]] = {}
     used_c: set[int] = set()
     for score, same, ti, ci, tier in pairs:
@@ -968,10 +1128,20 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
     # A tile whose best candidate is tied with another candidate at the same
     # price (several "Esmara jakna" at 13.99) is ambiguous: which one is printed?
     ties: dict[int, list[int]] = {}
-    for ti, (ci, tier) in tile_of.items():
+    badge_resolved: dict[int, str] = {}
+    for ti, (ci, tier) in list(tile_of.items()):
         best = next(p for p in pairs if p[2] == ti and p[3] == ci)
         ties[ti] = [p[3] for p in pairs if p[2] == ti and p[3] != ci and p[1] == best[1]
                     and abs(p[0] - best[0]) < 1e-9 and p[4] == tier]
+        # R4c: the printed badge settles the tie when the chosen candidate fits
+        # it and none of the tied ones does. It only SELECTS: old/% ship from
+        # the API, and only when the API's own old/new/% reconcile (R1).
+        if ties[ti] and fit(ti, ci) is True and all(fit(ti, j) is False for j in ties[ti]):
+            ev = tiles[ti].ocr_badge_pct
+            badge_resolved[ti] = (f"ambiguous-api-match-resolved-by-badge:"
+                                  + (f"-{ev}%" if ev is not None else "no-badge")
+                                  + f" (also {', '.join(pool[j][0].erp for j in ties[ti])})")
+            ties[ti] = []
 
     def _agree(ci: int, others: list[int]) -> bool:
         """Every tied candidate says the same thing about what she would pay."""
@@ -995,8 +1165,13 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
     overruled: dict[int, str] = {}      # R5b: conflict tiles, judged again by R8
     for ti, (ci, tier) in sorted(tile_of.items()):
         t, (c, is_listed) = tiles[ti], pool[ci]
-        d = _deal_from_candidate(c, leaflet_id)
+        settled = (["deletedPrice_differs"] if c.new_price == t.new_price
+                   and any(f.startswith("deletedPrice_differs") for f in c.flags)
+                   and old_price_doubt_settled(t, c) else [])
+        d = _deal_from_candidate(c, leaflet_id, settled)
         d.source_page = t.page
+        if ti in badge_resolved:
+            d.flag(badge_resolved[ti])
         if t.page is not None:
             d.flag(f"leaflet-page:{t.page}")
         if is_listed:
@@ -1017,17 +1192,9 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         elif ti in unbacked:
             d.quarantine(f"vlm-only-without-ocr-price: {backing(ti)}")
         if tier in ("brand", "brand-differs"):
+            # R3b already refused every uncorroborated brand pair
             d.flag(f"name-match:{'brand-only' if tier == 'brand' else tier}:{t.name!r}")
-            op = t.ocr_old_pct
-            api_pack = pack_size(c.packaging)
-            if op is not None and op == (c.old_price, c.pct):
-                d.flag("name-match-corroborated:ocr-old-price")
-            elif api_pack and api_pack == t.pack:
-                d.flag(f"name-match-corroborated:pack-size:{api_pack}")
-            else:
-                what = "brand-only" if tier == "brand" else "brand-differs"
-                d.quarantine(f"name-match-{what}-unconfirmed: api {c.name!r} "
-                             f"({c.packaging}), leaflet {t.describe()} unit {t.pack}")
+            d.flag(brand_corroboration(t, c))
         if ti in merged:
             group = [pool[j][0] for j in [ci, *merged[ti]]]
             olds = {(g.old_price, g.pct) for g in group}
@@ -1115,8 +1282,15 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             continue
         same_price = [t for t in free_tiles if t.new_price is not None
                       and t.new_price == c.new_price]
-        hint = ("; same price, unrelated name: " + ", ".join(t.describe() for t in same_price)
-                if same_price else "")
+        brand_tiles = [tiles[ti] for ti, _ in uncorroborated.get(ci, ())]
+        tiers = "/".join(sorted({"brand-only" if tr == "brand" else tr
+                                 for _, tr in uncorroborated.get(ci, ())}))
+        hint = (f"; {tiers} name match NOT corroborated (no equal old price or exact "
+                f"pack size; api pack {c.packaging!r}): "
+                + ", ".join(t.describe() for t in brand_tiles) if brand_tiles else "")
+        same_price = [t for t in same_price if t not in brand_tiles]
+        hint += ("; same price, unrelated name: " + ", ".join(t.describe() for t in same_price)
+                 if same_price else "")
         d.quarantine(f"not-in-leaflet-reading{hint}")
         records.append(MatchRecord("api-only", d, c, None))
 
@@ -1149,10 +1323,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                   and (op is not None or plain_price_tile(t))
                   and len(t.lidl_plus_votes) == 1
                   and all(r.lidl_plus is not None for r in t.readings)):
-            what = ("single reader" if len(t.sources) == 1
-                    else "OCR old/% not reconciled" if op is None
-                    else "Lidl Plus not agreed")
-            d.quarantine(f"leaflet-only-unverified: {what} ({t.describe()})")
+            d.quarantine(f"leaflet-only-unverified: {'; '.join(_unverified_why(t))} "
+                         f"({t.describe()})")
         elif pv is None:
             d.quarantine(f"leaflet-only-no-validity: page {t.page} validity unknown "
                          f"({t.describe()})")
@@ -1165,6 +1337,12 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             d.valid_from, d.valid_to = pv
             if pv_inferred:
                 d.flag(f"page-validity-inferred-from-api:{pv[0]}..{pv[1]}")
+            lw_end = leaflet_window[1]
+            if lw_end is not None and (d.valid_to is None or d.valid_to > lw_end):
+                # as in R4: the leaflet cannot vouch for days after it ends
+                # (kw39 Vitasia pages: API 28.9.-3.10., no end printed)
+                d.flag(f"valid_to-clipped-to-leaflet:page {d.valid_to}")
+                d.valid_to = lw_end
             tile_end = parse_tile_date(t.valid_to_text, year)
             if tile_end is not None and (d.valid_to is None or tile_end < d.valid_to):
                 d.valid_to = tile_end
