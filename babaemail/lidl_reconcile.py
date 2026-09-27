@@ -719,6 +719,8 @@ def _multi_buy_evidence(t: LeafletTile) -> tuple[dict | None, str]:
     try:
         paid, free = int(proof["paid"]), int(proof["free"])
         single = Decimal(str(proof["single_price"]))
+        crop_quantity = (int(proof["exact_quantity"])
+                         if proof.get("exact_quantity") is not None else None)
     except (KeyError, TypeError, ValueError):
         return None, "multi-buy proof is incomplete"
     if paid <= 0 or free <= 0 or not single.is_finite() or single <= 0:
@@ -728,6 +730,9 @@ def _multi_buy_evidence(t: LeafletTile) -> tuple[dict | None, str]:
     if t.new_price is None or t.new_price != paid * single:
         return None, (f"multi-buy arithmetic fails: bundle {t.new_price} != "
                       f"{paid} x {single}")
+    if crop_quantity is not None and crop_quantity != paid + free:
+        return None, (f"multi-buy crop exact quantity fails: {crop_quantity} != "
+                      f"{paid}+{free}")
 
     quantities = {int(q) for r in t.readings if r.source == "ocr"
                   for q in _EXACT_QUANTITY.findall(fold(" ".join(r.text)))}
@@ -736,8 +741,12 @@ def _multi_buy_evidence(t: LeafletTile) -> tuple[dict | None, str]:
     if quantities and quantities != {paid + free}:
         return None, (f"multi-buy exact quantity fails: {next(iter(quantities))} != "
                       f"{paid}+{free}")
+    if crop_quantity is not None and quantities and quantities != {crop_quantity}:
+        return None, (f"multi-buy exact quantities disagree: crop {crop_quantity}, "
+                      f"full-page OCR {next(iter(quantities))}")
     return dict(paid=paid, free=free, single=single,
-                exact_quantity=next(iter(quantities)) if quantities else None), ""
+                exact_quantity=(crop_quantity if crop_quantity is not None
+                                else next(iter(quantities)) if quantities else None)), ""
 
 
 def multi_buy_condition(t: LeafletTile, expected: tuple[int, int] | None = None) -> tuple[str | None, str]:

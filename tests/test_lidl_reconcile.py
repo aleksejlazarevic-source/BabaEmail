@@ -327,8 +327,10 @@ def test_bonus_pack_with_other_pack_count_is_quarantined():
     assert any("bonus pack 10+4" in r for r in reasons(by_erp(res, "1")))
 
 
-def multibuy_ocr(price, paid, free, single, *, name="ARGUS Svetlo pivo", quantity=None):
-    condition = dict(paid=paid, free=free, single_price=single)
+def multibuy_ocr(price, paid, free, single, *, name="ARGUS Svetlo pivo", quantity=None,
+                 crop_quantity=None):
+    condition = dict(paid=paid, free=free, single_price=single,
+                     exact_quantity=crop_quantity)
     lines = [f"cena za 1 kos: {single}"]
     if quantity is not None:
         lines += ["velja za nakup točno", f"{quantity} kosov"]
@@ -347,6 +349,22 @@ def test_multibuy_argus_like_ships_as_bundle_with_exact_condition():
     assert d.condition_kind == "multi-buy"
     assert d.condition == "13+5 gratis; velja za nakup točno 18 kosov; cena za 1 kos 0,79 €"
     assert d.discount_pct is None
+
+
+def test_multibuy_crop_quantity_ships_when_full_page_ocr_misses_it():
+    res = run([bonus("1", "Svetlo pivo", "10.27", "13+5 gratis", "0,5 l")],
+              [vlm(35, "ARGUS Svetlo pivo", "10.27", lp=False),
+               multibuy_ocr("10.27", 13, 5, "0.79", crop_quantity=18)])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert d.condition == "13+5 gratis; velja za nakup točno 18 kosov; cena za 1 kos 0,79 €"
+
+
+def test_multibuy_crop_and_full_page_quantity_disagreement_is_held():
+    bad = multibuy_ocr("10.27", 13, 5, "0.79", quantity=17, crop_quantity=18)
+    res = run([bonus("1", "Svetlo pivo", "10.27", "13+5 gratis", "0,5 l")],
+              [vlm(35, "ARGUS Svetlo pivo", "10.27", lp=False), bad])
+    assert by_erp(res, "1").is_quarantined
 
 
 def test_multibuy_freshona_like_arithmetic_failure_is_held():

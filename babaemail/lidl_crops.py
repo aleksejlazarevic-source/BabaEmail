@@ -372,7 +372,8 @@ def _multi_buy(data, model, price):
     vq = {int(q) for q in _QUANTITY.findall(fold(model.get('purchase_quantity_text') or ''))}
     if oq != vq or (oq and oq != {n + m}):
         return None
-    return dict(paid=n, free=m, single_price=str(single))
+    return dict(paid=n, free=m, single_price=str(single),
+                exact_quantity=next(iter(oq)) if oq else None)
 
 
 def refine_readings(readings, evidence):

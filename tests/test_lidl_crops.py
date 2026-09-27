@@ -209,6 +209,21 @@ def test_from_price_still_needs_lidl_plus_agreement_and_validity():
     assert not reconcile([], rs, leaflet_id='test', leaflet_window=WEEK).shipped
 
 
+def test_multibuy_proof_keeps_crop_proven_exact_quantity():
+    data = evidence(name='ARGUS Svetlo pivo', price='10.27', badge='flag')
+    data['ocr_texts'] = [
+        'ARGUS Svetlo pivo', '13+5 gratis', 'cena za 1 kos: 0,79',
+        'velja za nakup točno 18 kosov',
+    ]
+    data['ocr_badge_count'] = '13+5'
+    model = json.loads(data['vlm']['response'])
+    model.update(badge_text='13+5 gratis', single_piece_text='cena za 1 kos: 0,79',
+                 purchase_quantity_text='velja za nakup točno 18 kosov')
+    data['vlm']['response'] = json.dumps(model)
+
+    assert _proof(data)['multi_buy']['exact_quantity'] == 18
+
+
 def test_cache_is_bound_to_page_pixels_and_page_number(tmp_path):
     data = evidence()
     save_crop(data, tmp_path)
