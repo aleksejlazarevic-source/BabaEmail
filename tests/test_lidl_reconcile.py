@@ -221,10 +221,11 @@ def test_leaflet_price_overrules_the_api_when_both_readers_prove_it():
 def test_leaflet_price_conflict_uses_complete_name_in_ocr_tile_text():
     # kw39 p15: OCR selected the variant line "Sensitive" as its short name,
     # but independently read the complete product name in the same tile text.
+    lines = ("za 130 pranj", "SILAN", "Mehčalec", "za perilo", "Sensitive")
     printed = LeafletReading(
         "ocr", 15, D("5.89"), lidl_plus=False, name="Sensitive",
-        bbox=(0, 0, 100, 100), raw={"badge": None},
-        text=("za 130 pranj", "SILAN", "Mehčalec", "za perilo", "Sensitive"),
+        bbox=(0, 0, 100, 100), raw={"badge": None, "raw": {"text_lines": lines}},
+        text=lines,
     )
     res = run(
         [cand("1", "Mehčalec za perilo", "5.59", "7.99", "30", brand="SILAN")],
@@ -241,13 +242,60 @@ def test_leaflet_price_conflict_uses_complete_name_in_ocr_tile_text():
 
 
 def test_ocr_tile_text_name_proof_requires_the_complete_vlm_name():
+    lines = ("SILAN", "Mehčalec", "Sensitive")
     printed = LeafletReading(
         "ocr", 15, D("5.89"), lidl_plus=False, name="Sensitive",
-        bbox=(0, 0, 100, 100), raw={"badge": None},
-        text=("SILAN", "Mehčalec", "Sensitive"),
+        bbox=(0, 0, 100, 100), raw={"badge": None, "raw": {"text_lines": lines}},
+        text=lines,
     )
     res = run([], [vlm(15, "SILAN Mehčalec za perilo", "5.89"), printed],
               page_validity={15: WEEK})
+    [d] = leaflet_only(res)
+    assert d.is_quarantined
+    assert "name has one reader" in reasons(d)[0]
+
+
+def test_ocr_tile_text_name_proof_rejects_brand_plus_one_generic_word():
+    lines = ("PILOS", "Mleko")
+    printed = LeafletReading(
+        "ocr", 1, D("1.29"), lidl_plus=False, name="druga različica",
+        bbox=(0, 0, 100, 100), raw={"badge": None, "raw": {"text_lines": lines}},
+        text=lines,
+    )
+    res = run([], [vlm(1, "PILOS Mleko", "1.29"), printed], page_validity={1: WEEK})
+    [d] = leaflet_only(res)
+    assert d.is_quarantined
+    assert "name has one reader" in reasons(d)[0]
+
+
+def test_ocr_tile_text_name_proof_rejects_a_borrowed_line():
+    # The regional OCR saw the neighbour's label, but the adapter's ownership
+    # guard excluded it from this tile's text_lines audit record.
+    printed = LeafletReading(
+        "ocr", 1, D("1.29"), lidl_plus=False, name="druga različica",
+        bbox=(0, 0, 100, 100),
+        raw={"badge": None, "raw": {
+            "region_lines": [{"text": "SILAN Mehčalec za perilo", "bbox": [0, 0, 10, 10]}],
+            "text_lines": (),
+        }},
+        text=("SILAN Mehčalec za perilo",),
+    )
+    res = run([], [vlm(1, "SILAN Mehčalec za perilo", "1.29"), printed],
+              page_validity={1: WEEK})
+    [d] = leaflet_only(res)
+    assert d.is_quarantined
+    assert "name has one reader" in reasons(d)[0]
+
+
+def test_ocr_tile_text_name_proof_does_not_skip_a_nonconsecutive_line():
+    lines = ("SILAN", "Mehčalec", "sosedov izdelek", "za perilo")
+    printed = LeafletReading(
+        "ocr", 1, D("1.29"), lidl_plus=False, name="druga različica",
+        bbox=(0, 0, 100, 100), raw={"badge": None, "raw": {"text_lines": lines}},
+        text=lines,
+    )
+    res = run([], [vlm(1, "SILAN Mehčalec za perilo", "1.29"), printed],
+              page_validity={1: WEEK})
     [d] = leaflet_only(res)
     assert d.is_quarantined
     assert "name has one reader" in reasons(d)[0]

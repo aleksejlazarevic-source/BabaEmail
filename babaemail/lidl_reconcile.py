@@ -671,18 +671,39 @@ def _share_product_word(a: str | None, b: str | None) -> bool:
 
 
 def _ocr_text_proves_name(r: LeafletReading, name: str | None) -> bool:
-    """The complete VLM name occurs, in order, in this tile's OCR-owned text.
+    """The complete VLM product name occurs in guarded, consecutive OCR lines.
 
     OCR's name selector can choose a nearby variant line (kw39 p15: ``Sensitive``)
     even though its full tile text independently read ``SILAN Mehčalec za perilo``.
     Exact normalized containment is deliberately stronger than the fuzzy name
     pairing used elsewhere: this proof is allowed to make a bare-price tile ship.
+
+    The adapter's ``text_lines`` are the lines left after the same nearest-tile
+    ownership guard used for selected names.  Require the reading to reproduce
+    that audit record exactly: unguarded or borrowed regional text is not proof.
+    A leading all-caps brand is not a product word, and the fallback needs two
+    product stems.  A genuinely unbranded one-word product remains the narrow
+    exception; ``BRAND Mleko`` does not.
     """
-    wanted = _TOKEN.findall(fold(name or ""))
-    seen = _TOKEN.findall(fold(" ".join(r.text)))
-    return (r.source == "ocr" and bool(wanted)
-            and any(seen[i:i + len(wanted)] == wanted
-                    for i in range(len(seen) - len(wanted) + 1)))
+    if r.source != "ocr" or not isinstance(r.raw, dict):
+        return False
+    detail = r.raw.get("raw")
+    guarded = detail.get("text_lines") if isinstance(detail, dict) else None
+    if (not isinstance(guarded, (list, tuple))
+            or not all(isinstance(line, str) for line in guarded)
+            or tuple(guarded) != r.text):
+        return False
+
+    brand, product = split_leaflet_name(name)
+    product = product if brand else (name or "")
+    stems = _stems(product)
+    if len(stems) < 2 and not (not brand and len(stems) == 1):
+        return False
+
+    wanted = _TOKEN.findall(fold(product))
+    seen = _TOKEN.findall(fold(" ".join(guarded)))
+    return bool(wanted) and any(seen[i:i + len(wanted)] == wanted
+                                for i in range(len(seen) - len(wanted) + 1))
 
 
 def plain_price_tile(t: LeafletTile) -> bool:
