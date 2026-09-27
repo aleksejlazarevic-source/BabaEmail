@@ -379,9 +379,8 @@ def refine_readings(readings, evidence):
     """R0d: replace only names/independently proven fields, never a new price.
 
     The full-page OCR price geometry must equal the crop's price geometry.
-    A matching full-page VLM price is mandatory too. With price collisions,
-    exactly one VLM name must match, or one OCR structure plus unanimous
-    variant metadata permits a new scoped reading without deleting originals.
+    A matching full-page VLM price is mandatory too, and exactly one full-page
+    VLM name must share a non-brand product word with the crop name.
     Crops cannot overrule existing Lidl Plus votes, dates, or API flags.
     """
     out = list(readings)
@@ -404,22 +403,14 @@ def refine_readings(readings, evidence):
         vi = [i for i, r in enumerate(out) if r.source == 'vlm' and r.page == page
               and r.new_price == price]
         named = [i for i in vi if _share_product_word(out[i].name, proof['name'])]
-        add_scoped = False
-        if len(named) == 1:
-            vi = named
-        else:
-            if sum(r.source == 'ocr' and r.page == page and r.new_price == price for r in out) != 1:
-                continue
-            if len(vi) > 1:
-                # A page VLM may list pictured variants as separate products.
-                # Keep those readings quarantinable; ADD the spatially scoped
-                # crop name, only when all metadata and the brand agree.
-                keys = {(r.lidl_plus, r.valid_to_text, r.unit,
-                         tuple(words(split_leaflet_name(r.name)[0]))) for r in (out[i] for i in vi)}
-                brand = words(split_leaflet_name(proof['name'])[0])
-                if len(keys) != 1 or not brand or next(iter(keys))[3] != tuple(brand):
-                    continue
-                add_scoped = True
+        # A shared price (and even a shared brand) does not bind the crop to
+        # this product.  Require the independent page reader to share a
+        # non-brand product word, using the same rule as plain-price tiles.
+        # This also prevents a bare brand or an unrelated lone descriptor
+        # from becoming the shipped name through the unique-price fallback.
+        if len(named) != 1:
+            continue
+        vi = named
         if len(oi) != 1 or not vi or used.intersection(oi + vi):
             continue
         a, b = out[oi[0]], out[vi[0]]
@@ -447,10 +438,6 @@ def refine_readings(readings, evidence):
             if (old is None or old == co) and (pct is None or pct == cp):
                 old, pct = co, cp
         out[oi[0]] = replace(a, name=proof['name'], old_price=old, pct=pct, raw=raw)
-        if add_scoped:
-            out.append(replace(b, name=proof['name'], bbox=proof['price_bbox'],
-                               raw={'crop_sha256': data['crop_sha256']}))
-        else:
-            out[vi[0]] = replace(b, name=proof['name'])
+        out[vi[0]] = replace(b, name=proof['name'])
         used.update(oi + vi)
     return out

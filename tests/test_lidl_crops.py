@@ -53,6 +53,28 @@ def test_crop_name_repair_ships_plain_price_and_discount_stays_unknown():
     assert original[0].name is None      # cached full-page evidence is untouched
 
 
+def test_brand_only_crop_name_cannot_make_tile_shippable():
+    rs = readings()
+    rs[1] = replace(rs[1], name='VITASIA Riževi rezanci')
+    data = evidence(name='VITASIA')
+    assert refine_readings(rs, [data]) == rs
+    assert not run(refine_readings(rs, [data])).shipped
+
+
+def test_lone_variant_crop_name_cannot_make_tile_shippable():
+    rs = readings()
+    rs[1] = replace(rs[1], name='SILAN Mehčalec za perilo')
+    data = evidence(name='Sensitive')
+    assert refine_readings(rs, [data]) == rs
+    assert not run(refine_readings(rs, [data])).shipped
+
+
+def test_crop_name_with_shared_non_brand_product_words_still_ships():
+    refined = refine_readings(readings(), [evidence()])
+    [deal] = run(refined).shipped
+    assert deal.name == NAME
+
+
 @pytest.mark.parametrize('change', ['ocr-price', 'vlm-price', 'missing-name', 'partial-name',
                                     'two-prices', 'different-box', 'cut-badge', 'lp', 'brand'])
 def test_crop_cannot_repair_without_every_proof(change):
@@ -78,11 +100,11 @@ def test_crop_never_supplies_a_missing_full_page_reader():
         assert refine_readings(rs, [evidence()]) == rs
 
 
-def test_unique_price_allows_packaging_name_to_be_replaced_by_printed_label():
+def test_unique_price_cannot_replace_name_without_shared_product_word():
     rs = readings()
     rs[1] = replace(rs[1], name='BRAND Cuor di Mela')
-    [d] = run(refine_readings(rs, [evidence()])).shipped
-    assert d.name == NAME
+    assert refine_readings(rs, [evidence()]) == rs
+    assert not run(refine_readings(rs, [evidence()])).shipped
 
 
 def test_price_collision_needs_unique_product_name():
@@ -92,15 +114,11 @@ def test_price_collision_needs_unique_product_name():
     assert refine_readings(rs, [evidence()]) == rs
 
 
-def test_crop_proves_common_label_without_deleting_page_vlm_variants():
+def test_crop_cannot_add_common_label_without_shared_product_word():
     rs = readings()
     rs[1] = replace(rs[1], name='BRAND Cuor di Mela', unit='300 g')
     rs += [replace(rs[1], name='BRAND Cuor di Bosco')]
-    refined = refine_readings(rs, [evidence()])
-    assert len(refined) == 4 and refined[1:3] == rs[1:3]
-    result = run(refined, ocr_pages=[4])
-    assert len(result.shipped) == 1 and result.shipped[0].name == NAME
-    assert len(result.quarantined) == 2
+    assert refine_readings(rs, [evidence()]) == rs
 
 
 @pytest.mark.parametrize('field,value', [('unit', '500 g'), ('lidl_plus', True),
