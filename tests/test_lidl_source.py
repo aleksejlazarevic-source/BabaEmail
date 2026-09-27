@@ -6,7 +6,7 @@ from decimal import Decimal as D
 
 import pytest
 
-from babaemail import lidl_api, lidl_notices, ocr, vlm
+from babaemail import lidl_api, lidl_crops, lidl_notices, ocr, vlm
 from babaemail.lidl_api import CandidateList, LidlApiError, LidlCandidate
 from babaemail.lidl_reconcile import LeafletReading
 from babaemail.models import SourceStatus
@@ -186,6 +186,16 @@ def test_zero_shipped_deals_is_a_failure(world):
     assert res.status is SourceStatus.PARSE_FAILED and not res.contributes
     assert "none verified" in res.error
     assert res.items and all(d.is_quarantined for d in res.items)
+
+
+def test_bad_crop_cache_does_not_fail_lidl(world, monkeypatch):
+    def bad_cache(*args, **kwargs):
+        raise ValueError('broken crop json')
+    monkeypatch.setattr(lidl_crops, 'load_crops', bad_cache)
+    lidl = Lidl()
+    res = lidl.fetch(TODAY)
+    assert res.status is SourceStatus.OK, res.error
+    assert 'broken crop json' in lidl.last_stats['crop_load_error']
 
 
 def test_page_count_mismatch_is_a_failure(world):

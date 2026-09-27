@@ -200,18 +200,58 @@ class Lidl(Source):
 
         # 6. reconcile
         readings = [r for p in pages for r in ocr_readings[p] + vlm_readings.get(p, [])]
-        # Optional targeted rereads, collected separately; never launch a
-        # second full-leaflet VLM pass. Page hashes exclude stale evidence.
+        # Optional targeted rereads; never launch a second full-leaflet VLM
+        # pass. Page hashes exclude stale evidence. A broken optional cache is
+        # recorded and ignored: no crops is the earlier proven-safe behavior.
+        crop_stats = {}
         try:
-            crop_evidence = lidl_crops.load_crops(pngs)
-            readings = lidl_crops.refine_readings(readings, crop_evidence)
-            stats["crop_evidence"] = len(crop_evidence)
+            crop_evidence = lidl_crops.load_crops(pngs, stats=crop_stats)
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            return res.fail(SourceStatus.PARSE_FAILED, f"crop evidence: {exc!r}")
-        rr = reconcile(list(cands), readings, leaflet_id=ident,
-                       leaflet_window=(meta["valid_from"], meta["valid_to"]),
-                       listed=list(cands.no_signal), year=meta["valid_from"].year,
-                       leaflet_url=meta["pdf_url"], ocr_pages=pages)
+            crop_evidence = []
+            crop_stats["crop_load_error"] = repr(exc)
+            log.warning("crop evidence not loaded: %r", exc)
+        readings = lidl_crops.refine_readings(readings, crop_evidence)
+
+        # Identify held leaflet-only tiles before spending any crop VLM calls.
+        # Selection uses only full-page OCR geometry and reconciliation output;
+        # it does not use page numbers, product names, or truth data.
+        reconcile_kw = dict(leaflet_id=ident,
+                            leaflet_window=(meta["valid_from"], meta["valid_to"]),
+                            listed=list(cands.no_signal), year=meta["valid_from"].year,
+                            leaflet_url=meta["pdf_url"], ocr_pages=pages)
+        preliminary = reconcile(list(cands), readings, **reconcile_kw)
+        boxes = lidl_crops.select_crop_boxes(pngs, readings, preliminary,
+                                             crop_evidence, limit=40)
+        stats["crops_selected"] = len(boxes)
+        crop_read = []
+        crop_failed = 0
+        t0 = time.monotonic()
+        if boxes:
+            try:
+                with vlm.ollama_session(self.vlm_model, self.ollama_url):
+                    for page, box in boxes:
+                        try:
+                            evidence = lidl_crops.read_crop(
+                                pngs[page], page, box, model=self.vlm_model,
+                                url=self.ollama_url)
+                            lidl_crops.save_crop(evidence)
+                            crop_read.append(evidence)
+                        except Exception as exc:  # optional evidence; keep old-safe result
+                            crop_failed += 1
+                            log.warning("crop read skipped p%s %s: %r", page, box, exc)
+            except vlm.VlmUnavailable as exc:
+                crop_failed += len(boxes)
+                crop_stats["crop_vlm_error"] = repr(exc)
+                log.warning("automatic crop reads unavailable: %r", exc)
+        stats["crops_read"] = len(crop_read)
+        stats["crops_failed"] = crop_failed
+        stats["crops_s"] = round(time.monotonic() - t0, 1)
+        stats.update(crop_stats)
+        crop_evidence.extend(crop_read)
+        readings = lidl_crops.refine_readings(readings, crop_read)
+        stats["crop_evidence"] = len(crop_evidence)
+
+        rr = reconcile(list(cands), readings, **reconcile_kw)
         self.last_reconcile = rr
         for d in rr.deals:
             d.retailer = self.name

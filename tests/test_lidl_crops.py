@@ -8,7 +8,8 @@ from decimal import Decimal as D
 
 import pytest
 
-from babaemail.lidl_crops import _proof, load_crops, refine_readings, save_crop
+from babaemail.lidl_crops import (_proof, load_crops, refine_readings, save_crop,
+                                  select_crop_boxes)
 from babaemail.lidl_reconcile import LeafletReading, reconcile
 from babaemail.models import Deal
 
@@ -189,3 +190,33 @@ def test_cache_is_bound_to_page_pixels_and_page_number(tmp_path):
     assert load_crops({4: b'page'}, tmp_path) == [data]
     assert not load_crops({4: b'new-page'}, tmp_path)
     assert not load_crops({5: b'page'}, tmp_path)
+
+
+def test_bad_crop_file_is_skipped_and_counted(tmp_path):
+    digest = hashlib.sha256(b'page').hexdigest()
+    (tmp_path / f'{digest}-bad.json').write_text('{not json')
+    stats = {}
+    assert load_crops({4: b'page'}, tmp_path, stats) == []
+    assert stats == {'crop_files_bad': 1, 'crop_files_stale': 0}
+
+
+def test_auto_selection_uses_geometry_only_for_crop_settleable_hold(tmp_path):
+    from PIL import Image
+    import io
+
+    buf = io.BytesIO()
+    Image.new('RGB', (400, 300), 'white').save(buf, 'PNG')
+    rs = readings()
+    rs[0] = replace(rs[0], name=None, bbox=(180, 150, 260, 210),
+                    raw=dict(price_bbox=[180, 150, 260, 210], badge=None,
+                             name_bbox=[20, 90, 160, 140], region_lines=[], text_lines=[]))
+    result = run(rs)
+    assert select_crop_boxes({4: buf.getvalue()}, rs, result) == [(4, (0, 66, 284, 234))]
+
+    # An unknown flag condition is not something X1's plain/from-price proof settles.
+    rs[0].raw['badge'] = 'flag'
+    rs[0].raw['flag_text'] = '2+1 gratis'
+    assert select_crop_boxes({4: buf.getvalue()}, rs, run(rs)) == []
+
+    rs[0].raw.update(flag_text='že od', badge_bbox=[170, 70, 280, 145])
+    assert select_crop_boxes({4: buf.getvalue()}, rs, run(rs)) == [(4, (146, 46, 304, 234))]

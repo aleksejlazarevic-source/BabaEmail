@@ -1,13 +1,11 @@
 """Targeted second reads of Lidl labels, bound to their source page pixels.
 
-An operator supplies a tight crop containing ONE complete name/price/badge
-area. OCR runs before, and without input from, the VLM. Raw outputs are saved
-for review; a model's 'confirmed' boolean is never evidence. The ordinary
-full-page readings and all reconciliation gates remain necessary.
-
-This is a cache-consuming checkpoint workflow, not automatic tile selection.
-Only crops whose full-page SHA256 matches are loaded by the live adapter.
-No answer keys, product-specific names, or page numbers are used here.
+Crop boxes are derived from the full-page OCR price/badge/text geometry. OCR
+runs before, and without input from, the VLM. Raw outputs are saved for review;
+a model's 'confirmed' boolean is never evidence. The ordinary full-page
+readings and all reconciliation gates remain necessary. Only crops whose
+full-page SHA256 matches are loaded by the live adapter. No answer keys,
+product-specific names, or page numbers are used here.
 """
 from __future__ import annotations
 
@@ -164,16 +162,135 @@ def save_crop(evidence, cache_dir=CACHE_DIR):
     return path
 
 
-def load_crops(pngs: dict[int, bytes], cache_dir=CACHE_DIR):
-    """A stale/different page's crop is never usable, even at the same price."""
+def load_crops(pngs: dict[int, bytes], cache_dir=CACHE_DIR, stats: dict | None = None):
+    """Load usable evidence, skipping corrupt/stale files independently.
+
+    A stale/different page's crop is never usable, even at the same price.
+    ``stats`` lets the live adapter expose bad evidence without turning an
+    optional second read into failure of the whole Lidl source.
+    """
     out = []
-    for page, png in pngs.items():
-        digest = hashlib.sha256(png).hexdigest()
-        for path in sorted(cache_dir.glob(digest + '-*.json')):
+    counts = stats if stats is not None else {}
+    counts.setdefault('crop_files_bad', 0)
+    counts.setdefault('crop_files_stale', 0)
+    digests = {page: hashlib.sha256(png).hexdigest() for page, png in pngs.items()}
+    for path in sorted(cache_dir.glob('*.json')):
+        try:
             data = json.loads(path.read_text())
-            if data.get('page_sha256') == digest and data.get('page') == page:
-                out.append(data)
+            if not isinstance(data, dict):
+                raise TypeError('crop evidence is not an object')
+        except (OSError, UnicodeError, ValueError, TypeError):
+            counts['crop_files_bad'] += 1
+            continue
+        page = data.get('page')
+        if page not in digests:
+            continue
+        if data.get('page_sha256') != digests[page]:
+            counts['crop_files_stale'] += 1
+            continue
+        out.append(data)
     return out
+
+
+def _crop_box(reading, width: int, height: int):
+    """Tight complete label box from OCR geometry, in full-page coordinates."""
+    raw = reading.raw
+    detail = raw.get('raw') if isinstance(raw.get('raw'), dict) else raw
+    price = tuple(raw.get('price_bbox') or reading.bbox or ())
+    if len(price) != 4:
+        return None
+    boxes = [price]
+    for key in ('badge_bbox', 'old_bbox', 'logo_bbox'):
+        box = raw.get(key) or detail.get(key)
+        if box and len(box) == 4:
+            boxes.append(tuple(box))
+    # A successfully isolated name is safer than all regional text, which can
+    # include packaging copy or a neighbouring label. If name isolation failed,
+    # use the already-owned text lines recorded by the page OCR reader.
+    # Flag panels contain their complete printed label. A page-level name box
+    # outside such a panel is often nearby campaign furniture (kw39 p42), not
+    # the product; including it can pull another price into the crop.
+    flag_panel = raw.get('badge') == 'flag'
+    name = None if flag_panel else (raw.get('name_bbox') or detail.get('name_bbox'))
+    if name and len(name) == 4:
+        boxes.append(tuple(name))
+    elif not flag_panel:
+        owned = set(raw.get('text_lines') or detail.get('text_lines') or ())
+        boxes.extend(tuple(line['bbox']) for line in
+                     (raw.get('region_lines') or detail.get('region_lines') or ())
+                     if line.get('text') in owned and len(line.get('bbox', ())) == 4)
+    x0 = min(b[0] for b in boxes); y0 = min(b[1] for b in boxes)
+    x1 = max(b[2] for b in boxes); y1 = max(b[3] for b in boxes)
+    ph = max(1, price[3] - price[1])
+    pad = max(24, round(ph * .18))
+    box = (max(0, int(x0 - pad)), max(0, int(y0 - pad)),
+           min(width, int(x1 + pad)), min(height, int(y1 + pad)))
+    return box if box[0] < box[2] and box[1] < box[3] else None
+
+
+def select_crop_boxes(pngs, readings, preliminary, evidence=(), limit=40):
+    """Select crop-settleable held leaflet-only OCR tiles, deterministically.
+
+    Reconciliation is run first, so API matches, duplicates, suspect repeats,
+    validity-only holds, and already-shipped tiles are never sent for a crop
+    read. This function selects geometry only; all price/name proof remains in
+    :func:`_proof` and :func:`refine_readings`.
+    """
+    from PIL import Image
+
+    held_ids = set()
+    for rec in preliminary.records:
+        reasons = [f for f in rec.deal.flags if f.startswith('quarantine:')]
+        if (rec.rule == 'leaflet-only' and rec.tile is not None and len(reasons) == 1
+                and reasons[0].startswith('quarantine:leaflet-only-unverified:')):
+            held_ids.update(id(r) for r in rec.tile.readings)
+
+    proven_geometry = set()
+    for data in evidence:
+        try:
+            proof = _proof(data)
+        except (KeyError, TypeError, ValueError):
+            proof = None
+        if proof is not None:
+            proven_geometry.add((data.get('page'), proof['price_bbox']))
+
+    vlm_by_key = {}
+    for r in readings:
+        if r.source == 'vlm' and r.page is not None and r.new_price is not None and r.name:
+            vlm_by_key.setdefault((r.page, r.new_price), []).append(r)
+
+    sizes = {}
+    selected = []
+    seen = set()
+    for r in sorted(readings, key=lambda x: (x.page or 0,
+                                             tuple((x.raw or {}).get('price_bbox', ())))):
+        if (len(selected) >= limit or r.source != 'ocr' or id(r) not in held_ids
+                or r.page not in pngs or r.new_price is None or not isinstance(r.raw, dict)):
+            continue
+        price_box = tuple(r.raw.get('price_bbox', ()))
+        if len(price_box) != 4 or (r.page, price_box) in proven_geometry:
+            continue
+        peers = [v for v in vlm_by_key.get((r.page, r.new_price), ())
+                 if isinstance(r.lidl_plus, bool) and v.lidl_plus == r.lidl_plus]
+        if not peers:
+            continue
+        detail = r.raw.get('raw') if isinstance(r.raw.get('raw'), dict) else r.raw
+        badge = r.raw.get('badge')
+        bare = badge is None and r.old_price is None and r.pct is None
+        discount = badge == 'discount'
+        from_price = (badge == 'flag'
+                      and re.search(r'\bze\s*od\b', fold(detail.get('flag_text') or '')))
+        if not (bare or discount or from_price):
+            continue
+        if r.page not in sizes:
+            with Image.open(io.BytesIO(pngs[r.page])) as im:
+                sizes[r.page] = im.size
+        box = _crop_box(r, *sizes[r.page])
+        key = (r.page, box)
+        if box is not None and key not in seen:
+            selected.append(key)
+            seen.add(key)
+    return selected
 
 
 def _proof(data):
