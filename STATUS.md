@@ -1,37 +1,55 @@
 # STATUS — read this first when picking the project back up
 
-Last session: 2026-09-24. Phase 0 (extraction) is done for all five stores.
+Last session: 2026-09-27 (Lidl). Before that: 2026-09-24. Phase 0 (extraction) is done for all five stores.
 Nothing user-facing exists yet — no email has ever been generated or sent.
 
-## Lidl — X1 checkpoint in progress (2026-09-27)
+## Lidl: state after the night of 2026-09-27 (HEAD 11d6c43, local only)
 
-The printed leaflet is authoritative. Three readers (API, local VLM, OCR)
-are reconciled under R0–R8 in `babaemail/lidl_reconcile.py`. Lidl is **not
-proven flawless**: held-back offers remain, and the independent full-leaflet
-answer key has not been consulted.
+The printed leaflet is authoritative. Three readers (the lidl.si API, the
+local VLM qwen2.5vl:7b, and OCR) are reconciled under R0–R8 in
+`babaemail/lidl_reconcile.py`.
 
-X1 uses cached full-page inputs plus targeted high-resolution label crops.
-`babaemail/lidl_crops.py` checks OCR/VLM name and price agreement and binds
-cached evidence to the exact page SHA256 and OCR price geometry. The live
-adapter consumes matching `.cache/lidl-crops/` evidence; new crops are
-collected explicitly with `scripts/read_lidl_crop.py`, not automatically.
+On top of those, `babaemail/lidl_crops.py` adds targeted second reads.
+Held leaflet-only tiles get crops chosen **automatically** from OCR geometry
+(at most 40 per leaflet; kw39 took 32 crops in about 111 s). Each crop is read
+by OCR and then, blind, by the VLM. The evidence is bound to the page SHA256.
+A bad cache or a refine error falls back to the no-crop result.
 
-Measured on the existing 125 checked deals, api+vlm+ocr:
+**Measured with `eval.py --crops` / `replay.py --crops`, api+vlm+ocr, kw39:**
 
-| set | deals | before shipped | after shipped | wrong | harmful fields | held | missing |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| tune | 61 | 58 | 58 | 0 | 0 | 3 | 0 |
-| holdout | 64 | 55 | 60 | 0 | 0 | 4 | 0 |
+| set | deals | shipped | wrong | harmful fields | held | missing |
+|---|---:|---:|---:|---:|---:|---:|
+| tune (10 pages) | 61 | 59 | 0 | 0 | 2 | 0 |
+| holdout (10 pages) | 64 | 59 | 0 | 0 | 5 | 0 |
 
-Full kw39 cached replay: **227 → 232 shipped**. Newly proven: p11 Mulino
-Bianco 2.89; p42 Gyoza 2.69, Čilijeva omaka 0.99, Spomladanski zavitki
-**že od 1.99**; p50 Panirano sadje 2.49. Plain-price items retain unknown
-discounts (`price_old`, `discount_published`, `discount_pct` are None).
-The from-price condition must always be shown. No website-only switch or
-sold-out policy was changed. Full logs: `scratch/lidl_reconcile/x1/`.
+**Full 64-page leaflet: 240 shipped.** It was 227 without crops.
+- Every shipped price exists on its page in the 64-page hand-made answer keys
+  (`scratch/lidl_truth*/`, gitignored).
+- Old price, % and LP: 0 mismatches.
+- 248 of the 293 priced offers in the keys ship; 45 are held back.
+- The holdout pages have now been tuned on. The fair test is the kw40 leaflet.
 
-The Lidl step needs this PC for new VLM reads. No cold full-leaflet run was
-performed for X1; crop collection uses qwen2.5vl:7b locally.
+**New tonight:**
+- Multi-buys ship only when they're proven exactly: two readers, "cena za 1
+  kos", bundle = paid × single to the cent, and "točno N kosov" = paid+free.
+  kw39 Argus 13+5 ships, with the condition text.
+- The printed leaflet name replaces the API name when they share no product
+  word (Böreklik, šarenka, Svetlo pivo).
+- An OCR tile's own text can prove a name, with guards: brand-stripped, at
+  least 2 stems, no borrowed lines, consecutive lines only. Silan p15 5.89 ships.
+- **Email rule for later:** `condition_kind`/`condition` must always be shown.
+  Never show `price_new` alone for multi-buy, from-price or second-item deals.
+
+**Still held on the 125 scored deals:**
+- sold out on the website (owner decision #9): Slim & Fit, Chef Select
+- Alesto: Lidl Plus not agreed
+- Freshona: 2 × 0.57 ≠ 0.76
+- FRUC: no two-reader multi-buy proof
+- Mulino Bianco: the name readers disagree
+- Spomladanski zavitki: "že od" not recovered automatically
+
+Logs: `scratch/lidl_reconcile/x1 … x6b/`. Coordination notes are in
+`~/Work/babaemail-coordination/CLAUDE_RESULTS.md`.
 
 ### Aleks's answers (2026-09-24) and what was done with them
 
