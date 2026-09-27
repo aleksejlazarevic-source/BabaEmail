@@ -207,6 +207,14 @@ R7  API flags. Passed through as ``api:<flag>``. These quarantine because
     (``conditional_kind``) proves what it means from the numbers: then it
     goes on through R4 like any other offer, with ``condition_kind`` set. An API item with more than
     one window in range quarantines as ``multiple-api-windows``.
+R7d A real ``P+F gratis`` multi-buy ships only from a page-bound crop proof:
+    crop OCR and crop VLM independently agree on the offer counts, bundle
+    price and ``cena za 1 kos``. Reconciliation rechecks to the cent that the
+    bundle price is ``P * single_price``. If a ``velja za nakup točno N kosov``
+    line is present, both readers must have agreed on it upstream and OCR's
+    printed N must equal ``P+F``. The Deal carries the bundle price,
+    ``condition_kind="multi-buy"`` and the complete printed condition; old
+    price and percentage stay unknown. A missing or inconsistent proof holds.
     Informational flags (bonus_quantity, open_ended_window, ...) only flag.
 R7c ``deletedPrice_differs`` (the API record holds two different old prices)
     is settled by the leaflet, and then only flags
@@ -244,6 +252,8 @@ R8  Leaflet-only tiles (no API partner):
         ``condition="že od"``. The email MUST print the qualifier alongside
         the price; old price and discount remain unknown (None).
         A generic/unknown badge, including multi-buys, never qualifies.
+      - R8d, the same multi-buy proof as R7d, for a leaflet-only tile. The
+        bundle price is never exposed as a one-piece price.
       - Otherwise quarantined: ``leaflet-only-unverified`` (VLM alone, OCR
         alone, or OCR not reconciled), ``leaflet-only-no-validity``,
         ``leaflet-no-price`` (a tile reported without a readable price), or
@@ -680,19 +690,90 @@ def from_price_tile(t: LeafletTile) -> bool:
                     and r.raw["crop_confirmation"].get("name") == r.name for r in ocr))
 
 
+_EXACT_QUANTITY = re.compile(r"\bvelja\s+za\s+nakup\s+tocno\s+(\d+)\s+kosov\b", re.I)
+
+
+def _multi_buy_evidence(t: LeafletTile) -> tuple[dict | None, str]:
+    """R7d/R8d: return one crop OCR+VLM consensus payload, or why it fails.
+
+    ``lidl_crops`` establishes independence and page/geometry binding. This
+    layer deliberately rechecks all arithmetic and the full-page reader gates
+    before deciding that the conditional price may ship.
+    """
+    if set(t.sources) != {"ocr", "vlm"}:
+        return None, "multi-buy needs two independent readers"
+    if not t.ocr_name_paired:
+        return None, "multi-buy product name needs two independent readers"
+    proofs = []
+    for r in t.readings:
+        if r.source != "ocr" or not isinstance(r.raw, dict):
+            continue
+        confirmation = r.raw.get("crop_confirmation")
+        if isinstance(confirmation, dict) and isinstance(confirmation.get("multi_buy"), dict):
+            proofs.append(confirmation["multi_buy"])
+    if not proofs:
+        return None, "multi-buy missing two-reader offer/per-piece proof"
+    if any(p != proofs[0] for p in proofs[1:]):
+        return None, "multi-buy crop proofs disagree"
+    proof = proofs[0]
+    try:
+        paid, free = int(proof["paid"]), int(proof["free"])
+        single = Decimal(str(proof["single_price"]))
+    except (KeyError, TypeError, ValueError):
+        return None, "multi-buy proof is incomplete"
+    if paid <= 0 or free <= 0 or not single.is_finite() or single <= 0:
+        return None, "multi-buy proof has invalid counts or per-piece price"
+    if single != single.quantize(Decimal(".01")):
+        return None, "multi-buy per-piece price is not exact to the cent"
+    if t.new_price is None or t.new_price != paid * single:
+        return None, (f"multi-buy arithmetic fails: bundle {t.new_price} != "
+                      f"{paid} x {single}")
+
+    quantities = {int(q) for r in t.readings if r.source == "ocr"
+                  for q in _EXACT_QUANTITY.findall(fold(" ".join(r.text)))}
+    if len(quantities) > 1:
+        return None, "multi-buy exact purchase quantities disagree"
+    if quantities and quantities != {paid + free}:
+        return None, (f"multi-buy exact quantity fails: {next(iter(quantities))} != "
+                      f"{paid}+{free}")
+    return dict(paid=paid, free=free, single=single,
+                exact_quantity=next(iter(quantities)) if quantities else None), ""
+
+
+def multi_buy_condition(t: LeafletTile, expected: tuple[int, int] | None = None) -> tuple[str | None, str]:
+    """Return the complete display-safe condition, or a named missing proof."""
+    proof, why = _multi_buy_evidence(t)
+    if proof is None:
+        return None, why
+    paid, free, single = proof["paid"], proof["free"], proof["single"]
+    if expected is not None and (paid, free) != expected:
+        return None, (f"multi-buy offer text disagrees: API {expected[0]}+{expected[1]}, "
+                      f"crop {paid}+{free}")
+    parts = [f"{paid}+{free} gratis"]
+    if proof["exact_quantity"] is not None:
+        parts.append(f"velja za nakup točno {proof['exact_quantity']} kosov")
+    parts.append(f"cena za 1 kos {format(single, '.2f').replace('.', ',')} €")
+    return "; ".join(parts), ""
+
+
 def _unverified_why(t: LeafletTile) -> list[str]:
     """Every R8 proof this tile lacks, in words (quarantine reasons)."""
     if len(t.sources) == 1:
         return ["single reader"]
     out = []
     ocr = [r for r in t.readings if r.source == "ocr"]
-    if t.ocr_old_pct is None and not (plain_price_tile(t) or from_price_tile(t)):
+    if t.ocr_old_pct is None and not (plain_price_tile(t) or from_price_tile(t)
+                                      or multi_buy_condition(t)[0] is not None):
         badges = sorted({r.raw.get("badge") for r in ocr if isinstance(r.raw, dict)
                          and r.raw.get("badge")})
         if any(r.old_price is not None or r.pct is not None for r in ocr):
             out.append("OCR old/% not reconciled")
         elif badges:
-            out.append(f"OCR saw a badge ({'/'.join(badges)}) it cannot prove")
+            text = fold(" ".join(line for r in ocr for line in r.text))
+            if "flag" in badges and "cena za 1 kos" in text:
+                out.append("multi-buy missing two-reader offer/per-piece proof")
+            else:
+                out.append(f"OCR saw a badge ({'/'.join(badges)}) it cannot prove")
         if not t.ocr_name_paired:
             names = [r.name for r in ocr]
             out.append(f"name has one reader (OCR name {names[0] if names else None!r})")
@@ -847,10 +928,11 @@ def leaflet_units(t: LeafletTile) -> set[str]:
 
 _SECOND = re.compile(r"^\s*-\s*(\d{1,2})\s*%\s*na\s+drugi\s+kos\s*$", re.I)
 _BONUS_PACK = re.compile(r"^\s*(\d+)\s*\+\s*(\d+)\s*gratis\s*\*\*\s*$", re.I)
+_MULTI_BUY = re.compile(r"^\s*(\d+)\s*\+\s*(\d+)\s*gratis\s*$", re.I)
 _PACK_COUNT = re.compile(r"^\s*(\d+)\s*x\s*\d", re.I)
 
 
-def conditional_kind(c: LidlCandidate) -> tuple[str | None, str]:
+def conditional_kind(c: LidlCandidate, tile: LeafletTile | None = None) -> tuple[str | None, str]:
     """R7b: the conditional prices whose meaning can be proven from the numbers.
 
     * "-P% na drugi kos": new is the second piece, old the first. Proven when
@@ -860,10 +942,10 @@ def conditional_kind(c: LidlCandidate) -> tuple[str | None, str]:
     * "N+M gratis**": the ** footnote ("compared with our regular product")
       marks a bonus PACK: one price for the pack as sold. Proven when the
       packaging counts exactly N+M pieces ("14x95 g" for 10+4).
-    Anything else (a real multi-buy "13+5 gratis", "ob nakupu 2 kosov") is
-    not: the printed number is sometimes the bundle, sometimes one piece, and
-    on kw39 p10 sometimes a per-litre price. Returns (kind, condition text) or
-    (None, why not)."""
+    * "P+F gratis": a bundle only when R7d's two-reader crop proof agrees on
+      P/F, the bundle price and per-piece price, and exact-cent arithmetic.
+    Anything else (for example "ob nakupu 2 kosov") is not provable. Returns
+    (kind, condition text) or (None, why not)."""
     reason = c.conditional_reason or ""
     if m := _SECOND.match(reason):
         pct, new, old = Decimal(m.group(1)), c.new_price, c.old_price
@@ -881,6 +963,11 @@ def conditional_kind(c: LidlCandidate) -> tuple[str | None, str]:
         if pc is None or int(pc.group(1)) != n + extra:
             return None, f"bonus pack {n}+{extra} but packaging {c.packaging!r}"
         return "bonus-pack", f"{n}+{extra} gratis"
+    if m := _MULTI_BUY.match(reason):
+        if tile is None:
+            return None, "multi-buy missing leaflet tile proof"
+        condition, why = multi_buy_condition(tile, (int(m.group(1)), int(m.group(2))))
+        return ("multi-buy", condition) if condition is not None else (None, why)
     return None, "price meaning not provable"
 
 
@@ -914,7 +1001,8 @@ def old_price_doubt_settled(t: LeafletTile, c: LidlCandidate) -> bool:
     return t.ocr_old_pct == (c.old_price, c.pct)
 
 
-def _deal_from_candidate(c: LidlCandidate, leaflet_id: str, settled: Sequence[str] = ()) -> Deal:
+def _deal_from_candidate(c: LidlCandidate, leaflet_id: str, settled: Sequence[str] = (),
+                         tile: LeafletTile | None = None) -> Deal:
     """``settled``: API flag prefixes the leaflet has settled (R7c); they are
     kept as flags but do not quarantine."""
     start, end, multi = _window(c)
@@ -933,13 +1021,15 @@ def _deal_from_candidate(c: LidlCandidate, leaflet_id: str, settled: Sequence[st
         elif f.startswith(QUARANTINE_API_FLAGS):
             d.quarantine(f"api-flag:{f}")
     if c.conditional:
-        kind, why = conditional_kind(c)
+        kind, why = conditional_kind(c, tile)
         if kind is None:
             d.quarantine(f"conditional-price:{c.conditional_reason}: {why}")
         else:
             d.condition_kind = kind
             d.condition = why
             d.discount_published = None
+            if kind == "multi-buy":
+                d.price_old = None
             d.flag(f"conditional-proven:{kind}")
     if multi:
         d.quarantine(f"multiple-api-windows:{c.windows}")
@@ -1205,7 +1295,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         settled = (["deletedPrice_differs"] if c.new_price == t.new_price
                    and any(f.startswith("deletedPrice_differs") for f in c.flags)
                    and old_price_doubt_settled(t, c) else [])
-        d = _deal_from_candidate(c, leaflet_id, settled)
+        d = _deal_from_candidate(c, leaflet_id, settled, t)
         d.source_page = t.page
         if ti in badge_resolved:
             d.flag(badge_resolved[ti])
@@ -1359,7 +1449,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         elif dup is not None:
             d.quarantine(f"leaflet-duplicate-of:{dup} ({t.describe()})")
         elif not (set(t.sources) == {"ocr", "vlm"}
-                  and (op is not None or plain_price_tile(t) or from_price_tile(t))
+                  and (op is not None or plain_price_tile(t) or from_price_tile(t)
+                       or multi_buy_condition(t)[0] is not None)
                   and len(t.lidl_plus_votes) == 1
                   and all(r.lidl_plus is not None for r in t.readings)):
             d.quarantine(f"leaflet-only-unverified: {'; '.join(_unverified_why(t))} "
@@ -1376,6 +1467,11 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                 if from_price_tile(t):
                     d.condition_kind, d.condition = "from-price", "že od"
                     d.flag("leaflet-price-from:crop-ocr+vlm")
+                else:
+                    condition, _ = multi_buy_condition(t)
+                    if condition is not None:
+                        d.condition_kind, d.condition = "multi-buy", condition
+                        d.flag("leaflet-multi-buy:crop-ocr+vlm")
             if any(isinstance(r.raw, dict) and r.raw.get("crop_confirmation") for r in t.readings):
                 d.flag("leaflet-name-from:crop-ocr+vlm")
             d.valid_from, d.valid_to = pv

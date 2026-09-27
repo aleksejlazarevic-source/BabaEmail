@@ -35,10 +35,10 @@ def vlm(page, name, price, lp=False, until=None):
                           name=name, valid_to_text=until)
 
 
-def ocr(page, price, old=None, pct=None, lp=False, name=None):
+def ocr(page, price, old=None, pct=None, lp=False, name=None, *, raw=None, text=()):
     return LeafletReading("ocr", page, D(price), D(old) if old else None,
                           D(pct) if pct else None, lidl_plus=lp, name=name,
-                          bbox=(0, 0, 100, 100))
+                          bbox=(0, 0, 100, 100), raw=raw, text=tuple(text))
 
 
 def run(cands, readings, **kw):
@@ -327,13 +327,61 @@ def test_bonus_pack_with_other_pack_count_is_quarantined():
     assert any("bonus pack 10+4" in r for r in reasons(by_erp(res, "1")))
 
 
-def test_real_multibuy_stays_quarantined():
-    # kw39 Argus "13+5 gratis" (no **): 10.27 is the price of 18 cans; on p10
-    # "2+1 gratis" 0.76 is a per-litre price. The number's meaning is not provable.
-    res = run([bonus("1", "Argus Premium lager pivo", "10.27", "13+5 gratis", "0,5 l")],
-              [vlm(35, "ARGUS Svetlo pivo", "10.27", lp=False)])
+def multibuy_ocr(price, paid, free, single, *, name="ARGUS Svetlo pivo", quantity=None):
+    condition = dict(paid=paid, free=free, single_price=single)
+    lines = [f"cena za 1 kos: {single}"]
+    if quantity is not None:
+        lines += ["velja za nakup točno", f"{quantity} kosov"]
+    return ocr(35, price, lp=False, name=name, text=lines,
+               raw=dict(badge="flag", crop_confirmation=dict(name=name,
+                        from_price=False, multi_buy=condition)))
+
+
+def test_multibuy_argus_like_ships_as_bundle_with_exact_condition():
+    res = run([bonus("1", "Svetlo pivo", "10.27", "13+5 gratis", "0,5 l")],
+              [vlm(35, "ARGUS Svetlo pivo", "10.27", lp=False),
+               multibuy_ocr("10.27", 13, 5, "0.79", quantity=18)])
     d = by_erp(res, "1")
-    assert any("price meaning not provable" in r for r in reasons(d))
+    assert not d.is_quarantined
+    assert (d.price_new, d.price_old, d.discount_published) == (D("10.27"), None, None)
+    assert d.condition_kind == "multi-buy"
+    assert d.condition == "13+5 gratis; velja za nakup točno 18 kosov; cena za 1 kos 0,79 €"
+    assert d.discount_pct is None
+
+
+def test_multibuy_freshona_like_arithmetic_failure_is_held():
+    res = run([bonus("1", "Pasiran paradižnik", "0.76", "2+1 gratis", "500 ml")],
+              [vlm(35, "FRESHONA Pasiran paradižnik", "0.76"),
+               multibuy_ocr("0.76", 2, 1, "0.57", name="FRESHONA Pasiran paradižnik")])
+    d = by_erp(res, "1")
+    assert d.is_quarantined
+    assert any("multi-buy arithmetic fails: bundle 0.76 != 2 x 0.57" in r for r in reasons(d))
+
+
+def test_multibuy_single_reader_is_held():
+    res = run([bonus("1", "Svetlo pivo", "10.27", "13+5 gratis", "0,5 l")],
+              [vlm(35, "ARGUS Svetlo pivo", "10.27")])
+    assert any("multi-buy needs two independent readers" in r for r in reasons(by_erp(res, "1")))
+
+
+def test_multibuy_per_piece_line_disagreement_is_held():
+    bad = multibuy_ocr("10.27", 13, 5, "0.79")
+    bad.raw["crop_confirmation"]["multi_buy"] = None
+    res = run([bonus("1", "Svetlo pivo", "10.27", "13+5 gratis", "0,5 l")],
+              [vlm(35, "ARGUS Svetlo pivo", "10.27"), bad])
+    assert any("missing two-reader offer/per-piece proof" in r
+               for r in reasons(by_erp(res, "1")))
+
+
+def test_leaflet_only_multibuy_ships_with_bundle_semantics():
+    res = run([], [vlm(35, "FRUC Napitek pomaranča-limona", "6.56"),
+                   multibuy_ocr("6.56", 4, 2, "1.64",
+                                name="FRUC Napitek pomaranča-limona")],
+              page_validity={35: WEEK})
+    [d] = res.shipped
+    assert (d.condition_kind, d.condition) == (
+        "multi-buy", "4+2 gratis; cena za 1 kos 1,64 €")
+    assert d.price_new == D("6.56") and d.discount_pct is None
 
 
 # ---------------------------------------------------------------- dates

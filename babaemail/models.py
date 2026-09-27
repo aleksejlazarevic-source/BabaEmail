@@ -63,7 +63,7 @@ def parse_price(raw: str | int | float | Decimal | None) -> Decimal | None:
     return value
 
 
-CONDITION_KINDS = ("second-item", "bonus-pack", "from-price")
+CONDITION_KINDS = ("second-item", "bonus-pack", "from-price", "multi-buy")
 
 CENT = Decimal("0.01")
 _MONEY_FIELDS = frozenset({"price_new", "price_old", "price_30day_low"})
@@ -134,6 +134,9 @@ class Deal:
       "from-price"   price_new is a LOWER BOUND ("že od"), not a uniform
                      price across variants. Always display the qualifier.
                      No percentage saving can be inferred from a lower bound.
+      "multi-buy"    price_new is the price of the whole P+F bundle, NEVER one
+                     piece. `condition` carries P+F, any exact purchase count,
+                     and the printed per-piece price needed for safe display.
     None means price_new is simply what the item or pack costs.
 
     `flags` carries quarantine reasons. A flagged Deal is still carried through
@@ -181,7 +184,7 @@ class Deal:
         Falls back to computing it from old and new price. Returns None when
         the retailer published neither - we never guess a discount.
         """
-        if self.condition_kind == "from-price":
+        if self.condition_kind in ("from-price", "multi-buy"):
             return None
         if self.condition_kind == "second-item":
             if self.price_old is None or self.price_new is None or self.price_old <= 0:
