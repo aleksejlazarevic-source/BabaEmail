@@ -86,6 +86,35 @@ def test_brand_only_match_sarenka_vs_postrv_ships_with_ocr_corroboration():
     assert any(f.startswith("name-match:brand-only") for f in d.flags)
 
 
+def test_both_reader_names_replace_api_name_with_vlm_spelling():
+    res = run([cand("1", "Sveža postrv", "4.69", "5.69", "17", lp=True,
+                    brand="Naša ribarnica")],
+              [vlm(3, "NAŠA RIBARNICA Sveže šarenka", "4.69", lp=True),
+               ocr(3, "4.69", "5.69", "17", lp=True,
+                   name="NAŠA RIBARNICA Sveža šarenka")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert d.name == "NAŠA RIBARNICA Sveže šarenka"
+    assert "name-from-leaflet:ocr+vlm (api name 'Naša ribarnica Sveža postrv')" in d.flags
+
+
+def test_one_reader_name_keeps_api_name():
+    res = run([cand("1", "Sveža postrv", "4.69", "5.69", "17", lp=True,
+                    brand="Naša ribarnica")],
+              [vlm(3, "NAŠA RIBARNICA Sveža šarenka", "4.69", lp=True),
+               ocr(3, "4.69", "5.69", "17", lp=True)])
+    assert by_erp(res, "1").name == "Naša ribarnica Sveža postrv"
+
+
+def test_brand_only_leaflet_names_keep_api_name():
+    res = run([cand("1", "VITASIA", "1.29", "1.99", "35")],
+              [vlm(3, "VITASIA", "1.29"),
+               ocr(3, "1.29", "1.99", "35", name="VITASIA")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert d.name == "VITASIA"
+
+
 def test_brand_only_match_without_corroboration_is_not_a_pair():
     # R3b: nothing but brand + price ties them, so neither consumes the other.
     res = run([cand("1", "Sveža postrv", "4.69", "5.69", "17", lp=True, brand="Naša ribarnica")],

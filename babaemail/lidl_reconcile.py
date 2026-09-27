@@ -1100,42 +1100,46 @@ def api_triple_reconciles(c: LidlCandidate) -> bool:
 
 
 _FURNITURE = re.compile(r"(\s+(nepakirano|za\s+kg|za\s+kos))+\s*$", re.I)
-_WORD = re.compile(r"[^\W\d_]+")
 
 
-def leaflet_name(t: LeafletTile, c: LidlCandidate, pool: Sequence[tuple[LidlCandidate, bool]]) -> tuple[str, str]:
-    """The display name for a brand-only API item: the leaflet's own name.
+def agreed_leaflet_name(t: LeafletTile, c: LidlCandidate) -> str | None:
+    """A display-safe printed name independently read by full-page OCR + VLM.
 
-    Of the readers' names, the one whose words are spelt as in lidl.si's own
-    product names wins: +1 for a word found there with the same diacritics,
-    -1 for one found only when diacritics are ignored (a misread č/š/ž).
-    Ties go to the VLM (OCR names are often cut short). Trailing leaflet
-    furniture ("nepakirano za kg") is dropped (the unit is in price_unit), and
-    the API brand is prefixed when the name lacks it. Returns (name, source).
+    The VLM supplies the spelling. OCR must independently name the same product;
+    a shared brand alone is never enough. A name containing only the matched
+    API brand is also not a product name. Trailing leaflet furniture belongs in
+    the unit fields, not the display name.
     """
-    vocab: set[str] = set()
-    for c2, _ in pool:
-        vocab.update(w.casefold() for w in _WORD.findall(c2.name or ""))
-    folded = {fold(w) for w in vocab}
+    by_source = {
+        src: list(dict.fromkeys(r.name.strip() for r in t.readings
+                                if r.source == src and r.name and r.name.strip()))
+        for src in ("ocr", "vlm")
+    }
+    if any(len(by_source[src]) != 1 for src in by_source):
+        return None
+    ocr_name, vlm_name = by_source["ocr"][0], by_source["vlm"][0]
+    if not _share_product_word(ocr_name, vlm_name):
+        return None
 
-    def score(name: str) -> int:
-        s = 0
-        for w in _WORD.findall(name):
-            if w.casefold() in vocab:
-                s += 1
-            elif fold(w) in folded:
-                s -= 1
-        return s
+    # split_leaflet_name deliberately treats an all-caps-only name as product
+    # text. For this display decision we can also use the matched API's known
+    # brand, so "VITASIA" alone cannot masquerade as a product name.
+    api_brand = set(_cand_parts(c)[0])
+    for name in (ocr_name, vlm_name):
+        printed_brand, printed_product = split_leaflet_name(name)
+        product = [s for s in _stems(printed_product) if s not in api_brand]
+        if not product or (not printed_brand and set(_stems(name)) <= api_brand):
+            return None
 
-    named = [(r.source, r.name) for r in t.readings if r.name]
-    if not named:
-        return c.name, "api"
-    src, name = max(named, key=lambda sn: (score(sn[1]), sn[0] == "vlm"))
-    name = _FURNITURE.sub("", name).strip()
-    brand = c.brand or c.title or ""
-    if brand and not _leads_with(name, _stems(brand)):
+    name = _FURNITURE.sub("", vlm_name).strip()
+    vlm_brand = split_leaflet_name(name)[0]
+    ocr_brand = split_leaflet_name(ocr_name)[0]
+    brand = vlm_brand or ocr_brand or c.brand or ""
+    name_words = _TOKEN.findall(fold(name))
+    brand_words = _TOKEN.findall(fold(brand))
+    if brand_words and name_words[:len(brand_words)] != brand_words:
         name = f"{brand} {name}"
-    return name, src
+    return name
 
 
 def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletReading], *,
@@ -1321,9 +1325,10 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         d.flag(f"leaflet-confirmed:{'+'.join(t.sources)}")
         if from_price_tile(t):
             d.quarantine("leaflet-from-price-api-match: printed price is only a lower bound")
-        if brand_only(c):
-            d.name, src = leaflet_name(t, c, pool)
-            d.flag(f"name-from-leaflet:{src} (api name {c.name!r})")
+        printed_name = agreed_leaflet_name(t, c)
+        if printed_name is not None:
+            d.name = printed_name
+            d.flag(f"name-from-leaflet:ocr+vlm (api name {c.name!r})")
         if ti in unbacked and t.page in no_price_pages:
             d.quarantine(f"vlm-only-page-without-ocr-price: OCR found no printed price on "
                          f"page {t.page} ({t.describe()})")
