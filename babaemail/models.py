@@ -64,6 +64,7 @@ def parse_price(raw: str | int | float | Decimal | None) -> Decimal | None:
 
 
 CONDITION_KINDS = ("second-item", "bonus-pack", "from-price", "multi-buy")
+SOURCE_KINDS = ("leaflet", "website_only")
 
 CENT = Decimal("0.01")
 _MONEY_FIELDS = frozenset({"price_new", "price_old", "price_30day_low"})
@@ -123,6 +124,10 @@ class Deal:
     produce), so the email can never show 5.99 as the price of one piece.
     None means the price is for the item or pack as sold.
 
+    `source_kind` is a structured section marker. It defaults to `leaflet`;
+    Lidl API offers absent from the printed leaflet use `website_only` so an
+    email writer never has to infer provenance by matching a display flag.
+
     `condition_kind` says how to read a conditional price (`condition` has the
     printed terms):
       "second-item"  price_new is the price of the SECOND piece, price_old the
@@ -150,6 +155,7 @@ class Deal:
     valid_from: date
     valid_to: date | None   # None = retailer published no end date. NEVER invent one.
 
+    source_kind: str = "leaflet"               # email section, not a display flag
     price_new: Decimal | None = None
     price_old: Decimal | None = None
     price_unit: str | None = None               # "kg" = prices are per kilogram
@@ -175,6 +181,8 @@ class Deal:
         elif name == "condition_kind" and value not in (None, *CONDITION_KINDS):
             raise ValueError(f"condition_kind must be None or one of {CONDITION_KINDS}, "
                              f"got {value!r}")
+        elif name == "source_kind" and value not in SOURCE_KINDS:
+            raise ValueError(f"source_kind must be one of {SOURCE_KINDS}, got {value!r}")
         object.__setattr__(self, name, value)
 
     @property

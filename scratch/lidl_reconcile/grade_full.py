@@ -104,18 +104,26 @@ def main() -> None:
     page_bytes = {int(p.stem[1:]): p.read_bytes() for p in PAGES_DIR.glob("p*.png")}
     evidence = load_crops(page_bytes)
     readings = refine_readings(inp["readings"], evidence)
-    res = reconcile(inp["cands"], readings, **inp["kw"])
+    res = reconcile(inp["cands"], readings, **inp["kw"], ship_website_only=True)
+
+    website = [d for d in res.deals if d.source_kind == "website_only"]
+    leaflet_shipped = [d for d in res.shipped if d.source_kind == "leaflet"]
+    leaflet_held = [d for d in res.quarantined if d.source_kind == "leaflet"]
 
     say("=" * 78)
     say("Full 64-page kw39 leaflet: api+vlm+ocr+crops (replay.py --crops pipeline)")
     say("=" * 78)
-    say(f"pipeline: shipped {len(res.shipped)}  quarantined {len(res.quarantined)}")
+    say(f"pipeline leaflet: shipped {len(leaflet_shipped)}  quarantined {len(leaflet_held)}")
+    say(f"pipeline website-only: shipped {sum(not d.is_quarantined for d in website)}  "
+        f"held {sum(d.is_quarantined for d in website)}")
     say(f"truth: {len(offers)} priced offers, {len({o['page'] for o in offers})} priced pages, "
         f"{len(TRUTH_DIRS)} truth sets merged: " + ", ".join(d.name for d in TRUTH_DIRS))
     say()
 
     # -------------------------------------------------- match (eval.py's algorithm)
-    recs = res.records
+    # Website-only records have no leaflet truth counterpart by definition.
+    # Keep them wholly outside the leaflet match/scoring algorithm.
+    recs = [r for r in res.records if r.deal.source_kind == "leaflet"]
     rec_used: set[int] = set()
     rows: list[tuple[dict, object, str]] = []
     for o in offers:
@@ -219,10 +227,22 @@ def main() -> None:
     # -------------------------------------------------- shipped, matches nothing
     say("== Shipped deals that match NO truth offer ==")
     matched = {id(r.deal) for _, r, _ in rows if r is not None}
-    extra = [d for d in res.shipped if id(d) not in matched]
+    extra = [d for d in leaflet_shipped if id(d) not in matched]
     for d in extra:
         say(f"  p{d.source_page} {d.name} {d.price_new} flags={d.flags}")
     if not extra:
+        say("  none")
+    say()
+
+    say("== Lidl website-only deals (separate from leaflet grading) ==")
+    for d in website:
+        state = "HELD" if d.is_quarantined else "SHIPPED"
+        reasons = [f.removeprefix("quarantine:") for f in d.flags
+                   if f.startswith("quarantine:")]
+        say(f"  {state:<7} {d.name!r} price={d.price_new} old={d.price_old} "
+            f"pct={d.discount_display}% dates={d.valid_from}..{d.valid_to}"
+            + (f" reason={' | '.join(reasons)}" if reasons else ""))
+    if not website:
         say("  none")
     say()
 

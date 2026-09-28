@@ -1129,6 +1129,37 @@ def website_only_ok(c: LidlCandidate) -> bool:
             and not c.conditional)
 
 
+# Values known to be CMS/test placeholders rather than customer-facing brands.
+# Keep this deliberately small and explicit: this is a safety denylist, not a
+# heuristic that could silently suppress legitimate products.
+WEBSITE_ONLY_DENIED_BRANDS = frozenset({"dummymarke"})
+
+
+_PARENTHETICAL = re.compile(r"\s*\([^()]*\)\s*")
+
+
+def _website_name_words(c: LidlCandidate) -> tuple[str, ...]:
+    """Fold a website name for conservative same-price duplicate detection."""
+    without_parenthetical = _PARENTHETICAL.sub(" ", c.name or "")
+    return tuple(_TOKEN.findall(fold(without_parenthetical)))
+
+
+def _website_near_duplicate(a: LidlCandidate, b: LidlCandidate) -> bool:
+    """Same-price website names where one is the other plus a qualifier.
+
+    Containment is by whole-word sequence, not substring, so unrelated words
+    that merely share letters cannot suppress one another. Parentheticals are
+    removed first (kw39 has the same SONDEY biscuit with and without one).
+    """
+    if a.new_price != b.new_price:
+        return False
+    aw, bw = _website_name_words(a), _website_name_words(b)
+    if not aw or not bw:
+        return False
+    short, long = (aw, bw) if len(aw) <= len(bw) else (bw, aw)
+    return any(long[i:i + len(short)] == short for i in range(len(long) - len(short) + 1))
+
+
 def old_price_doubt_settled(t: LeafletTile, c: LidlCandidate) -> bool:
     """R7c: the API's ``deletedPrice_differs`` flag says its record holds two
     different old prices. The printed leaflet settles which one is real when
@@ -1558,6 +1589,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
     free_tiles = [t for i, t in enumerate(tiles) if i not in tile_of]
     leaflet_tiles = free_tiles + [t for t in tiles if id(t) in overruled]
     unmatched_listed = []
+    shipped_website: list[LidlCandidate] = []
     for ci, (c, is_listed) in enumerate(pool):
         if ci in used_c:
             continue
@@ -1566,7 +1598,21 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             continue
         d = _deal_from_candidate(c, leaflet_id)
         if ship_website_only and not d.is_quarantined and website_only_ok(c):
+            d.source_kind = "website_only"
             d.flag("website-only")
+            collisions = [t for t in tiles if _share_product_word(c.name, t.name)]
+            collision = (max(collisions, key=lambda t: _shared(_stems(c.name), _stems(t.name)))
+                         if collisions else None)
+            if collision is not None:
+                d.quarantine(f"website-only-name-collision-with-leaflet: {collision.describe()}")
+            if fold(c.brand or "").strip() in WEBSITE_ONLY_DENIED_BRANDS:
+                d.quarantine(f"website-only-placeholder-brand:{c.brand}")
+            duplicate = next((prior for prior in shipped_website
+                              if _website_near_duplicate(prior, c)), None)
+            if duplicate is not None:
+                d.quarantine(f"website-only-duplicate-of:{duplicate.erp} {duplicate.name!r}")
+            if not d.is_quarantined:
+                shipped_website.append(c)
             records.append(MatchRecord("api-only", d, c, None))
             continue
         same_price = [t for t in free_tiles if t.new_price is not None

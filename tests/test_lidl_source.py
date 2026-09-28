@@ -115,6 +115,15 @@ def test_ok_run_ships_verified_deals(world):
     assert milk.retailer == "lidl" and milk.source_page == 1 and milk.valid_to == WEEK[1]
 
 
+def test_production_adapter_ships_website_only_in_its_structured_section(world):
+    world["cands"] = [*CANDS, cand("web", "Linški keksi", "1.99", "2.19",
+                                      brand="SONDEY")]
+    res = Lidl().fetch(TODAY)
+    web = next(d for d in res.items if d.retailer_item_id == "web")
+    assert not web.is_quarantined
+    assert web.source_kind == "website_only" and "website-only" in web.flags
+
+
 def test_vlm_unavailable_fails_loud_not_partial(world):
     world["session"] = FakeSession(vlm.VlmUnavailable("ollama is not running"))
     res = Lidl().fetch(TODAY)

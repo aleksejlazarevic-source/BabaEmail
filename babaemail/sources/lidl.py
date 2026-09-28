@@ -222,7 +222,8 @@ class Lidl(Source):
         reconcile_kw = dict(leaflet_id=ident,
                             leaflet_window=(meta["valid_from"], meta["valid_to"]),
                             listed=list(cands.no_signal), year=meta["valid_from"].year,
-                            leaflet_url=meta["pdf_url"], ocr_pages=pages)
+                            leaflet_url=meta["pdf_url"], ocr_pages=pages,
+                            ship_website_only=True)
         preliminary = reconcile(list(cands), readings, **reconcile_kw)
         boxes = lidl_crops.select_crop_boxes(pngs, readings, preliminary,
                                              crop_evidence, limit=40)

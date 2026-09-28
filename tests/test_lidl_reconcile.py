@@ -1138,6 +1138,13 @@ def test_website_only_ships_flagged_when_switched_on():
     res = run([cand("1", "SONDEY Linški keksi", "1.99", "2.19")], [], ship_website_only=True)
     d = by_erp(res, "1")
     assert not d.is_quarantined and "website-only" in d.flags
+    assert d.source_kind == "website_only"
+
+
+def test_leaflet_deal_has_structured_leaflet_source_by_default():
+    res = run([cand("1", "Kranjska klobasa", "1.99", "3.49", "42")],
+              [vlm(1, "Z'DEŽELE Kranjska klobasa", "1.99")])
+    assert by_erp(res, "1").source_kind == "leaflet"
 
 
 def test_website_only_needs_an_old_price_and_a_clean_record():
@@ -1146,6 +1153,40 @@ def test_website_only_needs_an_old_price_and_a_clean_record():
                cand("3", "Sadna pijača", "6.56", conditional="4+2 gratis")],
               [], ship_website_only=True)
     assert all(d.is_quarantined for d in res.deals)
+
+
+def test_website_only_name_collision_is_held_but_unrelated_name_ships():
+    leaflet = cand("leaflet", "Moška jakna", "14.99", brand="Esmara Men")
+    website = cand("web", "Moška jakna", "13.99", "14.99", brand="Esmara Men")
+    unrelated = cand("safe", "Linški keksi", "1.99", "2.19", brand="SONDEY")
+    res = run([leaflet, website, unrelated],
+              [vlm(1, "ESMARA MEN Moška jakna", "14.99")], ship_website_only=True)
+    assert "website-only-name-collision-with-leaflet" in reasons(by_erp(res, "web"))[0]
+    assert not by_erp(res, "safe").is_quarantined
+
+
+def test_website_only_placeholder_brand_is_held_but_real_brand_ships():
+    res = run([cand("dummy", "Izbor zelenih lončnic", "5.99", "6.99",
+                    brand="Dummymarke"),
+               cand("real", "Suhe slive", "1.25", "1.35", brand="ALESTO")],
+              [], ship_website_only=True)
+    assert reasons(by_erp(res, "dummy")) == [
+        "quarantine:website-only-placeholder-brand:Dummymarke"]
+    assert not by_erp(res, "real").is_quarantined
+
+
+def test_website_only_near_duplicate_is_held_but_distinct_variant_ships():
+    res = run([
+        cand("base", "Piškoti s koščki čokolade veganski", "1.29", "1.39", brand="SONDEY"),
+        cand("paren", "Piškoti s koščki čokolade veganski (Veganska čokolada)",
+             "1.29", "1.39", brand="SONDEY"),
+        cand("regular", "Hribovska klobasa", "1.39", "1.99", brand="Pikok"),
+        cand("chicken", "Hribovska piščančja klobasa", "1.39", "1.99", brand="Pikok"),
+    ], [], ship_website_only=True)
+    assert not by_erp(res, "base").is_quarantined
+    assert "website-only-duplicate-of:base" in reasons(by_erp(res, "paren"))[0]
+    assert not by_erp(res, "regular").is_quarantined
+    assert not by_erp(res, "chicken").is_quarantined
 
 
 # ---------------------------------------------------------------- R3b / R4c / R7c (2026-09-27)
