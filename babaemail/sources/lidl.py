@@ -44,10 +44,11 @@ import os
 import re
 import subprocess
 import time
+import unicodedata
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import httpx
@@ -66,12 +67,14 @@ FLYER_API = "https://endpoints.leaflets.schwarz/v4/flyer"
 RENDER_ZOOM = 3.0          # every reader and every truth set was built on zoom-3 renders
 OCR_WORKERS = int(os.environ.get("BABAEMAIL_OCR_WORKERS", min(8, os.cpu_count() or 1)))
 HEADER_BAND = 0.08
-_HEADER = re.compile(
-    r"(?:^|[^\w])Od\s*([^\W\d_]{3,24}),\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\."
+_HEADER_FRAGMENT = re.compile(
+    r"\bOd\s+([^\W\d_]{3,24}),\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\."
     r"(?:\s*do\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.)?",
     re.I,
 )
+_HEADER = re.compile(rf"^\s*\W{{0,4}}{_HEADER_FRAGMENT.pattern}\W{{0,4}}\s*$", re.I)
 _HEADER_FORBIDDEN = re.compile(r"kupon|aktiviraj|lidl\s*plus|popust|velja|%", re.I)
+_WEEKDAYS = ("ponedeljka", "torka", "srede", "četrtka", "petka", "sobote", "nedelje")
 
 
 class OcrPageError(RuntimeError):
@@ -79,8 +82,8 @@ class OcrPageError(RuntimeError):
 
 
 def parse_page_header(
-    lines: list[OcrBox], page_shape: tuple[int, int], year: int,
-    fallback_end: date | None,
+    lines: list[OcrBox], page_shape: tuple[int, int],
+    leaflet_window: tuple[date, date],
 ) -> tuple[date, date | None] | None:
     """Return one unambiguous, page-owned ``Od weekday, d. m.`` window.
 
@@ -90,6 +93,9 @@ def parse_page_header(
     two physically distinct headers are ambiguous even when their dates match.
     """
     height, width = page_shape
+    window_start, window_end = leaflet_window
+    if window_end < window_start:
+        return None
     found: list[tuple[date, date | None, OcrBox]] = []
     for line in lines:
         if (line.bbox[1] < 0 or line.bbox[3] > height * HEADER_BAND
@@ -97,25 +103,35 @@ def parse_page_header(
                 or line.bbox[2] - line.bbox[0] < width * 0.20
                 or _HEADER_FORBIDDEN.search(line.text)):
             continue
-        matches = list(_HEADER.finditer(line.text))
-        if len(matches) > 1:
+        fragments = list(_HEADER_FRAGMENT.finditer(line.text))
+        if len(fragments) > 1:
             return None
-        if len(matches) != 1:
+        if not fragments:
             continue
-        match = matches[0]
+        # A date-bearing banner/teaser is not a page header. Requiring the
+        # complete physical line also prevents a nearby graphic from lending
+        # its date to an otherwise unrelated strip.
+        match = _HEADER.fullmatch(line.text)
+        if match is None:
+            return None
         # Seeing "do" without a complete d.m. is evidence of an unread end,
         # not evidence that the page has no end.
         tail = line.text[match.start():]
         if re.search(r"\bdo\b", tail, re.I) and match.group(4) is None:
-            continue
-        try:
-            start = date(year, int(match.group(3)), int(match.group(2)))
-            end = (date(year, int(match.group(5)), int(match.group(4)))
-                   if match.group(4) is not None else fallback_end)
-        except ValueError:
-            continue
+            return None
+
+        start = _unique_date_in_window(
+            int(match.group(2)), int(match.group(3)), leaflet_window)
+        if start is None or _weekday_index(match.group(1)) != start.weekday():
+            return None
+        end = leaflet_window[1]
+        if match.group(4) is not None:
+            end = _unique_date_in_window(
+                int(match.group(4)), int(match.group(5)), leaflet_window)
+            if end is None:
+                return None
         if end is not None and end < start:
-            continue
+            return None
         found.append((start, end, line))
 
     physical: list[tuple[date, date | None, OcrBox]] = []
@@ -133,8 +149,50 @@ def parse_page_header(
     return physical[0][:2] if len(physical) == 1 else None
 
 
+def _fold_word(text: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", text.casefold())
+                   if not unicodedata.combining(c))
+
+
+def _edit_distance(a: str, b: str) -> int:
+    prior = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        row = [i]
+        for j, cb in enumerate(b, 1):
+            row.append(min(row[-1] + 1, prior[j] + 1,
+                           prior[j - 1] + (ca != cb)))
+        prior = row
+    return prior[-1]
+
+
+def _weekday_index(word: str) -> int | None:
+    """Map OCR text only when it can identify one Slovenian weekday."""
+    folded = _fold_word(word)
+    matches = []
+    for i, weekday in enumerate(_WEEKDAYS):
+        canonical = _fold_word(weekday)
+        tolerance = 2 if len(canonical) >= 8 else 1
+        if _edit_distance(folded, canonical) <= tolerance:
+            matches.append(i)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _unique_date_in_window(
+    day: int, month: int, window: tuple[date, date],
+) -> date | None:
+    """Resolve day/month without borrowing a year from either window edge."""
+    start, end = window
+    matches = []
+    current = start
+    while current <= end:
+        if (current.day, current.month) == (day, month):
+            matches.append(current)
+        current += timedelta(days=1)
+    return matches[0] if len(matches) == 1 else None
+
+
 def read_page_header_validity(
-    png: bytes, year: int, fallback_end: date | None,
+    png: bytes, leaflet_window: tuple[date, date],
 ) -> tuple[date, date | None] | None:
     """Read only the cached/rendered page's top band; never invokes the VLM."""
     if ocr.cv2 is None:
@@ -144,18 +202,13 @@ def read_page_header_validity(
     if bgr is None:
         raise OcrUnavailable("could not decode page PNG for header OCR")
     height, width = bgr.shape[:2]
-    # Six percent isolates the date strip. The eight-percent acceptance band
-    # above leaves room for OCR box jitter without admitting offer content.
-    band_h = int(height * 0.06)
+    band_h = int(height * HEADER_BAND)
     lines: list[OcrBox] = []
-    # The standard strip is centred, but on split-layout pages it starts at
-    # x=1/3. Two overlapping reads recover both without scanning page content.
-    for x0, x1 in ((0, width), (int(width * 0.30), width)):
-        text = ocr._run_tesseract(  # same local OCR engine; plain output is more stable here
-            bgr[:band_h, x0:x1], ["-l", ocr.TESSERACT_LANG, "--psm", "7"]).strip()
-        if text:
-            lines.append(OcrBox(text, 1.0, (float(x0), 0.0, float(x1), float(band_h))))
-    return parse_page_header(lines, (height, width), year, fallback_end)
+    # Automatic page segmentation preserves distinct physical lines and its
+    # TSV output carries their actual coordinates. One bounded OCR pass also
+    # avoids manufacturing duplicate "lines" from overlapping crops.
+    lines = ocr.read_text_tesseract(bgr[:band_h], min_conf=0)
+    return parse_page_header(lines, (height, width), leaflet_window)
 
 
 def read_page_validities(
@@ -164,7 +217,9 @@ def read_page_validities(
     """Read unambiguous page-header windows in parallel from rendered pages."""
     def one(item):
         page, png = item
-        return page, read_page_header_validity(png, window[0].year, window[1])
+        if window[1] is None:
+            return page, None
+        return page, read_page_header_validity(png, (window[0], window[1]))
 
     with ThreadPoolExecutor(max_workers=min(workers, len(pngs))) as ex:
         read = dict(ex.map(one, pngs.items()))

@@ -19,6 +19,7 @@ WEEK = (date(2026, 9, 24), date(2026, 9, 30))
 META = {"pdf_url": "https://example.invalid/kw39.pdf", "title": "kw39", "pages": 2,
         "valid_from": WEEK[0], "valid_to": WEEK[1]}
 PNGS = {1: b"png-page-1", 2: b"png-page-2"}
+REAL_READ_PAGE_VALIDITIES = lidl_mod.read_page_validities
 
 
 def header_line(text, bbox=(250, 20, 750, 60)):
@@ -27,8 +28,28 @@ def header_line(text, bbox=(250, 20, 750, 60)):
 
 def test_page_header_parses_start_and_uses_leaflet_end_when_no_end_is_printed():
     assert parse_page_header([header_line("Od ponedeljka, 28. 9.")], (1000, 1000),
-                             2026, date(2026, 9, 30)) == (
+                             WEEK) == (
         date(2026, 9, 28), date(2026, 9, 30))
+
+
+def test_page_header_allows_a_uniquely_identifiable_weekday_ocr_error():
+    assert parse_page_header([header_line("Od ponedeljk, 28. 9.")], (1000, 1000),
+                             WEEK) == (date(2026, 9, 28), date(2026, 9, 30))
+
+
+def test_page_header_resolves_new_year_inside_complete_leaflet_window():
+    window = (date(2026, 12, 30), date(2027, 1, 5))
+    assert parse_page_header([header_line("Od petka, 1. 1.")], (1000, 1000),
+                             window) == (date(2027, 1, 1), date(2027, 1, 5))
+
+
+@pytest.mark.parametrize("text", [
+    "Od srede, 23. 12.",       # outside the complete metadata window
+    "Od ponedeljka, 1. 1.",   # 1 January 2027 is Friday
+])
+def test_page_header_rejects_out_of_window_date_or_weekday_mismatch(text):
+    window = (date(2026, 12, 30), date(2027, 1, 5))
+    assert parse_page_header([header_line(text)], (1000, 1000), window) is None
 
 
 @pytest.mark.parametrize("lines", [
@@ -37,10 +58,11 @@ def test_page_header_parses_start_and_uses_leaflet_end_when_no_end_is_printed():
     [header_line("Od ponedeljka, 28. 9."),
      header_line("Od ponedeljka, 28. 9.", (250, 65, 750, 79))],
     [header_line("Aktiviraj kupon! Od ponedeljka, 28. 9.")],
+    [header_line("Nova ponudba od ponedeljka, 28. 9.")],
     [header_line("Od ponedeljka, 28. 9.", (250, 200, 750, 240))],
 ])
 def test_ambiguous_double_coupon_or_non_top_header_is_rejected(lines):
-    assert parse_page_header(lines, (1000, 1000), 2026, date(2026, 9, 30)) is None
+    assert parse_page_header(lines, (1000, 1000), WEEK) is None
 
 
 def cand(erp, title, price, old=None, pct=None, *, brand=None, lp=False):
@@ -137,6 +159,37 @@ def test_ok_run_ships_verified_deals(world):
     milk = shipped["1"]
     assert (milk.price_new, milk.price_old, milk.discount_published) == (D("0.99"), D("1.29"), D("23"))
     assert milk.retailer == "lidl" and milk.source_page == 1 and milk.valid_to == WEEK[1]
+
+
+def test_adapter_uses_production_header_path_and_line_geometry(world, monkeypatch):
+    cv2 = pytest.importorskip("cv2")
+    import numpy as np
+
+    def png(level):
+        ok, encoded = cv2.imencode(".png", np.full((1000, 1000, 3), level, np.uint8))
+        assert ok
+        return encoded.tobytes()
+
+    world["pngs"] = {1: png(10), 2: png(20)}
+    seen = []
+
+    def ocr_lines(image, lang=ocr.TESSERACT_LANG, min_conf=30.0):
+        seen.append(image.shape)
+        text = ("Od četrtka, 24. 9. do 30. 9." if image[0, 0, 0] == 10
+                else "Od ponedeljka, 28. 9.")
+        return [header_line(text)]
+
+    # Keep the adapter's read_page_validities/read_page_header_validity path;
+    # substitute only the external OCR engine's line-level result.
+    monkeypatch.setattr(lidl_mod, "read_page_validities", REAL_READ_PAGE_VALIDITIES)
+    monkeypatch.setattr(ocr, "read_text_tesseract", ocr_lines)
+
+    lidl = Lidl(ocr_workers=1)
+    res = lidl.fetch(TODAY)
+    assert res.status is SourceStatus.OK, res.error
+    assert lidl.last_stats["page_validity"] == {
+        1: "2026-09-24..2026-09-30", 2: "2026-09-28..2026-09-30"}
+    assert seen == [(80, 1000, 3), (80, 1000, 3)]
 
 
 def test_production_adapter_ships_website_only_in_its_structured_section(world):
