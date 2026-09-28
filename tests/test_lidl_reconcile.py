@@ -395,8 +395,7 @@ def test_single_reader_against_api_on_lidl_plus_is_a_mismatch_not_a_vote():
 
 # ---------------------------------------------------------------- API flags
 
-@pytest.mark.parametrize("flag", ["sold_out:IZDELEK ŽAL NI NA VOLJO",
-                                  "price_not_valid_in_window:2026-09-11..2026-09-27",
+@pytest.mark.parametrize("flag", ["price_not_valid_in_window:2026-09-11..2026-09-27",
                                   "deletedPrice_differs:3.99", "price_changes_in_window:x:2026-09-28"])
 def test_correctness_flags_quarantine_even_when_confirmed(flag):
     res = run([cand("1", "Mango", "0.99", "1.49", "33", flags=[flag])], [vlm(1, "Mango", "0.99")])
@@ -410,6 +409,21 @@ def test_informational_flags_pass_through_without_quarantine():
               [vlm(2, "NAŠE NAM PAŠE Sveže piščančje krače", "3.59")])
     d = by_erp(res, "1")
     assert not d.is_quarantined and "api:bonus_quantity" in d.flags
+
+
+def test_sold_out_flag_no_longer_quarantines_but_stays_informational():
+    """Owner decision #9: a product can be sold out in ONE store and in stock
+    in another, so the website's sold-out flag does not say the printed price
+    is wrong or unavailable everywhere. It must not hold back an otherwise
+    leaflet-confirmed price, but the informational ``api:sold_out:...`` flag
+    is kept on the Deal."""
+    res = run([cand("1", "Mango", "0.99", "1.49", "33",
+                    flags=["sold_out:IZDELEK ŽAL NI NA VOLJO"])],
+              [vlm(1, "Mango", "0.99")])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert "api:sold_out:IZDELEK ŽAL NI NA VOLJO" in d.flags
+    assert "leaflet-confirmed:vlm" in d.flags
 
 
 def test_second_item_deal_ships_when_the_arithmetic_holds():
@@ -1026,7 +1040,7 @@ def test_website_only_ships_flagged_when_switched_on():
 
 def test_website_only_needs_an_old_price_and_a_clean_record():
     res = run([cand("1", "Sveži kunec", "8.99"),
-               cand("2", "Tastino", "1.79", "2.59", flags=["sold_out:x"]),
+               cand("2", "Tastino", "1.79", "2.59", flags=["price_not_valid_in_window:x"]),
                cand("3", "Sadna pijača", "6.56", conditional="4+2 gratis")],
               [], ship_website_only=True)
     assert all(d.is_quarantined for d in res.deals)

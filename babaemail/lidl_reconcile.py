@@ -197,11 +197,13 @@ R6  API-only. A candidate with no matched tile is quarantined as
     ordinary shelf prices, not offers; they are returned in
     ``ReconcileResult.unmatched_listed`` rather than turned into Deals.
 
-R7  API flags. Passed through as ``api:<flag>``. These quarantine because
-    they make the price or its availability uncertain: price_not_valid_in_window,
-    price_changes_in_window, price_record_starts/ends, sold_out,
+R7  API flags. Passed through as ``api:<flag>``. Most quarantine because they
+    make the price or its availability uncertain: price_not_valid_in_window,
+    price_changes_in_window, price_record_starts/ends,
     deletedPrice_differs, pct_inconsistent, old_price_not_higher,
-    multiple_price_regions, no_name, no_price. A ``conditional`` price
+    multiple_price_regions, no_name, no_price. ``sold_out`` (owner decision
+    #9) does NOT quarantine: it is per-store, not per-offer (sold out at one
+    store, in stock at another), so it stays informational only. A ``conditional`` price
     ("-80% na drugi kos", "2+1 gratis") quarantines as ``conditional-price``:
     the number alone is not what one item costs, UNLESS R7b
     (``conditional_kind``) proves what it means from the numbers: then it
@@ -887,9 +889,13 @@ def build_tiles(readings: Iterable[LeafletReading]) -> list[LeafletTile]:
 
 QUARANTINE_API_FLAGS = (
     "price_not_valid_in_window", "price_changes_in_window", "price_record_starts",
-    "price_record_ends", "sold_out", "deletedPrice_differs", "pct_inconsistent",
+    "price_record_ends", "deletedPrice_differs", "pct_inconsistent",
     "old_price_not_higher", "multiple_price_regions", "no_name", "no_price",
 )
+# Owner decision #9: the website's sold-out flag is per-store, not per-offer
+# (a product can be sold out in one store and in stock in another), so it does
+# not say the printed price is wrong or unavailable everywhere. It is kept as
+# an informational ``api:sold_out:...`` flag on the Deal, never a quarantine.
 
 
 @dataclass(slots=True)
