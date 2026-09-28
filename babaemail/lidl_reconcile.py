@@ -439,7 +439,7 @@ class LeafletTile:
     @property
     def valid_to_text(self) -> str | None:
         for r in self.readings:
-            if r.valid_to_text and _date_text_owned(self, r.valid_to_text):
+            if r.valid_to_text:
                 return r.valid_to_text
         return None
 
@@ -963,10 +963,10 @@ def _date_text_owned(t: LeafletTile, text: str) -> bool:
     So: when this tile's OWN OCR text contains the SAME day.month digits, the
     hint is genuinely this tile's printed date and is kept -- shortening
     (R8) or conflict-quarantining (R4) it as before. When OCR read the tile
-    but its own text does not contain those digits, the hint belongs to
-    something else on the page and is dropped: it can never conflict- or
-    date-quarantine this tile, and never shortens its window either. A tile
-    OCR never read at all has nothing to confirm or contradict the hint
+    but its own text does not contain those digits, the hint is uncorroborated.
+    Reconciliation may safely ignore it only when it is no earlier than the
+    end date that would otherwise ship; an earlier hint quarantines the deal.
+    A tile OCR never read at all has nothing to confirm or contradict the hint
     against, so the hint is left trusted (unchanged behaviour).
     """
     found = _DATE_TEXT.findall(text or "")
@@ -1485,18 +1485,23 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             # 24.9.-3.10., leaflet 24.-30.9.). Shorten, never lengthen.
             d.flag(f"valid_to-clipped-to-leaflet:api {d.valid_to}")
             d.valid_to = lw_end
-        tile_end = parse_tile_date(t.valid_to_text, year)
-        if t.valid_to_text and tile_end is None:
-            d.flag(f"leaflet-date-unparsed:{t.valid_to_text!r}")
+        tile_text = t.valid_to_text
+        tile_end = parse_tile_date(tile_text, year)
+        if tile_text and tile_end is None:
+            d.flag(f"leaflet-date-unparsed:{tile_text!r}")
+        elif tile_end is not None and not _date_text_owned(t, tile_text):
+            if d.valid_to is None or tile_end < d.valid_to:
+                d.quarantine(f"leaflet-date-uncorroborated-earlier: would ship to "
+                             f"{d.valid_to}, leaflet {tile_text!r} ({t.describe()})")
         elif tile_end is not None and tile_end != d.valid_to:
             if d.valid_from <= tile_end and (d.valid_to is None or tile_end < d.valid_to):
                 # The leaflet is authoritative and ends EARLIER: show the shorter
                 # window. A misread can then only hide days, never invent them.
-                d.flag(f"valid_to-from-leaflet:api {d.valid_to}, leaflet {t.valid_to_text!r}")
+                d.flag(f"valid_to-from-leaflet:api {d.valid_to}, leaflet {tile_text!r}")
                 d.valid_to = tile_end
             else:
                 d.quarantine(f"api-leaflet-date-conflict: api valid to {d.valid_to}, "
-                             f"leaflet {t.valid_to_text!r} ({t.describe()})")
+                             f"leaflet {tile_text!r} ({t.describe()})")
         records.append(MatchRecord("verified", d, c, t, tier))
         verified_keys[(_name_key(t.name), t.new_price)] = c.erp
 
@@ -1600,10 +1605,15 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                 # (kw39 Vitasia pages: API 28.9.-3.10., no end printed)
                 d.flag(f"valid_to-clipped-to-leaflet:page {d.valid_to}")
                 d.valid_to = lw_end
-            tile_end = parse_tile_date(t.valid_to_text, year)
-            if tile_end is not None and (d.valid_to is None or tile_end < d.valid_to):
+            tile_text = t.valid_to_text
+            tile_end = parse_tile_date(tile_text, year)
+            if (tile_end is not None and not _date_text_owned(t, tile_text)
+                    and (d.valid_to is None or tile_end < d.valid_to)):
+                d.quarantine(f"leaflet-date-uncorroborated-earlier: would ship to "
+                             f"{d.valid_to}, leaflet {tile_text!r} ({t.describe()})")
+            elif tile_end is not None and (d.valid_to is None or tile_end < d.valid_to):
                 d.valid_to = tile_end
-                d.flag(f"valid_to-from-tile:{t.valid_to_text!r}")
+                d.flag(f"valid_to-from-tile:{tile_text!r}")
         records.append(MatchRecord(rule, d, None, t))
 
     return ReconcileResult(records, unmatched_listed)

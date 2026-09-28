@@ -577,16 +577,16 @@ def test_tile_date_confirmed_by_ocr_still_shortens_the_window():
     assert any(f.startswith("valid_to-from-leaflet") for f in d.flags)
 
 
-def test_borrowed_banner_date_is_dropped_not_a_conflict():
+@pytest.mark.parametrize("until", ["velja do 30. 9.", "velja do 3. 10. 2026"])
+def test_uncorroborated_equal_or_later_date_is_safely_dropped(until):
     """A page-wide coupon banner or a neighbouring tile's date, read by the
     VLM as if it were THIS tile's own (kw39 p45: every VITASIA tile came back
     with the Vitasia coupon's "velja do 3. 10. 2026"; p64 "Komplet nagrobnih
     sveč" borrowed the candle tiles' "velja do 7. 10."), never shows up in
-    the tile's own OCR text. Such an unconfirmed hint must be dropped, not
-    treated as a genuine tile date: no date-conflict quarantine, and no
-    shortening either."""
+    the tile's own OCR text. Such an unconfirmed hint can be dropped only when
+    it is equal to or later than the end date the deal would otherwise ship."""
     res = run([cand("1", "Liči", "1.89", brand="VITASIA")],
-              [vlm(45, "VITASIA Liči", "1.89", until="velja do 3. 10. 2026"),
+              [vlm(45, "VITASIA Liči", "1.89", until=until),
                ocr(45, "1.89", name="VITASIA Liči",
                    text=["VITASIA", "Liči", "580 ml/1l - 3.26", "oluplien in razkoscicen"])])
     d = by_erp(res, "1")
@@ -594,6 +594,39 @@ def test_borrowed_banner_date_is_dropped_not_a_conflict():
     assert not any("date-conflict" in f or "valid_to-from-leaflet" in f or "unparsed" in f
                    for f in d.flags)
     assert d.valid_to == date(2026, 9, 30)
+
+
+def test_uncorroborated_earlier_date_garbled_by_ocr_is_quarantined():
+    res = run([cand("1", "Rolana panceta", "1.19", "1.99", "40", lp=True,
+                    brand="Dulano")],
+              [vlm(8, "DULANO SELECTION Rolana panceta", "1.19", lp=True,
+                   until="velja do 26. 9."),
+               ocr(8, "1.19", lp=True, name="DULANO Rolana panceta",
+                   text=["DULANO", "Rolana panceta", "velja do 2G. 9."])])
+    d = by_erp(res, "1")
+    assert d.valid_to == date(2026, 9, 30)
+    assert any("leaflet-date-uncorroborated-earlier" in reason for reason in reasons(d))
+
+
+def test_uncorroborated_earlier_date_omitted_by_ocr_is_quarantined():
+    res = run([cand("1", "Rolana panceta", "1.19", "1.99", "40", lp=True,
+                    brand="Dulano")],
+              [vlm(8, "DULANO SELECTION Rolana panceta", "1.19", lp=True,
+                   until="velja do 26. 9."),
+               ocr(8, "1.19", lp=True, name="DULANO Rolana panceta",
+                   text=["DULANO", "Rolana panceta", "500 g /1kg - 10.98"])])
+    d = by_erp(res, "1")
+    assert d.valid_to == date(2026, 9, 30)
+    assert any("leaflet-date-uncorroborated-earlier" in reason for reason in reasons(d))
+
+
+def test_leaflet_only_uncorroborated_earlier_date_is_quarantined():
+    res = run([], [vlm(8, "DULANO Rolana panceta", "1.19", until="velja do 26. 9."),
+                   bare(8, "1.19", "DULANO Rolana panceta")],
+              page_validity={8: WEEK})
+    [d] = res.deals
+    assert d.valid_to == date(2026, 9, 30)
+    assert any("leaflet-date-uncorroborated-earlier" in reason for reason in reasons(d))
 
 
 def test_tile_end_date_later_than_api_quarantines():
