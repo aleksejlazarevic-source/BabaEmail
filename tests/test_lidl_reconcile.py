@@ -562,6 +562,40 @@ def test_tile_end_date_earlier_than_api_ships_with_the_leaflet_date():
     assert any(f.startswith("valid_to-from-leaflet") for f in d.flags)
 
 
+def test_tile_date_confirmed_by_ocr_still_shortens_the_window():
+    """A genuine tile-own 'velja do' is not dropped merely because a
+    tile-ownership guard now exists: OCR independently read the same day.month
+    digits in ITS OWN tile-owned text (kw39 p8 Dulano: OCR's own text for the
+    tile includes 'velja do 26. 9'), so the VLM's date is confirmed and must
+    still shorten the window exactly as before."""
+    res = run([cand("1", "Rolana panceta", "1.19", "1.99", "40", lp=True, brand="Dulano")],
+              [vlm(8, "DULANO SELECTION Rolana panceta", "1.19", lp=True, until="velja do 26. 9."),
+               ocr(8, "1.19", lp=True, name="DULANO Rolana panceta",
+                   text=["DULANO", "Rolana panceta", "500 g /1kg - 10.98", "velja do 26. 9"])])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined and d.valid_to == date(2026, 9, 26)
+    assert any(f.startswith("valid_to-from-leaflet") for f in d.flags)
+
+
+def test_borrowed_banner_date_is_dropped_not_a_conflict():
+    """A page-wide coupon banner or a neighbouring tile's date, read by the
+    VLM as if it were THIS tile's own (kw39 p45: every VITASIA tile came back
+    with the Vitasia coupon's "velja do 3. 10. 2026"; p64 "Komplet nagrobnih
+    sveč" borrowed the candle tiles' "velja do 7. 10."), never shows up in
+    the tile's own OCR text. Such an unconfirmed hint must be dropped, not
+    treated as a genuine tile date: no date-conflict quarantine, and no
+    shortening either."""
+    res = run([cand("1", "Liči", "1.89", brand="VITASIA")],
+              [vlm(45, "VITASIA Liči", "1.89", until="velja do 3. 10. 2026"),
+               ocr(45, "1.89", name="VITASIA Liči",
+                   text=["VITASIA", "Liči", "580 ml/1l - 3.26", "oluplien in razkoscicen"])])
+    d = by_erp(res, "1")
+    assert not d.is_quarantined
+    assert not any("date-conflict" in f or "valid_to-from-leaflet" in f or "unparsed" in f
+                   for f in d.flags)
+    assert d.valid_to == date(2026, 9, 30)
+
+
 def test_tile_end_date_later_than_api_quarantines():
     res = run([cand("1", "Rolana panceta", "1.19", "1.99", "40", lp=True, brand="Dulano",
                     windows=[(date(2026, 9, 24), date(2026, 9, 26))])],

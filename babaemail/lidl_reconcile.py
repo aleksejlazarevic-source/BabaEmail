@@ -439,7 +439,7 @@ class LeafletTile:
     @property
     def valid_to_text(self) -> str | None:
         for r in self.readings:
-            if r.valid_to_text:
+            if r.valid_to_text and _date_text_owned(self, r.valid_to_text):
                 return r.valid_to_text
         return None
 
@@ -942,6 +942,42 @@ def parse_tile_date(text: str | None, year: int) -> date | None:
         return date(year, m, d)
     except ValueError:
         return None
+
+
+def _date_text_owned(t: LeafletTile, text: str) -> bool:
+    """Tile-ownership guard on a "velja do" hint, the same principle as
+    ``_drop_borrowed_names`` / ``_ocr_text_proves_name`` in ``sources/lidl.py``:
+    a reading is trusted only when something independent, anchored to THIS
+    tile, backs it.
+
+    The hint is always the VLM's (OCR never extracts ``valid_to_text``). Two
+    ways it can be someone else's text read as if it were this tile's own:
+      - a page-wide coupon banner, read once per tile on the page (kw39 p45:
+        every VITASIA tile came back with the Vitasia coupon's "velja do
+        3. 10. 2026", from "... Velja do 3.10.2026. Aktiviraj kupon!");
+      - a neighbouring tile's date bleeding in (kw39 p64: "Komplet nagrobnih
+        sveč" borrowing the candle tiles' "velja do 7. 10.").
+
+    OCR reads its own tile-owned text lines independently of the VLM, by the
+    same geometric ownership rule as the selected name (``_own_text_lines``).
+    So: when this tile's OWN OCR text contains the SAME day.month digits, the
+    hint is genuinely this tile's printed date and is kept -- shortening
+    (R8) or conflict-quarantining (R4) it as before. When OCR read the tile
+    but its own text does not contain those digits, the hint belongs to
+    something else on the page and is dropped: it can never conflict- or
+    date-quarantine this tile, and never shortens its window either. A tile
+    OCR never read at all has nothing to confirm or contradict the hint
+    against, so the hint is left trusted (unchanged behaviour).
+    """
+    found = _DATE_TEXT.findall(text or "")
+    if not found:
+        return True
+    day, month = (int(x) for x in found[-1])
+    ocr_readings = [r for r in t.readings if r.source == "ocr"]
+    if not ocr_readings:
+        return True
+    own = fold(" ".join(line for r in ocr_readings for line in r.text))
+    return bool(re.search(rf"\b0*{day}\s*\.\s*0*{month}\b", own))
 
 
 def _window(c: LidlCandidate) -> tuple[date, date | None, bool]:
