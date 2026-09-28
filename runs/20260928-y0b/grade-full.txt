@@ -1,0 +1,488 @@
+==============================================================================
+Full 64-page kw39 leaflet: api+vlm+ocr+crops (replay.py --crops pipeline)
+==============================================================================
+pipeline: shipped 254  quarantined 157
+truth: 293 priced offers, 56 priced pages, 6 truth sets merged: lidl_truth, lidl_truth_holdout, partA, partB, partC, partD
+
+== Every truth offer ==
+p1     5.99  'VALIPILE Svež piščančji prsni file'            SHIPPED-OK readers=[ocr+vlm]
+p1     5.29  'LJUBLJANSKE MLEKARNE Alpsko mleko'             SHIPPED-OK readers=[ocr+vlm]
+p1     0.99  'Mango'                                         SHIPPED-OK readers=[ocr+vlm]
+p1     1.99  "Z'DEŽELE Kranjska klobasa"                     SHIPPED-OK readers=[ocr+vlm]
+p1     2.99  'MILBONA Böreklik'                              SHIPPED-OK readers=[ocr+vlm]
+p1    13.99  'ESMARA /ESMARA MEN Jakna'                      HELD [verified] readers=[ocr+vlm]
+    - ambiguous-api-match: equally good 11097081 'Esmara Ženska jakna', 11106236 'Esmara Ženska jakna', 11110168 'Esmara Men Moška jakna', 11110172 'Esmara Ženska jakna', 11097083 'Esmara Men Moška jakna'
+p1     0.39  'MILKA Čokolada'                                SHIPPED-OK readers=[ocr+vlm]
+p2     3.59  'NAŠE NAM PAŠE Sveže piščančje krače'           SHIPPED-OK readers=[ocr+vlm]
+p2     3.19  'NAŠE NAM PAŠE Svež piščanec z dodanimi bedri'  SHIPPED-OK readers=[ocr+vlm]
+p2     3.99  'NAŠE NAM PAŠE Sveže piščančje peruti'          SHIPPED-OK readers=[ocr+vlm]
+p2     3.49  'NAŠE NAM PAŠE Sveži svinjski zrezki'           SHIPPED-OK readers=[ocr+vlm]
+p2    12.99  'NAŠA MESNICA Svež telečji vrat'                SHIPPED-OK readers=[ocr+vlm]
+p2     6.19  'ŽAR LEGENDE Svež ribeye steak'                 SHIPPED-OK readers=[ocr+vlm]
+p3     2.79  'NAŠE NAM PAŠE Sveže piščančje mleto meso'      SHIPPED-OK readers=[ocr+vlm]
+p3     8.99  'Svež file lososa'                              SHIPPED-OK readers=[ocr+vlm]
+p3     3.09  'NAŠA MESNICA Sveže pusto mleto mešano meso'    SHIPPED-OK readers=[ocr+vlm]
+p3     4.69  'NAŠA RIBARNICA Sveža šarenka'                  SHIPPED-OK readers=[ocr+vlm]
+p3     3.99  'SVEŽE MESO Sveža svinjska rebra'               SHIPPED-OK readers=[ocr+vlm]
+p3     4.49  'NAŠA RIBARNICA Obročki lignjev'                SHIPPED-OK readers=[ocr+vlm]
+p4     0.79  'Avokado'                                       SHIPPED-OK readers=[ocr+vlm]
+p4     1.99  'Rumena čebula'                                 SHIPPED-OK readers=[ocr+vlm]
+p4     1.29  'Bučke'                                         SHIPPED-OK readers=[ocr+vlm]
+p4     0.39  'Fige'                                          SHIPPED-OK readers=[ocr+vlm]
+p6     0.29  'Masleni rogljiček'                             SHIPPED-OK readers=[ocr+vlm]
+p7     1.19  'Kruh brez kvasa'                               SHIPPED-OK readers=[ocr+vlm]
+p7     1.29  'Polnjen pica donut'                            SHIPPED-OK readers=[ocr+vlm]
+p7     0.49  'Žepek s šunko in sirom'                        SHIPPED-OK readers=[ocr+vlm]
+p7     0.39  'Štručka z orehi'                               SHIPPED-OK readers=[ocr+vlm]
+p7     1.19  'Craft kruh'                                    SHIPPED-OK readers=[ocr+vlm]
+p8     2.99  "Z'DEŽELE Prekajena prednja svinjska krača"     SHIPPED-OK readers=[vlm]
+p8     1.49  'NAŠE NAM PAŠE Nanoška salama'                  SHIPPED-OK readers=[ocr+vlm]
+p8     2.99  'SLIM & FIT Poetovio piščančji narezek'         SHIPPED-OK readers=[vlm]
+p8     2.99  'PICKIES Piščančja prekajena klobasa'           SHIPPED-OK readers=[ocr+vlm]
+p8     7.99  'KZ LAŠKO Domača prekajena svinjska rebra'      SHIPPED-OK readers=[ocr+vlm]
+p8     5.49  'FINGUŠT Kmečka suha salama'                    SHIPPED-OK readers=[ocr+vlm]
+p8     1.19  'DULANO SELECTION Rolana panceta'               SHIPPED-OK readers=[ocr+vlm]
+p8     2.23  'MESARSTVO OBLAK Suhi ocvirki'                  SHIPPED-OK readers=[ocr+vlm]
+p9     4.19  'MILBONA Sir Gouda'                             SHIPPED-OK readers=[ocr+vlm]
+p9     1.89  'KANIA Jota s kislim zeljem'                    SHIPPED-OK readers=[ocr+vlm]
+p9     0.69  'SNACK DAY Rebrast čips'                        SHIPPED-OK readers=[ocr+vlm]
+p9     9.99  'MARLENKA Medena torta'                         SHIPPED-OK readers=[ocr+vlm]
+p9     3.49  'STARI ROGLJIČEK Čokoladna rolada'              SHIPPED-OK readers=[ocr+vlm]
+p9     4.19  'LINO LADA Madžarica'                           SHIPPED-OK readers=[ocr+vlm]
+p9     3.99  'CULINEA Piščančje perutničke'                  SHIPPED-OK readers=[ocr+vlm]
+p9     7.99  'CHEF SELECT Hrustljavi piščančji medaljoni XXL' SHIPPED-OK readers=[ocr+vlm]
+p9     4.99  'DOBROTE MORJA Panirani repki kozic'            SHIPPED-OK readers=[ocr+vlm]
+p10    0.59  'PIKOK PURE Puranja pašteta'                    SHIPPED-OK readers=[ocr+vlm]
+p10    0.89  'PILOS Trajno mleko brez laktoze'               SHIPPED-OK readers=[ocr+vlm]
+p10    0.99  'PILOS Posneta skuta'                           SHIPPED-OK readers=[ocr+vlm]
+p10    0.76  'FRESHONA Pasiran paradižnik'                   HELD [verified] readers=[ocr+vlm]
+    - conditional-price:2+1 gratis: multi-buy missing two-reader offer/per-piece proof
+p10    1.49  'MLINOTEST Ješprenj'                            SHIPPED-OK readers=[ocr+vlm]
+p10    1.19  'NAŠE NAM PAŠE Jušni jajčni rezanci'            SHIPPED-OK readers=[ocr+vlm]
+p10    1.29  'BON GELATI Sladoled na palčki'                 SHIPPED-OK readers=[ocr+vlm]
+p11    2.89  'MULINO BIANCO Piškoti s sadnim nadevom'        HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name 'MULINO BIANCO Piškoti s sadnim nadevom') (page 11 'MULINO BIANCO Cuor di Mela' 2.89 [ocr+vlm])
+p11    1.89  'NAŠE NAM PAŠE Slovenska namenska moka'         SHIPPED-OK readers=[ocr+vlm]
+p11    4.19  'LAŠKO Svetlo pivo'                             SHIPPED-OK readers=[ocr+vlm]
+p11    3.99  'RADGONSKE GORICE Janževec'                     SHIPPED-OK readers=[ocr+vlm]
+p11    3.59  'VINAKOPER Refošk'                              SHIPPED-OK readers=[ocr+vlm]
+p11    1.09  'DANA Izotonični napitek'                       SHIPPED-OK readers=[ocr+vlm]
+p11    1.15  'DANA Vitaminski napitek'                       SHIPPED-OK readers=[ocr+vlm]
+p11    0.55  'FREEWAY Ledeni čaj brez sladkorja'             SHIPPED-OK readers=[ocr+vlm]
+p11    2.35  'JAMNICA Gazirana mineralna voda'               SHIPPED-OK readers=[ocr+vlm]
+p11    3.99  'Coca-Cola Regular/ Coca-Cola Zero/ Fanta'      SHIPPED-OK readers=[ocr+vlm]
+p14    2.49  'PALOMA Kuhinjske brisačke I love art'          SHIPPED-OK readers=[ocr+vlm]
+p14    6.49  'FLORALYS Toaletni papir XXL'                   HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name 'FLORALYS Toaletni papir XXL') (page 14 'Floralys supersoft PREMIUM Toilet Tissue ultra soft & super absorbent' 6.49 [ocr+vlm])
+p14    5.99  'BREF Power Aktiv obešanka za WC školjko'       HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR saw a badge (flag) it cannot prove (page 14 'BREF Power Aktiv obešanka za WC školjko' 5.99 [ocr+vlm])
+p14    0.99  'CIEN Gel za prhanje'                           SHIPPED-OK readers=[ocr+vlm]
+p14    1.19  'CIEN BEAUTY Lak za nohte'                      SHIPPED-OK readers=[ocr+vlm]
+p14    5.59  'DUEL Mehčalec'                                 SHIPPED-OK readers=[ocr+vlm]
+p14    5.99  'PERFEKTE WÄSCHE Tekoči detergent'              SHIPPED-OK readers=[ocr+vlm]
+p14   10.99  'ARIEL Pralni prašek'                           SHIPPED-OK readers=[ocr+vlm]
+p15    1.35  'CIEN Krema za obraz'                           SHIPPED-OK readers=[ocr+vlm]
+p15    3.29  'CHILLY Intimno milo'                           SHIPPED-OK readers=[ocr+vlm]
+p15    2.29  'CVET Šampon'                                   SHIPPED-OK readers=[ocr+vlm]
+p15    1.89  'WC NET Parfumirano čistilo za WC'              SHIPPED-OK readers=[ocr+vlm]
+p15    3.99  'LIKVI Detergent za pomivanje posode'           SHIPPED-OK readers=[ocr+vlm]
+p15    9.99  'LENOR Dišeče perlice za perilo'                SHIPPED-OK readers=[ocr+vlm]
+p15    5.89  'SILAN Mehčalec za perilo'                      SHIPPED-OK readers=[ocr+vlm]
+p15    3.99  'WHISKAS Mokra hrana za mačke'                  SHIPPED-OK readers=[ocr+vlm]
+p17    4.29  'Zelena lončnica'                               HELD [leaflet-only] readers=[ocr]
+    - leaflet-only-unverified: single reader (page 17 '?' 4.29 [ocr])
+p17    2.99  'Rezano cvetje'                                 HELD [conflict] readers=[ocr+vlm]
+    - api-leaflet-price-conflict: api 1.99, leaflet 2.99 (page 17 'Rezano cvetje' 2.99 [ocr+vlm])
+p17    3.99  'Krizantema'                                    HELD [verified] readers=[ocr+vlm]
+    - ambiguous-api-match: equally good 11213503 'Krizantema'
+p17    5.99  'Orhideja Phalaenopsis'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p17    3.99  'Mešanica okrasnih buč'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p17    5.49  'Jesenska vresa'                                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p17    2.49  'Zelena lončnica'                               SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p17    1.69  'Krizantema'                                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p20   29.99  'PARKSIDE PERFORMANCE Akumulatorsko multifunkcijsko orodje' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p20   34.99  'PARKSIDE PERFORMANCE Akumulatorski ekscentrični brusilnik' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p20   22.99  'PARKSIDE PERFORMANCE Akumulator 2,5 Ah in polnilnik 6 A' HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name None) (page 20 'PARKSIDE PERFORMANCE Akumulator 2,5 Ah in polnilnik 6 A' 22.99 [ocr+vlm])
+p20   19.99  'PARKSIDE PERFORMANCE Akumulator, 5 Ah'         HELD [conflict] readers=[ocr+vlm]
+    - api-leaflet-price-conflict: api 13.99, leaflet 19.99 (page 20 'PARKSIDE PERFORMANCE Akumulator, 5 Ah' 19.99 [ocr+vlm])
+p21   29.99  'PARKSIDE PERFORMANCE Akumulatorski udarni vijačnik' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p21    6.99  'PARKSIDE PERFORMANCE Pribor za multifunkcijsko orodje' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p21   16.99  'PARKSIDE PERFORMANCE Komplet bimetalnih kronskih žag' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p21   24.99  'PARKSIDE Moški zaščitni čevlji S3'             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p21   11.99  'PARKSIDE PERFORMANCE Polnilnik za akumulatorje' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p22   12.99  'PARKSIDE PERFORMANCE Moške delovne hlače'      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p22   24.99  'PARKSIDE PERFORMANCE Moška „softshell“ odsevna jakna' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p22   13.99  'PARKSIDE PERFORMANCE Akumulatorski izvijač za finomehaniko' HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name None) (page 22 'PARKSIDE PERFORMANCE Akumulatorski izvijač za finomehaniko' 13.99 [ocr+vlm])
+p22   14.99  'PARKSIDE PERFORMANCE Moške delovne hlače z oprsnikom' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p23    8.99  'PARKSIDE Univerzalni namizni primež'           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p23   23.99  'PARKSIDE Moški zaščitni čevlji S1'             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p24   49.99  'SILVERCREST Kuhinjski aparat'                  SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p24    8.99  'SILVERCREST Posoda za kruh'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p24   19.99  'SILVERCREST Komplet paličnega mešalnika'       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p25   34.99  'SILVERCREST Mešalnik'                          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p25   15.99  'SILVERCREST Komplet jedilnega pribora'         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p25    6.99  'ERNESTO Pekač za narastke, 1/2-delni komplet'  SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p25    7.99  'W5 Kuhinjske krpe'                             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p26   12.99  'SILVERCREST Ročni mešalnik'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p26    3.99  'SILVERCREST Termovka'                          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p26    2.49  'SILVERCREST Posode za shranjevanje živil'      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p27   13.99  'SILVERCREST Grelnik za vodo'                   SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p27    5.99  'SILVERCREST Komplet pokrival za steklokeramične štedilnike' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p27    3.99  'SILVERCREST Multisekljalnik'                   SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p27   24.99  'SILVERCREST Servirna ponev iz legiranega jekla' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p28   29.99  'TRONIC Kuhinjski radio DAB+'                   SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p28    8.99  'LIVARNO Kuhinjski tekač'                       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p29    3.99  'W5 Organizator za čistilne pripomočke'         HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name 'kos') (page 29 'W5 Organizer za čistilne pripomočke' 3.99 [ocr+vlm])
+p29    4.99  'LIVARNO LED-svetilka s senzorjem premikanja'   SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p29   17.99  'PHILIPS Parni likalnik'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p30   13.99  'ESMARA /ESMARA MEN [1] Jakna'                  HELD [verified] readers=[ocr+vlm]
+    - ambiguous-api-match: equally good 11097075 'Esmara Men Moška jakna', 11097081 'Esmara Ženska jakna', 11110168 'Esmara Men Moška jakna', 11110172 'Esmara Ženska jakna', 11097083 'Esmara Men Moška jakna'
+p31    7.99  'LUPILU Jakna za dojenčke'                      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p31    8.99  'LUPILU [2] Jakna za malčke'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p31    9.99  'ESMARA KIDS [3] Otroška jakna'                 SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p31   16.99  'ESMARA Ženska dolga jakna'                     SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p31   44.99  'PARKSIDE Visokotlačni čistilnik'               SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p31    3.49  'PARKSIDE Izbor pripomočkov za poliranje'       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p31    4.99  'LIZENZ Knjiga za ustvarjanje z nalepkami'      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p32   13.99  'ESMARA Ženski brezrokavnik'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p33   14.99  'ESMARA MEN Moška jakna'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p33    3.00  'ESMARA Zložljiv dežnik'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+p34    2.99  'ŽAR LEGENDE Sveža piščančja bedra'             SHIPPED-OK readers=[ocr+vlm]
+p34    6.19  'ŽAR LEGENDE Svež ramsteak'                     SHIPPED-OK readers=[ocr+vlm]
+p34    1.15  'MILBONA Smetanov namaz'                        SHIPPED-OK readers=[ocr+vlm]
+p34    0.69  'MILBONA Smetana za kuhanje'                    SHIPPED-OK readers=[ocr+vlm]
+p34    1.39  'Hruške'                                        SHIPPED-OK readers=[ocr+vlm]
+p34    1.19  'HARVEST BASKET Pomfri'                         SHIPPED-OK readers=[ocr+vlm]
+p35    1.39  'Jelenov kruh'                                  SHIPPED-OK readers=[ocr+vlm]
+p35    6.99  'ZLATNA DŽEZVA Mleta kava'                      SHIPPED-OK readers=[ocr+vlm]
+p35   14.99  'ARGETA Kokošja pašteta XXL'                    SHIPPED-OK readers=[ocr+vlm]
+p35    9.99  'PODRAVKA Čokolešnik'                           SHIPPED-OK readers=[ocr+vlm]
+p35   16.99  'DELAMARIS Skuša z zelenjavo Izola Brand'       SHIPPED-OK readers=[ocr+vlm]
+p35    6.56  'FRUC Napitek pomaranča-limona'                 HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: multi-buy missing two-reader offer/per-piece proof (page 35 'FRUC Napitek pomaranča-limona' 6.56 [ocr+vlm])
+p35   10.27  'ARGUS Svetlo pivo'                             SHIPPED-OK readers=[ocr+vlm]
+p36    0.45  'PILOS Kefir'                                   SHIPPED-OK readers=[ocr+vlm]
+p36    0.99  'CHEF SELECT Njoki'                             SHIPPED-OK readers=[ocr+vlm]
+p36    0.79  'PILOS Skuta Sweetello'                         SHIPPED-OK readers=[ocr+vlm]
+p36    2.59  'PRO ACTIV Margarina Original'                  SHIPPED-OK readers=[ocr+vlm]
+p36    1.39  'PIKOK Hribovska salama'                        SHIPPED-OK readers=[ocr+vlm]
+p36    2.99  'BARONI Dimljena klobasa'                       SHIPPED-OK readers=[ocr+vlm]
+p37    0.55  'PILOS Kavni napitek'                           SHIPPED-OK readers=[ocr+vlm]
+p37    2.29  'ALESTO Mešanica praženih oreškov in sadja'     HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: Lidl Plus not agreed (page 37 'Alesto Mešanica praženih oreškov in sadja' 2.29 [ocr+vlm])
+p37    1.79  'SONDEY Mini rolade'                            SHIPPED-OK readers=[ocr+vlm]
+p37    0.59  'ALESTO Proteinske kroglice'                    SHIPPED-OK readers=[ocr+vlm]
+p37    1.99  'CULINEA Piščančji medaljoni'                   SHIPPED-OK readers=[ocr+vlm]
+    - NAME-DIFF shipped 'Culinea 12 Chicken Nuggets' vs leaflet 'CULINEA Piščančji medaljoni'
+p37    1.49  'ALESTO Arašidi v lupini'                       SHIPPED-OK readers=[ocr+vlm]
+p37    1.29  'DROGA Rdeča pesa'                              SHIPPED-OK readers=[ocr+vlm]
+p38    3.75  'NAŠE NAM PAŠE Svež piščančji file/stegna'      SHIPPED-OK readers=[ocr+vlm]
+p38    8.99  'OLIVIA Sveži kunec'                            SHIPPED-OK readers=[ocr+vlm]
+p38    2.79  'NAŠA MESNICA Goveji vampi'                     SHIPPED-OK readers=[ocr+vlm]
+p38    5.19  'NAŠA MESNICA Sveži svinjski kotleti'           SHIPPED-OK readers=[ocr+vlm]
+p38    1.39  'PILOS Sir Edamec'                              SHIPPED-OK readers=[ocr+vlm]
+p38    0.99  'SLIM&FIT Piščančje prsi'                       SHIPPED-OK readers=[ocr+vlm]
+p39    1.79  'Slovenska zelena jabolka'                      SHIPPED-OK readers=[ocr+vlm]
+p39    1.49  'Rdeča koničasta paprika'                       SHIPPED-OK readers=[ocr+vlm]
+p39    1.19  'Pomaranče'                                     HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR old/% not reconciled; name has one reader (OCR name 'Pomaranče') (page 39 'Pomaranče nepakirano' 1.19 [ocr+vlm])
+p39    1.19  'Jedilna buča Hokkaido'                         SHIPPED-OK readers=[ocr+vlm]
+p40    3.99  'PIKOK Čajna klobasa'                           SHIPPED-OK readers=[ocr+vlm]
+p40    0.85  'PIKOK Piščančje hrenovke'                      SHIPPED-OK readers=[ocr+vlm]
+p40    0.99  'PIKOK Piščančja posebna klobasa'               SHIPPED-OK readers=[ocr+vlm]
+p40    1.39  'MILBONA Topljeni sir'                          SHIPPED-OK readers=[ocr+vlm]
+p40    3.99  'KREPKO FITNESS Sveži proteinski sir'           SHIPPED-OK readers=[ocr+vlm]
+p40    0.49  'MILBONA Rahel smetanov puding'                 SHIPPED-OK readers=[ocr+vlm]
+p40    0.69  'Skutin žepek'                                  SHIPPED-OK readers=[ocr+vlm]
+p40    1.49  'MILBONA Ribana mozzarella'                     SHIPPED-OK readers=[ocr+vlm]
+p41    0.99  'KEKEC Mesni narezek'                           SHIPPED-OK readers=[ocr+vlm]
+p41    2.39  'PODRAVKA Goveji golaž'                         SHIPPED-OK readers=[ocr+vlm]
+p41    3.79  'OCEAN SEA Paniran file osliča'                 SHIPPED-OK readers=[ocr+vlm]
+p41    1.99  'SONDEY Masleni čokoladni keksi z marmelado'    SHIPPED-OK readers=[ocr+vlm]
+p41    4.99  'KRAŠ Bajadera'                                 SHIPPED-OK readers=[ocr+vlm]
+p42    1.99  'VITASIA Spomladanski zavitki'                  HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR saw a badge (flag) it cannot prove; name has one reader (OCR name 'na tvoji mizi') (page 42 'VITASIA Spomladanski zavitki' 1.99 [ocr+vlm])
+p42    2.69  'VITASIA Žepki „Gyoza“'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p42    2.99  'VITASIA Cmočki “Siao Long Pao”'                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p42    2.49  'VITASIA Sveži spomladanski zavitki'            SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p42    1.99  'VITASIA Žepki „Samosa“'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p42    3.29  'VITASIA Izbor cmočkov „Dim Sum“'               SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p42    0.99  'VITASIA Čilijeva omaka'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    3.99  'VITASIA Dimljen losos z začimbami'             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    3.79  'VITASIA Kozice na tajski/azijski način'        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    3.59  'VITASIA Pripravljena jed na indonezijski način' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    4.39  'VITASIA Panirani piščančji fileji'             HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR saw a badge (flag) it cannot prove (page 43 'VITASIA Panirani piščančnji fileji' 4.39 [ocr+vlm])
+p43    1.49  'VITASIA Panko drobtine'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    8.99  'VITASIA Hrustljava raca na azijski način'      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    4.99  'FLYING GOOSE Izbor omak'                       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    1.39  'VITASIA „Curry“ pasta'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p43    1.99  'VITASIA Sladka čilijeva omaka'                 SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    0.69  'VITASIA Instant rezanci'                       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    2.29  'VITASIA Komplet za pripravo azijskih jedi'     SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    0.49  'VITASIA Stekleni rezanci'                      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    0.99  'VITASIA Riževi rezanci'                        HELD [verified] readers=[ocr+vlm]
+    - ambiguous-api-match: equally good 11003592 'VITASIA Riževi rezanci'
+p44    1.99  'VITASIA Rezanci na korejski način'             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    0.89  'VITASIA “Wok” rezanci'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    0.49  'YUM YUM Instant juha z rezanci'                HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name None) (page 44 'YUM YUM Instant juha z rezanci' 0.49 [ocr+vlm])
+p44    2.99  'VITASIA Azijska jed s piščancem'               SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    1.99  'VITASIA Začinjena zelenjava za vok “Stir Fry”' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p44    1.59  'VITASIA Rižev papir'                           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    2.29  'VITASIA Pripravljena omaka za maslenega piščanca' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    1.49  'VITASIA Pripravljene “Curry” omake'            SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    1.59  'VITASIA Kruh na indijski način'                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    1.89  'VITASIA Liči'                                  SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    0.89  'VITASIA Rezine manga'                          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    2.79  'VITASIA Napitek “Chai Latte”'                  SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    1.99  'VITASIA Mangov „Mousse“'                       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    2.29  'VITASIA Sadni desert v plasteh'                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p45    2.99  'VITASIA Sladoled „Mochi“'                      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    1.99  'VITASIA Žepki “Samosa” s piščancem'            SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    0.79  'VITASIA „Hummus“ na azijski način'             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    1.99  'VITASIA “Tapas” s kozicami'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    1.99  'VITASIA Palčke s polnilom „Edamame“'           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    1.99  'VITASIA Piščančji kroketi s curryjem'          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    2.99  'VITASIA Piščančje jedi z omako'                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p46    3.99  'AKIRA Cmočki s piščancem „Bao Buns“'           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p47    4.49  'VITASIA Basmati/Jasminov riž'                  SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p47    1.99  'VITASIA Pripravljene omake'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p47    1.59  'VITASIA Maslena omaka za pripravo jedi s piščancem' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p47    1.59  'VITASIA Omaka za pripravo jedi na azijski način' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p47    1.39  'VITASIA Kruh na indijski način „Naan“'         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p47    1.19  'VITASIA Mešanica zelenjave za jedi iz woka'    HELD [leaflet-only] readers=[vlm]
+    - leaflet-only-unverified: single reader (page 47 'VITASIA Wok Mix with Mushrooms' 1.19 [vlm])
+p47    0.69  'VITASIA Začimbe za jedi iz woka'               SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p48    0.99  'VITASIA Rezanci „Mie“'                         HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR saw a badge (flag) it cannot prove; name has one reader (OCR name 'e na tvoji') (page 48 'VITASIA Rezanci „Mie“' 0.99 [ocr+vlm])
+p48    1.19  'VITASIA Rezanci na azijski način'              HELD [conflict] readers=[ocr+vlm]
+    - api-leaflet-price-conflict: api 1.49, leaflet 1.19 (page 48 'VITASIA Rezanci na azijski način' 1.19 [ocr+vlm])
+p48    0.99  'VITASIA Riževi rezanci'                        HELD [verified] readers=[ocr+vlm]
+    - ambiguous-api-match: equally good 11005926 'VITASIA Riževi rezanci'
+p48    0.99  'VITASIA Rezanci „Konjac“'                      HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 48 validity unknown (page 48 'VITASIA Rezanci „Konjac“' 0.99 [ocr+vlm])
+p48    2.29  'VITASIA Rezanci “Udon”'                        HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 48 validity unknown (page 48 'VITASIA Rezanci "Udon"' 2.29 [ocr+vlm])
+p49    0.69  'VITASIA Kalčki mungo fižola/Bambusovi vršički' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    0.49  'VITASIA Sezam'                                 SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    1.79  'VITASIA Pasta “Gochujang”'                     SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    1.29  'VITASIA Omaka na tajski način'                 SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    0.79  'VITASIA Rižev kis'                             SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    2.99  'VITASIA Omaka “Hoisin”'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    2.39  'VITASIA Sezamovo/arašidovo olje'               SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    1.39  'VITASIA Hrustljave polivke na azijski način'   SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p49    1.49  'VITASIA Začimbna omaka'                        HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR saw a badge (flag) it cannot prove; name has one reader (OCR name None) (page 49 'VITASIA Začimbna omaka' 1.49 [ocr+vlm])
+p50    1.39  'VITASIA Piškoti sreče'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p50    0.79  'VITASIA Zeleni čaj'                            SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p50    2.49  'VITASIA Panirano sadje'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p50    1.69  'VITASIA Tapiokine kroglice'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p50    1.29  'VITASIA Aloe vera v kockah'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p51    2.29  'VITASIA Sadni prigrizek iz kruhovca'           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p51    0.99  'VITASIA Tapiokin čips'                         HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name 'VITASIA Tapiokin čips') (page 51 'VITASIA Prawn Crackers' 0.99 [ocr+vlm])
+p51    0.89  'VITASIA Napitek s semeni bazilike/Aloe vera s sadnimi okusi' HELD [verified] readers=[vlm]
+    - vlm-only-without-ocr-price: page 51 has 2 VLM-only tile(s) at 0.89 and 1 unexplained OCR price(s) (page 51 'VITASIA Napitek s semeni bazilike/Aloe vera s sadnimi okusi' 0.89 [vlm])
+p51    5.99  'TSINGTAO Pivo Lager'                           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p51    1.29  'VITASIA Kokosova voda'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p51    1.39  'VITASIA Sadni nektar'                          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p52    7.99  'LIVARNO Posteljnina'                           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p52    4.99  'LIVARNO Napenjalna rjuha iz jerseyja'          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p52    6.99  'ESMARA / ESMARA MEN Pižama'                    SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p53   12.00  'LIVARNO Tabure'                                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p53   39.99  'SENSIPLAST Grelna odeja'                       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p53   11.99  'LIVARNO Tabure'                                HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name None) (page 53 'LIVARNO Tabure' 11.99 [ocr+vlm])
+p53   19.99  'SENSIPLAST Grelna posteljna podloga'           SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p53    9.99  'LIVARNO Vremenska postaja s priporočilom za zračenje' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p53   17.99  'LIVARNO Preproga'                              SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p54    2.49  'LIVARNO Prevleka za vzglavnik, 2 kosa'         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p54    4.49  'ESMARA/ESMARA MEN Copati iz klobučevine'       SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p54    4.99  'CRELANDO Škatla za shranjevanje/ škatla za pribor za šivanje' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p54    3.99  'SENSIPLAST Grelni obliž/pas'                   SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p54    7.99  'PFAFF Ročni šivalni stroj'                     SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p54    3.99  'CRELANDO Pripomočki za šivanje'                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p56    8.99  'ESMARA Ženski pleteni pulover'                 SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p56   16.99  'ESMARA Ženski škornji'                         SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p56   11.99  'CRIVIT Ženska funkcijska jakna'                SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p57    9.99  'ESMARA MEN Moški pulover'                      SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p57   14.99  'ESMARA MEN Moška jakna'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p57    9.99  'ESMARA MEN Moške kavbojke'                     SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p58    9.99  'ESMARA Ženska jakna'                           HELD [conflict] readers=[vlm]
+    - api-leaflet-price-conflict: api 13.99, leaflet 9.99 (page 58 'ESMARA Ženska jakna' 9.99 [vlm])
+p58    9.99  'ESMARA Ženske „skinny fit“ kavbojke'           SHIPPED-OK readers=[vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p58    7.99  'ESMARA Ženska majica z dolgimi rokavi, 2 kosa' SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p60    6.00  'LUPILU Otroška skrinja za sedenje'             HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name None) (page 60 'LUPILU Otroška skrinja za sedenje' 6.00 [ocr+vlm])
+p60   13.99  'LUPILU Otroški regal s kolesi'                 HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 60 validity unknown (page 60 'LUPILU Otroški regal s kolesi' 13.99 [ocr+vlm])
+p61    8.99  'LUPILU Blazina z odejo, 2 v 1'                 SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p61    6.99  'LUPILU Otroška odeja'                          SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p61    7.99  'LUPILU Otroška satenasta obojestranska posteljnina' HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: name has one reader (OCR name 'kompl') (page 61 'LUPILU Otroška satenasta obojestranska posteljmina' 7.99 [ocr+vlm])
+p62   39.99  'LUPILU Komplet otroške mizice in 2 stolov'     SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p63   24.99  'LUPILU Otroški knjižni regal'                  SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p63   21.99  'LUPILU Otroški regal za shranjevanje'          HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 63 validity unknown (page 63 'LUPILU [3] Otroški regal za shranjevanje' 21.99 [ocr+vlm])
+p64    9.99  'Sveča Mala Luna'                               HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 64 validity unknown (page 64 'Sveča Mala Luna' 9.99 [ocr+vlm])
+p64    6.99  'Vložek Mala Luna'                              HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 64 validity unknown (page 64 'Vložek Mala Luna' 6.99 [ocr+vlm])
+p64    9.99  'Komplet nagrobnih sveč'                        SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p64    4.39  'VITASIA Izbor prigrizkov'                      HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-unverified: OCR saw a badge (flag) it cannot prove; name has one reader (OCR name None) (page 64 'VITASIA Izbor prigrizkov' 4.39 [ocr+vlm])
+p64    2.99  'VITASIA Izbor omak'                            SHIPPED-OK readers=[ocr+vlm]
+    - valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+p64    0.99  'VITASIA Jogurtov napitek „Lassi“'              HELD [leaflet-only] readers=[ocr+vlm]
+    - leaflet-only-no-validity: page 64 validity unknown (page 64 'VITASIA Jogurtov napitek „Lassi“' 0.99 [ocr+vlm])
+
+== Shipped deals that match NO truth offer ==
+  none
+
+==============================================================================
+outcome            n
+SHIPPED-OK       254
+SHIPPED-WRONG      0
+SHIPPED-FIELD      0
+QUARANTINED       39
+MISSING            0
+SHIPPED-NAME       1
+
+SUMMARY: 254/293 truth offers ship OK, 0 wrong, 39 held, 0 missing, 0 shipped-OK with a harmful field diff, 0 shipped records match no truth offer.

@@ -1,0 +1,422 @@
+
+##############################################################################
+# SET: tune   CONFIG: api+vlm   (61 priced offers, pages [1, 2, 3, 4, 8, 15, 25, 34, 37, 41])
+##############################################################################
+model=qwen2.5vl:7b  prompt=v3  OCR: ocr_readings_kw39.pkl
+API: candidates_kw39.pkl (live fetch_candidates 2026-09-24..30, taken 2026-09-23): 111 offers + 208 listed (no offer signal)
+readings: vlm 66 on 10 pages; failed VLM pages: none
+
+== VLM alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 61/61
+lidl_plus right on found tiles: 58/61
+tile 'velja do' presence right (where truth or model has one): 6/6
+vlm readings matching no truth offer: 5
+   p41 2.69 'Knorr Porova juha'
+   p41 2.69 'Knorr Blejska juha'
+   p41 2.69 'Knorr Kremna juha s šparglji'
+   p41 2.69 'Knorr Kokošja kocka'
+   p41 2.69 'Knorr Goveja kocka'
+
+== Truth offers after reconciliation (61 priced offers, 10 pages) ==
+outcome            n
+SHIPPED-OK        49
+SHIPPED-WRONG      0
+QUARANTINED       12
+MISSING            0
+
+== Shipped-OK: other fields vs the leaflet (old/pct/LP differences and a LATER end date count as HARMFUL) ==
+  p01-05 MILBONA Böreklik 2.99: NAME-DIFF shipped 'MILBONA Pripravek iz posnetega mleka in palminega olja' vs leaflet 'MILBONA Böreklik'
+  p01-06 ESMARA /ESMARA MEN Jakna 13.99: valid_to shipped 2026-09-26 vs leaflet 2026-09-30 (earlier: conservative)
+  p03-17 NAŠA RIBARNICA Sveža šarenka 4.69: NAME-DIFF shipped 'Naša ribarnica Sveža postrv' vs leaflet 'NAŠA RIBARNICA Sveža šarenka'
+  p25-40 SILVERCREST Mešalnik 34.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p25-41 SILVERCREST Komplet jedilnega pribora 15.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p25-42 ERNESTO Pekač za narastke, 1/2-delni komplet 6.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p25-43 W5 Kuhinjske krpe 7.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+
+== SHIPPED WRONG ==
+  none
+
+== Quarantined truth offers ==
+  p02-13 ŽAR LEGENDE Svež ribeye steak 6.19  [conflict] api-leaflet-price-conflict: api 6.49, leaflet 6.19 (page 2 'ŽAR LEGENDE Svež ribeye steak' 6.19 [vlm])
+  p04-22 Bučke 1.29  [leaflet-only] leaflet-only-unverified: single reader (page 4 'Bučke nepakirano za kg' 1.29 [vlm])
+  p04-23 Fige 0.39  [verified] lidl-plus-mismatch: api False, leaflet True (page 4 'Fige nepakirano za kos' 0.39 [vlm])
+  p08-27 PICKIES Piščančja prekajena klobasa 2.99  [leaflet-only] leaflet-only-unverified: single reader (page 8 'PICKIES Piščančnja prekajena klobasa' 2.99 [vlm])
+  p15-32 CIEN Krema za obraz 1.35  [leaflet-only] leaflet-only-unverified: single reader (page 15 'Cien Krema za obraz' 1.35 [vlm])
+  p15-33 CHILLY Intimno milo 3.29  [leaflet-only] leaflet-only-unverified: single reader (page 15 'Chilly Intimno milo' 3.29 [vlm])
+  p15-38 SILAN Mehčalec za perilo 5.89  [conflict] api-leaflet-price-conflict: api 5.59, leaflet 5.89 (page 15 'Silan Mehčalec za perilo' 5.89 [vlm])
+  p15-39 WHISKAS Mokra hrana za mačke 3.99  [verified] lidl-plus-mismatch: api False, leaflet True (page 15 'Whiskas Mokra hrana za mačke' 3.99 [vlm])
+  p34-46 MILBONA Smetanov namaz 1.15  [leaflet-only] leaflet-only-unverified: single reader (page 34 'MILBONA Smetanov namaz' 1.15 [vlm])
+  p37-51 ALESTO Mešanica praženih oreškov in sadja 2.29  [leaflet-only] leaflet-only-unverified: single reader (page 37 'Alesto Mešanica praženih oreškov in sadja' 2.29 [vlm])
+  p37-52 SONDEY Mini rolade 1.79  [leaflet-only] leaflet-only-unverified: single reader (page 37 'Sondey Mini rolade' 1.79 [vlm])
+  p37-54 CULINEA Piščančji medaljoni 1.99  [leaflet-only] leaflet-only-unverified: single reader (page 37 'Culinea 12 Chicken Nuggets' 1.99 [vlm])
+
+quarantine reasons (a deal can have several):
+    8  leaflet-only-unverified
+    2  api-leaflet-price-conflict
+    2  lidl-plus-mismatch
+
+== Missing (no record at all) ==
+
+== Shipped deals that match NO truth offer (each would need a look) ==
+  none
+
+== All records by rule ==
+  verified: 51, conflict: 2, api-only: 72, leaflet-only: 15; shipped 49, quarantined 91, unmatched listed 189
+
+##############################################################################
+# SET: tune   CONFIG: api+ocr   (61 priced offers, pages [1, 2, 3, 4, 8, 15, 25, 34, 37, 41])
+##############################################################################
+model=qwen2.5vl:7b  prompt=v3  OCR: ocr_readings_kw39.pkl
+API: candidates_kw39.pkl (live fetch_candidates 2026-09-24..30, taken 2026-09-23): 111 offers + 208 listed (no offer signal)
+readings: ocr 61 on 10 pages; failed VLM pages: none
+
+== OCR alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 61/61
+lidl_plus right on found tiles: 61/61
+reconciled old/% equal to the leaflet: 35/36
+ocr readings matching no truth offer: 0
+
+== Truth offers after reconciliation (61 priced offers, 10 pages) ==
+outcome            n
+SHIPPED-OK        39
+SHIPPED-WRONG      0
+QUARANTINED       22
+MISSING            0
+
+== Shipped-OK: other fields vs the leaflet (old/pct/LP differences and a LATER end date count as HARMFUL) ==
+  p01-07 MILKA Čokolada 0.39: HARMFUL; valid_to shipped 2026-09-30 vs leaflet 2026-09-26 <-- LATER than the leaflet
+  p03-17 NAŠA RIBARNICA Sveža šarenka 4.69: NAME-DIFF shipped 'Naša ribarnica Sveža postrv' vs leaflet 'NAŠA RIBARNICA Sveža šarenka'
+  p08-30 DULANO SELECTION Rolana panceta 1.19: HARMFUL; valid_to shipped 2026-09-30 vs leaflet 2026-09-26 <-- LATER than the leaflet
+  p15-39 WHISKAS Mokra hrana za mačke 3.99: NAME-DIFF shipped 'WHISKAS' vs leaflet 'WHISKAS Mokra hrana za mačke'
+
+== SHIPPED WRONG ==
+  none
+
+== Quarantined truth offers ==
+  p01-05 MILBONA Böreklik 2.99  [leaflet-only] leaflet-only-unverified: single reader (page 1 'Boreklik' 2.99 [ocr])
+  p01-06 ESMARA /ESMARA MEN Jakna 13.99  [leaflet-only] leaflet-only-unverified: single reader (page 1 '?' 13.99 [ocr])
+  p02-12 NAŠA MESNICA Svež telečji vrat 12.99  [leaflet-only] leaflet-only-unverified: single reader (page 2 '?' 12.99 [ocr])
+  p02-13 ŽAR LEGENDE Svež ribeye steak 6.19  [conflict] api-leaflet-price-conflict: api 6.49, leaflet 6.19 (page 2 'AR LEGENDE jež ribeye steak' 6.19 [ocr])
+  p03-18 SVEŽE MESO Sveža svinjska rebra 3.99  [leaflet-only] leaflet-only-unverified: single reader (page 3 '?' 3.99 [ocr])
+  p04-20 Avokado 0.79  [leaflet-only] leaflet-only-unverified: single reader (page 4 '?' 0.79 [ocr])
+  p04-22 Bučke 1.29  [conflict] api-leaflet-price-conflict: api 3.99, leaflet 1.29 (page 4 'Bučke' 1.29 [ocr])
+  p08-24 Z'DEŽELE Prekajena prednja svinjska krača 2.99  [leaflet-only] leaflet-only-unverified: single reader (page 8 'PICKIES Piščančja prekajena klobas' 2.99 [ocr])
+  p08-26 SLIM & FIT Poetovio piščančji narezek 2.99  [leaflet-only] leaflet-only-unverified: single reader (page 8 '?' 2.99 [ocr])
+  p08-27 PICKIES Piščančja prekajena klobasa 2.99  [leaflet-only] leaflet-only-unverified: single reader (page 8 '?' 2.99 [ocr])
+  p15-32 CIEN Krema za obraz 1.35  [leaflet-only] leaflet-only-unverified: single reader (page 15 'CIEN Krema za obraz' 1.35 [ocr])
+  p15-33 CHILLY Intimno milo 3.29  [leaflet-only] leaflet-only-unverified: single reader (page 15 'CHILLY Intimno milo' 3.29 [ocr])
+  p15-34 CVET Šampon 2.29  [leaflet-only] leaflet-only-unverified: single reader (page 15 'breza ali kopriva' 2.29 [ocr])
+  p15-38 SILAN Mehčalec za perilo 5.89  [leaflet-only] leaflet-only-unverified: single reader (page 15 'Sensitive' 5.89 [ocr])
+  p25-40 SILVERCREST Mešalnik 34.99  [leaflet-only] leaflet-only-unverified: single reader (page 25 'kos' 34.99 [ocr])
+  p25-41 SILVERCREST Komplet jedilnega pribora 15.99  [conflict] api-leaflet-price-conflict: api 14.99, leaflet 15.99 (page 25 'kompl' 15.99 [ocr])
+  p25-42 ERNESTO Pekač za narastke, 1/2-delni komplet 6.99  [leaflet-only] leaflet-only-unverified: single reader (page 25 'ekač za narastke' 6.99 [ocr])
+  p25-43 W5 Kuhinjske krpe 7.99  [conflict] api-leaflet-price-conflict: api 19.99, leaflet 7.99 (page 25 'kompl' 7.99 [ocr])
+  p34-46 MILBONA Smetanov namaz 1.15  [leaflet-only] leaflet-only-unverified: single reader (page 34 'MILBONA Smetanov namaz' 1.15 [ocr])
+  p37-51 ALESTO Mešanica praženih oreškov in sadja 2.29  [leaflet-only] leaflet-only-unverified: single reader (page 37 'ALESTO Mešanica praženil oreškov in sadja' 2.29 [ocr])
+  p37-52 SONDEY Mini rolade 1.79  [leaflet-only] leaflet-only-unverified: single reader (page 37 '?' 1.79 [ocr])
+  p37-54 CULINEA Piščančji medaljoni 1.99  [leaflet-only] leaflet-only-unverified: single reader (page 37 '?' 1.99 [ocr])
+
+quarantine reasons (a deal can have several):
+   18  leaflet-only-unverified
+    4  api-leaflet-price-conflict
+
+== Missing (no record at all) ==
+
+== Shipped deals that match NO truth offer (each would need a look) ==
+  none
+
+== All records by rule ==
+  verified: 39, conflict: 4, api-only: 79, leaflet-only: 22; shipped 39, quarantined 105, unmatched listed 197
+
+##############################################################################
+# SET: tune   CONFIG: api+vlm+ocr   (61 priced offers, pages [1, 2, 3, 4, 8, 15, 25, 34, 37, 41])
+##############################################################################
+page-bound crop evidence: 1
+model=qwen2.5vl:7b  prompt=v3  OCR: ocr_readings_kw39.pkl
+API: candidates_kw39.pkl (live fetch_candidates 2026-09-24..30, taken 2026-09-23): 111 offers + 208 listed (no offer signal)
+readings: vlm 66, ocr 61 on 10 pages; failed VLM pages: none
+
+== VLM alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 61/61
+lidl_plus right on found tiles: 58/61
+tile 'velja do' presence right (where truth or model has one): 6/6
+vlm readings matching no truth offer: 5
+   p41 2.69 'Knorr Porova juha'
+   p41 2.69 'Knorr Blejska juha'
+   p41 2.69 'Knorr Kremna juha s šparglji'
+   p41 2.69 'Knorr Kokošja kocka'
+   p41 2.69 'Knorr Goveja kocka'
+
+== OCR alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 61/61
+lidl_plus right on found tiles: 61/61
+reconciled old/% equal to the leaflet: 35/36
+ocr readings matching no truth offer: 0
+
+== Truth offers after reconciliation (61 priced offers, 10 pages) ==
+outcome            n
+SHIPPED-OK        60
+SHIPPED-WRONG      0
+QUARANTINED        1
+MISSING            0
+
+== Shipped-OK: other fields vs the leaflet (old/pct/LP differences and a LATER end date count as HARMFUL) ==
+  p01-06 ESMARA /ESMARA MEN Jakna 13.99: valid_to shipped 2026-09-26 vs leaflet 2026-09-30 (earlier: conservative)
+  p25-40 SILVERCREST Mešalnik 34.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p25-41 SILVERCREST Komplet jedilnega pribora 15.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p25-42 ERNESTO Pekač za narastke, 1/2-delni komplet 6.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p25-43 W5 Kuhinjske krpe 7.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p37-54 CULINEA Piščančji medaljoni 1.99: NAME-DIFF shipped 'Culinea 12 Chicken Nuggets' vs leaflet 'CULINEA Piščančji medaljoni'
+
+== SHIPPED WRONG ==
+  none
+
+== Quarantined truth offers ==
+  p37-51 ALESTO Mešanica praženih oreškov in sadja 2.29  [leaflet-only] leaflet-only-unverified: Lidl Plus not agreed (page 37 'Alesto Mešanica praženih oreškov in sadja' 2.29 [ocr+vlm])
+
+quarantine reasons (a deal can have several):
+    1  leaflet-only-unverified
+
+== Missing (no record at all) ==
+
+== Shipped deals that match NO truth offer (each would need a look) ==
+  none
+
+== All records by rule ==
+  verified: 51, conflict: 2, api-only: 72, leaflet-only: 17; shipped 60, quarantined 82, unmatched listed 189
+
+##############################################################################
+# SET: holdout   CONFIG: api+vlm   (64 priced offers, pages [7, 9, 10, 11, 24, 35, 40, 42, 50, 57])
+##############################################################################
+model=qwen2.5vl:7b  prompt=v3  OCR: ocr_readings_kw39.pkl
+API: candidates_kw39.pkl (live fetch_candidates 2026-09-24..30, taken 2026-09-23): 111 offers + 208 listed (no offer signal)
+readings: vlm 65 on 10 pages; failed VLM pages: none
+
+== VLM alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 64/64
+lidl_plus right on found tiles: 58/64
+tile 'velja do' presence right (where truth or model has one): 1/9
+vlm readings matching no truth offer: 1
+   p11 2.89 'MULINO BIANCO Cuor di Bosco'
+
+== Truth offers after reconciliation (64 priced offers, 10 pages) ==
+outcome            n
+SHIPPED-OK        41
+SHIPPED-WRONG      0
+QUARANTINED       23
+MISSING            0
+
+== Shipped-OK: other fields vs the leaflet (old/pct/LP differences and a LATER end date count as HARMFUL) ==
+  p09-12 CULINEA Piščančje perutničke 3.99: HARMFUL; old api None vs leaflet 5.49; pct api None vs leaflet 27
+  p24-32 SILVERCREST Kuhinjski aparat 49.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p24-33 SILVERCREST Posoda za kruh 8.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p24-34 SILVERCREST Komplet paličnega mešalnika 19.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p42-52 VITASIA Cmočki “Siao Long Pao” 2.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-53 VITASIA Sveži spomladanski zavitki 2.49: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-54 VITASIA Žepki „Samosa“ 1.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-55 VITASIA Izbor cmočkov „Dim Sum“ 3.29: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-60 VITASIA Tapiokine kroglice 1.69: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-61 VITASIA Aloe vera v kockah 1.29: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-62 ESMARA MEN Moški pulover 9.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-64 ESMARA MEN Moške kavbojke 9.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+
+== SHIPPED WRONG ==
+  none
+
+== Quarantined truth offers ==
+  p09-09 MARLENKA Medena torta 9.99  [leaflet-only] leaflet-only-unverified: single reader (page 9 'MARLENKA Medena torta' 9.99 [vlm])
+  p10-16 PILOS Trajno mleko brez laktoze 0.89  [verified] lidl-plus-mismatch: api False, leaflet True (page 10 'PILOS Trajno mleko brez laktoze' 0.89 [vlm])
+  p10-18 FRESHONA Pasiran paradižnik 0.76  [verified] conditional-price:2+1 gratis: multi-buy needs two independent readers
+  p10-21 BON GELATI Sladoled na palčki 1.29  [verified] api-flag:deletedPrice_differs:3.99
+  p11-22 MULINO BIANCO Piškoti s sadnim nadevom 2.89  [leaflet-only] leaflet-only-unverified: single reader (page 11 'MULINO BIANCO Cuor di Mela' 2.89 [vlm])
+  p11-24 LAŠKO Svetlo pivo 4.19  [leaflet-only] leaflet-only-unverified: single reader (page 11 'LAŠKO Svetlo pivo' 4.19 [vlm])
+  p11-27 DANA Izotonični napitek 1.09  [conflict] api-leaflet-price-conflict: api 1.15, leaflet 1.09 (page 11 'dana Izotonični napitek' 1.09 [vlm])
+  p11-28 DANA Vitaminski napitek 1.15  [leaflet-only] leaflet-only-unverified: single reader (page 11 'dana Vitaminski napitek' 1.15 [vlm])
+  p11-31 Coca-Cola Regular/ Coca-Cola Zero/ Fanta 3.99  [leaflet-only] leaflet-only-unverified: single reader (page 11 'Coca-Cola Regular/Coca-Cola Zero/Fanta' 3.99 [vlm])
+  p35-36 ZLATNA DŽEZVA Mleta kava 6.99  [verified] lidl-plus-mismatch: api False, leaflet True (page 35 'ZLATNA DŽEZVA Mleta kava' 6.99 [vlm])
+  p35-37 ARGETA Kokošja pašteta XXL 14.99  [verified] lidl-plus-mismatch: api False, leaflet True (page 35 'ARGETA Kokošja pašteta XXL' 14.99 [vlm])
+  p35-38 PODRAVKA Čokolešnik 9.99  [verified] lidl-plus-mismatch: api False, leaflet True (page 35 'PODRAVKA Čokolešnik' 9.99 [vlm])
+  p35-39 DELAMARIS Skuša z zelenjavo Izola Brand 16.99  [verified] lidl-plus-mismatch: api False, leaflet True (page 35 'DELAMARIS Skuša z zelenjavo Izola Brand' 16.99 [vlm])
+  p35-40 FRUC Napitek pomaranča-limona 6.56  [leaflet-only] leaflet-only-unverified: single reader (page 35 'FRUC Napitek pomaranča-limona' 6.56 [vlm])
+  p35-41 ARGUS Svetlo pivo 10.27  [verified] conditional-price:13+5 gratis: multi-buy needs two independent readers
+  p40-47 MILBONA Rahel smetanov puding 0.49  [leaflet-only] leaflet-only-unverified: single reader (page 40 'MILBONA Rahel smetanov puding' 0.49 [vlm])
+  p42-50 VITASIA Spomladanski zavitki 1.99  [leaflet-only] leaflet-only-unverified: single reader (page 42 'VITASIA Spomladanski zavitki' 1.99 [vlm])
+  p42-51 VITASIA Žepki „Gyoza“ 2.69  [leaflet-only] leaflet-only-unverified: single reader (page 42 'VITASIA Žepki „Gyoza“' 2.69 [vlm])
+  p42-56 VITASIA Čilijeva omaka 0.99  [leaflet-only] leaflet-only-unverified: single reader (page 42 'VITASIA Čilijeva omaka' 0.99 [vlm])
+  p50-57 VITASIA Piškoti sreče 1.39  [verified] lidl-plus-mismatch: api False, leaflet True (page 50 'VITASIA Piškoti sreče' 1.39 [vlm])
+  p50-58 VITASIA Zeleni čaj 0.79  [leaflet-only] leaflet-only-unverified: single reader (page 50 'VITASIA Zeleni čaj' 0.79 [vlm])
+  p50-59 VITASIA Panirano sadje 2.49  [leaflet-only] leaflet-only-unverified: single reader (page 50 'VITASIA Panirano sadje' 2.49 [vlm])
+  p57-63 ESMARA MEN Moška jakna 14.99  [verified] ambiguous-api-match: equally good 11119721 'Esmara Men Moška jakna'
+
+quarantine reasons (a deal can have several):
+   12  leaflet-only-unverified
+    6  lidl-plus-mismatch
+    2  conditional-price
+    1  api-flag
+    1  api-leaflet-price-conflict
+    1  ambiguous-api-match
+
+== Missing (no record at all) ==
+
+== Shipped deals that match NO truth offer (each would need a look) ==
+  none
+
+== All records by rule ==
+  verified: 51, conflict: 1, api-only: 81, leaflet-only: 14; shipped 41, quarantined 106, unmatched listed 183
+
+##############################################################################
+# SET: holdout   CONFIG: api+ocr   (64 priced offers, pages [7, 9, 10, 11, 24, 35, 40, 42, 50, 57])
+##############################################################################
+model=qwen2.5vl:7b  prompt=v3  OCR: ocr_readings_kw39.pkl
+API: candidates_kw39.pkl (live fetch_candidates 2026-09-24..30, taken 2026-09-23): 111 offers + 208 listed (no offer signal)
+readings: ocr 64 on 10 pages; failed VLM pages: none
+
+== OCR alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 64/64
+lidl_plus right on found tiles: 64/64
+reconciled old/% equal to the leaflet: 20/20
+ocr readings matching no truth offer: 0
+
+== Truth offers after reconciliation (64 priced offers, 10 pages) ==
+outcome            n
+SHIPPED-OK        36
+SHIPPED-WRONG      0
+QUARANTINED       28
+MISSING            0
+
+== Shipped-OK: other fields vs the leaflet (old/pct/LP differences and a LATER end date count as HARMFUL) ==
+  p09-10 STARI ROGLJIČEK Čokoladna rolada 3.49: HARMFUL; valid_to shipped 2026-09-30 vs leaflet 2026-09-26 <-- LATER than the leaflet
+  p24-34 SILVERCREST Komplet paličnega mešalnika 19.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p42-53 VITASIA Sveži spomladanski zavitki 2.49: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-55 VITASIA Izbor cmočkov „Dim Sum“ 3.29: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-57 VITASIA Piškoti sreče 1.39: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-60 VITASIA Tapiokine kroglice 1.69: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-61 VITASIA Aloe vera v kockah 1.29: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-62 ESMARA MEN Moški pulover 9.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-64 ESMARA MEN Moške kavbojke 9.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+
+== SHIPPED WRONG ==
+  none
+
+== Quarantined truth offers ==
+  p09-09 MARLENKA Medena torta 9.99  [leaflet-only] leaflet-only-unverified: single reader (page 9 'MARLENKA Medena torta' 9.99 [ocr])
+  p10-16 PILOS Trajno mleko brez laktoze 0.89  [leaflet-only] leaflet-only-unverified: single reader (page 10 '?' 0.89 [ocr])
+  p10-18 FRESHONA Pasiran paradižnik 0.76  [verified] conditional-price:2+1 gratis: multi-buy needs two independent readers
+  p10-20 NAŠE NAM PAŠE Jušni jajčni rezanci 1.19  [leaflet-only] leaflet-only-unverified: single reader (page 10 '?' 1.19 [ocr])
+  p11-22 MULINO BIANCO Piškoti s sadnim nadevom 2.89  [leaflet-only] leaflet-only-unverified: single reader (page 11 'MULINO BIANCO Piškoti s sadnim nadevom' 2.89 [ocr])
+  p11-23 NAŠE NAM PAŠE Slovenska namenska moka 1.89  [leaflet-only] leaflet-only-unverified: single reader (page 11 '?' 1.89 [ocr])
+  p11-24 LAŠKO Svetlo pivo 4.19  [leaflet-only] leaflet-only-unverified: single reader (page 11 'LAŠKO Svetlo pivo' 4.19 [ocr])
+  p11-27 DANA Izotonični napitek 1.09  [conflict] api-leaflet-price-conflict: api 1.15, leaflet 1.09 (page 11 'DANA Izotonični napitek' 1.09 [ocr])
+  p11-28 DANA Vitaminski napitek 1.15  [leaflet-only] leaflet-only-unverified: single reader (page 11 'DANA Vitaminski napitek' 1.15 [ocr])
+  p11-31 Coca-Cola Regular/ Coca-Cola Zero/ Fanta 3.99  [leaflet-only] leaflet-only-unverified: single reader (page 11 'Coca-Cola Regul' 3.99 [ocr])
+  p24-32 SILVERCREST Kuhinjski aparat 49.99  [leaflet-only] leaflet-only-unverified: single reader (page 24 '?' 49.99 [ocr])
+  p24-33 SILVERCREST Posoda za kruh 8.99  [leaflet-only] leaflet-only-unverified: single reader (page 24 'kos' 8.99 [ocr])
+  p35-35 Jelenov kruh 1.39  [leaflet-only] leaflet-only-unverified: single reader (page 35 'sveže pečeno' 1.39 [ocr])
+  p35-39 DELAMARIS Skuša z zelenjavo Izola Brand 16.99  [leaflet-only] leaflet-only-unverified: single reader (page 35 '?' 16.99 [ocr])
+  p35-40 FRUC Napitek pomaranča-limona 6.56  [leaflet-only] leaflet-only-unverified: single reader (page 35 'Napitek pomaranča-limon' 6.56 [ocr])
+  p35-41 ARGUS Svetlo pivo 10.27  [leaflet-only] leaflet-only-unverified: single reader (page 35 'Minister za zdravje opozarja Prekomerno pitj alkohola škoduje' 10.27 [ocr])
+  p40-43 PIKOK Piščančje hrenovke 0.85  [leaflet-only] leaflet-only-unverified: single reader (page 40 '?' 0.85 [ocr])
+  p40-44 PIKOK Piščančja posebna klobasa 0.99  [leaflet-only] leaflet-only-unverified: single reader (page 40 '?' 0.99 [ocr])
+  p40-45 MILBONA Topljeni sir 1.39  [leaflet-only] leaflet-only-unverified: single reader (page 40 '?' 1.39 [ocr])
+  p40-47 MILBONA Rahel smetanov puding 0.49  [leaflet-only] leaflet-only-unverified: single reader (page 40 'Rahel smetanov puding' 0.49 [ocr])
+  p42-50 VITASIA Spomladanski zavitki 1.99  [leaflet-only] leaflet-only-unverified: single reader (page 42 'na tvoji mizi' 1.99 [ocr])
+  p42-51 VITASIA Žepki „Gyoza“ 2.69  [conflict] api-leaflet-price-conflict: api 1.99, leaflet 2.69 (page 42 'VITASIA Žepki' 2.69 [ocr])
+  p42-52 VITASIA Cmočki “Siao Long Pao” 2.99  [leaflet-only] leaflet-only-unverified: single reader (page 42 '?' 2.99 [ocr])
+  p42-54 VITASIA Žepki „Samosa“ 1.99  [leaflet-only] leaflet-only-unverified: single reader (page 42 '?' 1.99 [ocr])
+  p42-56 VITASIA Čilijeva omaka 0.99  [leaflet-only] leaflet-only-unverified: single reader (page 42 '?' 0.99 [ocr])
+  p50-58 VITASIA Zeleni čaj 0.79  [leaflet-only] leaflet-only-unverified: single reader (page 50 'VITASIA Zeleni čaj' 0.79 [ocr])
+  p50-59 VITASIA Panirano sadje 2.49  [leaflet-only] leaflet-only-unverified: single reader (page 50 '?' 2.49 [ocr])
+  p57-63 ESMARA MEN Moška jakna 14.99  [leaflet-only] leaflet-only-unverified: single reader (page 57 'Vodo zaradi obdelave' 14.99 [ocr])
+
+quarantine reasons (a deal can have several):
+   25  leaflet-only-unverified
+    2  api-leaflet-price-conflict
+    1  conditional-price
+
+== Missing (no record at all) ==
+
+== Shipped deals that match NO truth offer (each would need a look) ==
+  none
+
+== All records by rule ==
+  verified: 37, conflict: 2, api-only: 90, leaflet-only: 27; shipped 36, quarantined 120, unmatched listed 188
+
+##############################################################################
+# SET: holdout   CONFIG: api+vlm+ocr   (64 priced offers, pages [7, 9, 10, 11, 24, 35, 40, 42, 50, 57])
+##############################################################################
+page-bound crop evidence: 8
+model=qwen2.5vl:7b  prompt=v3  OCR: ocr_readings_kw39.pkl
+API: candidates_kw39.pkl (live fetch_candidates 2026-09-24..30, taken 2026-09-23): 111 offers + 208 listed (no offer signal)
+readings: vlm 65, ocr 64 on 10 pages; failed VLM pages: none
+
+== VLM alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 64/64
+lidl_plus right on found tiles: 58/64
+tile 'velja do' presence right (where truth or model has one): 1/9
+vlm readings matching no truth offer: 1
+   p11 2.89 'MULINO BIANCO Cuor di Bosco'
+
+== OCR alone vs truth (new_price exact, one-to-one per page, name-preferring) ==
+tiles found (new_price exact): 64/64
+lidl_plus right on found tiles: 64/64
+reconciled old/% equal to the leaflet: 20/20
+ocr readings matching no truth offer: 0
+
+== Truth offers after reconciliation (64 priced offers, 10 pages) ==
+outcome            n
+SHIPPED-OK        60
+SHIPPED-WRONG      0
+QUARANTINED        4
+MISSING            0
+
+== Shipped-OK: other fields vs the leaflet (old/pct/LP differences and a LATER end date count as HARMFUL) ==
+  p24-32 SILVERCREST Kuhinjski aparat 49.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p24-33 SILVERCREST Posoda za kruh 8.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p24-34 SILVERCREST Komplet paličnega mešalnika 19.99: valid_to shipped 2026-09-26 vs leaflet None (earlier: conservative)
+  p42-51 VITASIA Žepki „Gyoza“ 2.69: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-52 VITASIA Cmočki “Siao Long Pao” 2.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-53 VITASIA Sveži spomladanski zavitki 2.49: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-54 VITASIA Žepki „Samosa“ 1.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-55 VITASIA Izbor cmočkov „Dim Sum“ 3.29: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p42-56 VITASIA Čilijeva omaka 0.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-57 VITASIA Piškoti sreče 1.39: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-58 VITASIA Zeleni čaj 0.79: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-59 VITASIA Panirano sadje 2.49: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-60 VITASIA Tapiokine kroglice 1.69: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p50-61 VITASIA Aloe vera v kockah 1.29: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-62 ESMARA MEN Moški pulover 9.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-63 ESMARA MEN Moška jakna 14.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+  p57-64 ESMARA MEN Moške kavbojke 9.99: valid_to shipped 2026-09-30 vs leaflet None (earlier: conservative)
+
+== SHIPPED WRONG ==
+  none
+
+== Quarantined truth offers ==
+  p10-18 FRESHONA Pasiran paradižnik 0.76  [verified] conditional-price:2+1 gratis: multi-buy missing two-reader offer/per-piece proof
+  p11-22 MULINO BIANCO Piškoti s sadnim nadevom 2.89  [leaflet-only] leaflet-only-unverified: name has one reader (OCR name 'MULINO BIANCO Piškoti s sadnim nadevom') (page 11 'MULINO BIANCO Cuor di Mela' 2.89 [ocr+vlm])
+  p35-40 FRUC Napitek pomaranča-limona 6.56  [leaflet-only] leaflet-only-unverified: multi-buy missing two-reader offer/per-piece proof (page 35 'FRUC Napitek pomaranča-limona' 6.56 [ocr+vlm])
+  p42-50 VITASIA Spomladanski zavitki 1.99  [leaflet-only] leaflet-only-unverified: OCR saw a badge (flag) it cannot prove; name has one reader (OCR name 'na tvoji mizi') (page 42 'VITASIA Spomladanski zavitki' 1.99 [ocr+vlm])
+
+quarantine reasons (a deal can have several):
+    3  leaflet-only-unverified
+    1  conditional-price
+
+== Missing (no record at all) ==
+
+== Shipped deals that match NO truth offer (each would need a look) ==
+  none
+
+== All records by rule ==
+  verified: 51, conflict: 1, api-only: 81, leaflet-only: 14; shipped 60, quarantined 87, unmatched listed 183
+
+==============================================================================
+ship-WRONG = shipped with a new price that differs from the leaflet.
+field-bad  = shipped with the right price but a harmful other field (old/pct/LP, or a later end date).
+name-diff  = shipped-OK whose name shares no product word with the printed one (review: wrong product or synonym).
+set      config        truth  ship-OK ship-WRONG field-bad quarant. missing name-diff   reader found/extra
+tune     api+vlm          61       49          0         0       12       0         2   vlm 61/5
+tune     api+ocr          61       39          0         2       22       0         2   ocr 61/0
+tune     api+vlm+ocr      61       60          0         0        1       0         1   vlm 61/5  ocr 61/0
+holdout  api+vlm          64       41          0         1       23       0         0   vlm 64/1
+holdout  api+ocr          64       36          0         1       28       0         0   ocr 64/0
+holdout  api+vlm+ocr      64       60          0         0        4       0         0   vlm 64/1  ocr 64/0

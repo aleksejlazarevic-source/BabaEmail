@@ -577,6 +577,41 @@ def test_tile_date_confirmed_by_ocr_still_shortens_the_window():
     assert any(f.startswith("valid_to-from-leaflet") for f in d.flags)
 
 
+@pytest.mark.parametrize("hints", [
+    ("velja do 3. 10. 2026", "velja do 26. 9."),
+    ("velja do 26. 9.", "velja do 3. 10. 2026"),
+])
+def test_every_duplicate_vlm_date_hint_is_checked_regardless_of_order(hints):
+    """A borrowed later banner must not hide a corroborated earlier date."""
+    readings = [
+        vlm(8, "DULANO SELECTION Rolana panceta", "1.19", lp=True, until=hint)
+        for hint in hints
+    ]
+    readings.append(ocr(8, "1.19", lp=True, name="DULANO Rolana panceta",
+                        text=["DULANO", "Rolana panceta", "velja do 26. 9."]))
+    res = run([cand("1", "Rolana panceta", "1.19", "1.99", "40", lp=True,
+                    brand="Dulano")], readings)
+    d = by_erp(res, "1")
+    assert not d.is_quarantined and d.valid_to == date(2026, 9, 26)
+    assert any(f.startswith("valid_to-from-leaflet") for f in d.flags)
+
+
+def test_two_corroborated_duplicate_vlm_dates_that_disagree_are_quarantined():
+    readings = [
+        vlm(8, "DULANO SELECTION Rolana panceta", "1.19", lp=True,
+            until="velja do 26. 9."),
+        vlm(8, "DULANO SELECTION Rolana panceta", "1.19", lp=True,
+            until="velja do 27. 9."),
+        ocr(8, "1.19", lp=True, name="DULANO Rolana panceta",
+            text=["DULANO", "Rolana panceta", "velja do 26. 9.", "velja do 27. 9."]),
+    ]
+    res = run([cand("1", "Rolana panceta", "1.19", "1.99", "40", lp=True,
+                    brand="Dulano")], readings)
+    d = by_erp(res, "1")
+    assert d.is_quarantined
+    assert any("leaflet-date-hints-disagree" in reason for reason in reasons(d))
+
+
 @pytest.mark.parametrize("until", ["velja do 30. 9.", "velja do 3. 10. 2026"])
 def test_uncorroborated_equal_or_later_date_is_safely_dropped(until):
     """A page-wide coupon banner or a neighbouring tile's date, read by the

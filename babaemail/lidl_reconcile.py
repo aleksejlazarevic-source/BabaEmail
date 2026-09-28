@@ -140,11 +140,12 @@ R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
         (``lidl-plus-mismatch`` / ``leaflet-lidl-plus-unknown``);
       - a reconciled OCR old price or % differs from the API's
         (``api-leaflet-old-price-conflict``);
-      - the tile prints its own end date ("velja do 26. 9.") that is LATER
-        than the API's window end (``api-leaflet-date-conflict``). An EARLIER
-        tile date replaces the API's end date (flag
-        ``valid_to-from-leaflet``): the leaflet is authoritative, and a
-        misread can then only hide days, never invent them;
+      - a tile-owned end-date hint ("velja do 26. 9.") is LATER than the API's
+        window end (``api-leaflet-date-conflict``). An EARLIER tile date
+        replaces the API's end date (flag ``valid_to-from-leaflet``): the
+        leaflet is authoritative, and a misread can then only hide days,
+        never invent them. Every distinct VLM hint is checked; disagreeing
+        OCR-owned hints quarantine the tile;
       - a correctness-affecting API flag is present (R7).
       - a crop proves the price is a lower bound ("že od"); the API cannot
         turn that into an exact price (``leaflet-from-price-api-match``).
@@ -437,11 +438,15 @@ class LeafletTile:
         return None
 
     @property
-    def valid_to_text(self) -> str | None:
-        for r in self.readings:
-            if r.valid_to_text:
-                return r.valid_to_text
-        return None
+    def valid_to_texts(self) -> tuple[str, ...]:
+        """Every distinct VLM end-date hint, in deterministic order.
+
+        Duplicate VLM readings of the same tile are deliberately merged by
+        ``build_tiles``. Their date hints are independent observations and
+        must not collapse to whichever reading happened to arrive first.
+        """
+        return tuple(sorted({r.valid_to_text for r in self.readings
+                             if r.source == "vlm" and r.valid_to_text}))
 
     def describe(self) -> str:
         return f"page {self.page} {self.name or '?'!r} {self.new_price} [{'+'.join(self.sources)}]"
@@ -980,6 +985,55 @@ def _date_text_owned(t: LeafletTile, text: str) -> bool:
     return bool(re.search(rf"\b0*{day}\s*\.\s*0*{month}\b", own))
 
 
+def _apply_tile_date_hints(
+    d: Deal,
+    t: LeafletTile,
+    year: int,
+    *,
+    matched_api: bool,
+) -> None:
+    """Evaluate every VLM date hint without depending on reading order.
+
+    OCR-owned hints are resolved first because a genuine earlier tile date
+    changes the end date that would ship. Only then are borrowed/unowned
+    hints checked: one may be ignored only when it is no earlier than that
+    final end date. Two owned hints naming different dates are contradictory
+    printed evidence and quarantine the tile.
+    """
+    parsed: list[tuple[str, date, bool]] = []
+    for text in t.valid_to_texts:
+        end = parse_tile_date(text, year)
+        if end is None:
+            d.flag(f"leaflet-date-unparsed:{text!r}")
+            continue
+        parsed.append((text, end, _date_text_owned(t, text)))
+
+    owned = [(text, end) for text, end, is_owned in parsed if is_owned]
+    owned_dates = {end for _, end in owned}
+    if len(owned_dates) > 1:
+        evidence = ", ".join(f"{text!r} -> {end}" for text, end in owned)
+        d.quarantine(f"leaflet-date-hints-disagree: {evidence} ({t.describe()})")
+    elif owned:
+        text, tile_end = owned[0]
+        if matched_api and tile_end != d.valid_to:
+            if d.valid_from <= tile_end and (d.valid_to is None or tile_end < d.valid_to):
+                # The leaflet is authoritative and ends EARLIER: show the shorter
+                # window. A misread can then only hide days, never invent them.
+                d.flag(f"valid_to-from-leaflet:api {d.valid_to}, leaflet {text!r}")
+                d.valid_to = tile_end
+            else:
+                d.quarantine(f"api-leaflet-date-conflict: api valid to {d.valid_to}, "
+                             f"leaflet {text!r} ({t.describe()})")
+        elif not matched_api and (d.valid_to is None or tile_end < d.valid_to):
+            d.valid_to = tile_end
+            d.flag(f"valid_to-from-tile:{text!r}")
+
+    for text, tile_end, is_owned in parsed:
+        if not is_owned and (d.valid_to is None or tile_end < d.valid_to):
+            d.quarantine(f"leaflet-date-uncorroborated-earlier: would ship to "
+                         f"{d.valid_to}, leaflet {text!r} ({t.describe()})")
+
+
 def _window(c: LidlCandidate) -> tuple[date, date | None, bool]:
     ws = c.windows or c.all_windows
     start = min(w[0] for w in ws)
@@ -1485,23 +1539,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             # 24.9.-3.10., leaflet 24.-30.9.). Shorten, never lengthen.
             d.flag(f"valid_to-clipped-to-leaflet:api {d.valid_to}")
             d.valid_to = lw_end
-        tile_text = t.valid_to_text
-        tile_end = parse_tile_date(tile_text, year)
-        if tile_text and tile_end is None:
-            d.flag(f"leaflet-date-unparsed:{tile_text!r}")
-        elif tile_end is not None and not _date_text_owned(t, tile_text):
-            if d.valid_to is None or tile_end < d.valid_to:
-                d.quarantine(f"leaflet-date-uncorroborated-earlier: would ship to "
-                             f"{d.valid_to}, leaflet {tile_text!r} ({t.describe()})")
-        elif tile_end is not None and tile_end != d.valid_to:
-            if d.valid_from <= tile_end and (d.valid_to is None or tile_end < d.valid_to):
-                # The leaflet is authoritative and ends EARLIER: show the shorter
-                # window. A misread can then only hide days, never invent them.
-                d.flag(f"valid_to-from-leaflet:api {d.valid_to}, leaflet {tile_text!r}")
-                d.valid_to = tile_end
-            else:
-                d.quarantine(f"api-leaflet-date-conflict: api valid to {d.valid_to}, "
-                             f"leaflet {tile_text!r} ({t.describe()})")
+        _apply_tile_date_hints(d, t, year, matched_api=True)
         records.append(MatchRecord("verified", d, c, t, tier))
         verified_keys[(_name_key(t.name), t.new_price)] = c.erp
 
@@ -1605,15 +1643,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                 # (kw39 Vitasia pages: API 28.9.-3.10., no end printed)
                 d.flag(f"valid_to-clipped-to-leaflet:page {d.valid_to}")
                 d.valid_to = lw_end
-            tile_text = t.valid_to_text
-            tile_end = parse_tile_date(tile_text, year)
-            if (tile_end is not None and not _date_text_owned(t, tile_text)
-                    and (d.valid_to is None or tile_end < d.valid_to)):
-                d.quarantine(f"leaflet-date-uncorroborated-earlier: would ship to "
-                             f"{d.valid_to}, leaflet {tile_text!r} ({t.describe()})")
-            elif tile_end is not None and (d.valid_to is None or tile_end < d.valid_to):
-                d.valid_to = tile_end
-                d.flag(f"valid_to-from-tile:{tile_text!r}")
+            _apply_tile_date_hints(d, t, year, matched_api=False)
         records.append(MatchRecord(rule, d, None, t))
 
     return ReconcileResult(records, unmatched_listed)
