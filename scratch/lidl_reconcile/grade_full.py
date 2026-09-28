@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT))
 
 from babaemail.lidl_crops import load_crops, refine_readings  # noqa: E402
 from babaemail.lidl_reconcile import _shared, _stems, reconcile  # noqa: E402
+from babaemail.sources.lidl import read_page_validities  # noqa: E402
 
 TRUTH_DIRS = [
     ROOT / "scratch" / "lidl_truth",
@@ -102,9 +103,11 @@ def main() -> None:
     # -------------------------------------------------- run the pipeline
     inp = pickle.load(open(HERE / "full_inputs_kw39.pkl", "rb"))
     page_bytes = {int(p.stem[1:]): p.read_bytes() for p in PAGES_DIR.glob("p*.png")}
+    page_validity = read_page_validities(page_bytes, inp["kw"]["leaflet_window"])
     evidence = load_crops(page_bytes)
     readings = refine_readings(inp["readings"], evidence)
-    res = reconcile(inp["cands"], readings, **inp["kw"], ship_website_only=True)
+    res = reconcile(inp["cands"], readings, **inp["kw"], page_validity=page_validity,
+                    ship_website_only=True)
 
     website = [d for d in res.deals if d.source_kind == "website_only"]
     leaflet_shipped = [d for d in res.shipped if d.source_kind == "leaflet"]

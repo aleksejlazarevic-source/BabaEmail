@@ -57,7 +57,7 @@ import pymupdf
 from .. import lidl_api, lidl_crops, lidl_notices, ocr, vlm
 from ..lidl_reconcile import LeafletReading, ReconcileResult, from_vlm, reconcile
 from ..models import SourceResult, SourceStatus
-from ..ocr import Blob, OcrUnavailable, PriceStructure
+from ..ocr import Blob, OcrBox, OcrUnavailable, PriceStructure
 from .base import UA, Source, classify_http_failure
 
 log = logging.getLogger(__name__)
@@ -65,10 +65,110 @@ log = logging.getLogger(__name__)
 FLYER_API = "https://endpoints.leaflets.schwarz/v4/flyer"
 RENDER_ZOOM = 3.0          # every reader and every truth set was built on zoom-3 renders
 OCR_WORKERS = int(os.environ.get("BABAEMAIL_OCR_WORKERS", min(8, os.cpu_count() or 1)))
+HEADER_BAND = 0.08
+_HEADER = re.compile(
+    r"(?:^|[^\w])Od\s*([^\W\d_]{3,24}),\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\."
+    r"(?:\s*do\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.)?",
+    re.I,
+)
+_HEADER_FORBIDDEN = re.compile(r"kupon|aktiviraj|lidl\s*plus|popust|velja|%", re.I)
 
 
 class OcrPageError(RuntimeError):
     """OCR crashed on one page. The page is unread, so Lidl is not covered."""
+
+
+def parse_page_header(
+    lines: list[OcrBox], page_shape: tuple[int, int], year: int,
+    fallback_end: date | None,
+) -> tuple[date, date | None] | None:
+    """Return one unambiguous, page-owned ``Od weekday, d. m.`` window.
+
+    The geometry is part of the proof: a header must be a large line wholly in
+    the top band.  Coupon/banner vocabulary and a malformed printed ``do`` are
+    rejected. Duplicate OCR reads of the same physical line are collapsed;
+    two physically distinct headers are ambiguous even when their dates match.
+    """
+    height, width = page_shape
+    found: list[tuple[date, date | None, OcrBox]] = []
+    for line in lines:
+        if (line.bbox[1] < 0 or line.bbox[3] > height * HEADER_BAND
+                or line.height < height * 0.012
+                or line.bbox[2] - line.bbox[0] < width * 0.20
+                or _HEADER_FORBIDDEN.search(line.text)):
+            continue
+        matches = list(_HEADER.finditer(line.text))
+        if len(matches) > 1:
+            return None
+        if len(matches) != 1:
+            continue
+        match = matches[0]
+        # Seeing "do" without a complete d.m. is evidence of an unread end,
+        # not evidence that the page has no end.
+        tail = line.text[match.start():]
+        if re.search(r"\bdo\b", tail, re.I) and match.group(4) is None:
+            continue
+        try:
+            start = date(year, int(match.group(3)), int(match.group(2)))
+            end = (date(year, int(match.group(5)), int(match.group(4)))
+                   if match.group(4) is not None else fallback_end)
+        except ValueError:
+            continue
+        if end is not None and end < start:
+            continue
+        found.append((start, end, line))
+
+    physical: list[tuple[date, date | None, OcrBox]] = []
+    for candidate in found:
+        _, _, box = candidate
+        duplicate = False
+        for start, end, prior in physical:
+            overlap_x = min(box.bbox[2], prior.bbox[2]) - max(box.bbox[0], prior.bbox[0])
+            overlap_y = min(box.bbox[3], prior.bbox[3]) - max(box.bbox[1], prior.bbox[1])
+            if ((start, end) == candidate[:2] and overlap_x > 0 and overlap_y > 0):
+                duplicate = True
+                break
+        if not duplicate:
+            physical.append(candidate)
+    return physical[0][:2] if len(physical) == 1 else None
+
+
+def read_page_header_validity(
+    png: bytes, year: int, fallback_end: date | None,
+) -> tuple[date, date | None] | None:
+    """Read only the cached/rendered page's top band; never invokes the VLM."""
+    if ocr.cv2 is None:
+        raise OcrUnavailable("opencv not installed")
+    encoded = np.frombuffer(png, dtype=np.uint8)
+    bgr = ocr.cv2.imdecode(encoded, ocr.cv2.IMREAD_COLOR)
+    if bgr is None:
+        raise OcrUnavailable("could not decode page PNG for header OCR")
+    height, width = bgr.shape[:2]
+    # Six percent isolates the date strip. The eight-percent acceptance band
+    # above leaves room for OCR box jitter without admitting offer content.
+    band_h = int(height * 0.06)
+    lines: list[OcrBox] = []
+    # The standard strip is centred, but on split-layout pages it starts at
+    # x=1/3. Two overlapping reads recover both without scanning page content.
+    for x0, x1 in ((0, width), (int(width * 0.30), width)):
+        text = ocr._run_tesseract(  # same local OCR engine; plain output is more stable here
+            bgr[:band_h, x0:x1], ["-l", ocr.TESSERACT_LANG, "--psm", "7"]).strip()
+        if text:
+            lines.append(OcrBox(text, 1.0, (float(x0), 0.0, float(x1), float(band_h))))
+    return parse_page_header(lines, (height, width), year, fallback_end)
+
+
+def read_page_validities(
+    pngs: dict[int, bytes], window: tuple[date, date | None], workers: int = OCR_WORKERS,
+) -> dict[int, tuple[date, date | None]]:
+    """Read unambiguous page-header windows in parallel from rendered pages."""
+    def one(item):
+        page, png = item
+        return page, read_page_header_validity(png, window[0].year, window[1])
+
+    with ThreadPoolExecutor(max_workers=min(workers, len(pngs))) as ex:
+        read = dict(ex.map(one, pngs.items()))
+    return {page: validity for page, validity in read.items() if validity is not None}
 
 
 class Lidl(Source):
@@ -158,6 +258,19 @@ class Lidl(Source):
         if missing:
             return res.fail(SourceStatus.PARSE_FAILED, f"ocr returned nothing for pages {missing}")
 
+        # Page headers are a separate, narrow OCR read. They are optional
+        # evidence: an unread/ambiguous header merely leaves R8 conservative.
+        t0 = time.monotonic()
+        try:
+            page_validity = read_page_validities(
+                pngs, (meta["valid_from"], meta["valid_to"]), self.ocr_workers)
+        except (OcrUnavailable, OSError, subprocess.SubprocessError) as exc:
+            page_validity = {}
+            stats["page_validity_error"] = repr(exc)
+            log.warning("page headers not read: %r", exc)
+        stats["page_validity_s"] = round(time.monotonic() - t0, 1)
+        stats["page_validity"] = {p: f"{v[0]}..{v[1]}" for p, v in page_validity.items()}
+
         # 3b. notices (Senior dan, ...): plain page text. Optional: a failure
         # here costs the notices, never the deals, and is recorded in stats.
         t0 = time.monotonic()
@@ -223,7 +336,7 @@ class Lidl(Source):
                             leaflet_window=(meta["valid_from"], meta["valid_to"]),
                             listed=list(cands.no_signal), year=meta["valid_from"].year,
                             leaflet_url=meta["pdf_url"], ocr_pages=pages,
-                            ship_website_only=True)
+                            ship_website_only=True, page_validity=page_validity)
         preliminary = reconcile(list(cands), readings, **reconcile_kw)
         boxes = lidl_crops.select_crop_boxes(pngs, readings, preliminary,
                                              crop_evidence, limit=40)

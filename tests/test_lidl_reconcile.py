@@ -1294,6 +1294,37 @@ def test_inferred_page_window_is_clipped_to_the_leaflet_like_api_items():
     assert all(x.valid_to == date(2026, 9, 30) for x in res.shipped)
 
 
+@pytest.mark.parametrize(("tile_text", "expected"), [
+    ("velja do 29. 9.", date(2026, 9, 29)),
+    ("velja do 7. 10.", date(2026, 10, 7)),
+])
+def test_tile_date_wins_over_page_header_window(tile_text, expected):
+    res = run([], [vlm(48, "VITASIA Rezanci Konjac", "0.99", until=tile_text),
+                   dataclasses.replace(bare(48, "0.99", "VITASIA Rezanci Konjac"),
+                                       text=("VITASIA", "Rezanci Konjac",
+                                             tile_text))],
+              page_validity={48: (date(2026, 9, 28), date(2026, 9, 30))})
+    [d] = leaflet_only(res)
+    assert not d.is_quarantined
+    assert (d.valid_from, d.valid_to) == (date(2026, 9, 28), expected)
+    assert "page-validity-from-header:2026-09-28..2026-09-30" in d.flags
+    assert any(f.startswith("valid_to-from-tile:") for f in d.flags)
+
+
+def test_confirmed_api_window_can_only_shorten_page_header_window():
+    short = (date(2026, 9, 28), date(2026, 9, 29))
+    res = run([cand("1", "Mango", "0.99", windows=[short]),
+               cand("2", "Hruške", "1.39", windows=[short])],
+              [vlm(48, "Mango", "0.99"), vlm(48, "Hruške", "1.39"),
+               vlm(48, "VITASIA Rezanci Konjac", "2.29"),
+               bare(48, "2.29", "VITASIA Rezanci Konjac")],
+              page_validity={48: (date(2026, 9, 28), date(2026, 9, 30))})
+    [d] = leaflet_only(res)
+    assert not d.is_quarantined
+    assert (d.valid_from, d.valid_to) == short
+    assert "page-validity-clipped-to-api:2026-09-28..2026-09-29" in d.flags
+
+
 def test_two_prints_of_one_product_each_get_the_item_their_badge_fits():
     """kw39: the same "ESMARA MEN Moška jakna" 14.99 is printed plain on p33
     (Thursday section) and "-34%" on p57 (Monday section). The API has a plain

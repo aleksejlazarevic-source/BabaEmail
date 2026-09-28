@@ -10,14 +10,37 @@ from babaemail import lidl_api, lidl_crops, lidl_notices, ocr, vlm
 from babaemail.lidl_api import CandidateList, LidlApiError, LidlCandidate
 from babaemail.lidl_reconcile import LeafletReading
 from babaemail.models import SourceStatus
+from babaemail.ocr import OcrBox
 from babaemail.sources import lidl as lidl_mod
-from babaemail.sources.lidl import Lidl
+from babaemail.sources.lidl import Lidl, parse_page_header
 
 TODAY = date(2026, 9, 24)
 WEEK = (date(2026, 9, 24), date(2026, 9, 30))
 META = {"pdf_url": "https://example.invalid/kw39.pdf", "title": "kw39", "pages": 2,
         "valid_from": WEEK[0], "valid_to": WEEK[1]}
 PNGS = {1: b"png-page-1", 2: b"png-page-2"}
+
+
+def header_line(text, bbox=(250, 20, 750, 60)):
+    return OcrBox(text, 0.95, bbox)
+
+
+def test_page_header_parses_start_and_uses_leaflet_end_when_no_end_is_printed():
+    assert parse_page_header([header_line("Od ponedeljka, 28. 9.")], (1000, 1000),
+                             2026, date(2026, 9, 30)) == (
+        date(2026, 9, 28), date(2026, 9, 30))
+
+
+@pytest.mark.parametrize("lines", [
+    [header_line("Od ponedeljka, 28. 9."),
+     header_line("Od torka, 29. 9.", (250, 65, 750, 79))],
+    [header_line("Od ponedeljka, 28. 9."),
+     header_line("Od ponedeljka, 28. 9.", (250, 65, 750, 79))],
+    [header_line("Aktiviraj kupon! Od ponedeljka, 28. 9.")],
+    [header_line("Od ponedeljka, 28. 9.", (250, 200, 750, 240))],
+])
+def test_ambiguous_double_coupon_or_non_top_header_is_rejected(lines):
+    assert parse_page_header(lines, (1000, 1000), 2026, date(2026, 9, 30)) is None
 
 
 def cand(erp, title, price, old=None, pct=None, *, brand=None, lp=False):
@@ -77,6 +100,7 @@ def world(monkeypatch):
             raise ocr.OcrUnavailable("opencv not installed")
         return {p: w["ocr"][p] for p in pngs}
     monkeypatch.setattr(Lidl, "_read_ocr", read_ocr)
+    monkeypatch.setattr(lidl_mod, "read_page_validities", lambda *a, **k: {})
 
     def read_page(png, *, model, page, allow_empty, url, **kw):
         w["vlm_calls"].append((page, model, url))

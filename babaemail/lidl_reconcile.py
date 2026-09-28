@@ -991,6 +991,7 @@ def _apply_tile_date_hints(
     year: int,
     *,
     matched_api: bool,
+    allow_later: bool = False,
 ) -> None:
     """Evaluate every VLM date hint without depending on reading order.
 
@@ -1024,9 +1025,11 @@ def _apply_tile_date_hints(
             else:
                 d.quarantine(f"api-leaflet-date-conflict: api valid to {d.valid_to}, "
                              f"leaflet {text!r} ({t.describe()})")
-        elif not matched_api and (d.valid_to is None or tile_end < d.valid_to):
-            d.valid_to = tile_end
-            d.flag(f"valid_to-from-tile:{text!r}")
+        elif not matched_api:
+            if d.valid_from <= tile_end and (allow_later or d.valid_to is None
+                                              or tile_end < d.valid_to):
+                d.valid_to = tile_end
+                d.flag(f"valid_to-from-tile:{text!r}")
 
     for text, tile_end, is_owned in parsed:
         if not is_owned and (d.valid_to is None or tile_end < d.valid_to):
@@ -1582,7 +1585,7 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                                                        if len(r.candidate.windows) == 1 else None)
     inferred: dict[int, tuple[date, date | None]] = {}
     for pg, ws in by_page.items():
-        if pg not in page_validity and len(ws) >= INFER_MIN and None not in ws and len(set(ws)) == 1:
+        if len(ws) >= INFER_MIN and None not in ws and len(set(ws)) == 1:
             inferred[pg] = ws[0]
 
     # --- R6: API-only -------------------------------------------------
@@ -1632,10 +1635,21 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
     # --- R8: leaflet-only ---------------------------------------------
     suspect_tiles = {id(tiles[i]) for i in suspects}
     for t in leaflet_tiles:
-        pv = page_validity.get(t.page) if t.page is not None else None
-        pv_inferred = pv is None and t.page in inferred
-        if pv_inferred:
-            pv = inferred[t.page]
+        header_pv = page_validity.get(t.page) if t.page is not None else None
+        api_pv = inferred.get(t.page) if t.page is not None else None
+        pv_inferred = header_pv is None and api_pv is not None
+        pv_api_clipped = False
+        pv_conflict = False
+        pv = header_pv or api_pv
+        if header_pv is not None and api_pv is not None:
+            start = max(header_pv[0], api_pv[0])
+            ends = [end for end in (header_pv[1], api_pv[1]) if end is not None]
+            end = min(ends) if ends else None
+            if end is not None and end < start:
+                pv, pv_conflict = None, True
+            else:
+                pv = (start, end)
+                pv_api_clipped = pv != header_pv
         d = Deal(retailer=RETAILER, name=t.name or "?", leaflet_id=leaflet_id,
                  source_url=leaflet_url, valid_from=(pv or leaflet_window)[0],
                  valid_to=(pv or leaflet_window)[1], price_new=t.new_price,
@@ -1661,6 +1675,9 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                   and all(r.lidl_plus is not None for r in t.readings)):
             d.quarantine(f"leaflet-only-unverified: {'; '.join(_unverified_why(t))} "
                          f"({t.describe()})")
+        elif pv_conflict:
+            d.quarantine(f"page-validity-conflict: header {header_pv}, confirmed API {api_pv} "
+                         f"({t.describe()})")
         elif pv is None:
             d.quarantine(f"leaflet-only-no-validity: page {t.page} validity unknown "
                          f"({t.describe()})")
@@ -1683,13 +1700,22 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             d.valid_from, d.valid_to = pv
             if pv_inferred:
                 d.flag(f"page-validity-inferred-from-api:{pv[0]}..{pv[1]}")
+            else:
+                d.flag(f"page-validity-from-header:{header_pv[0]}..{header_pv[1]}")
+                if pv_api_clipped:
+                    d.flag(f"page-validity-clipped-to-api:{api_pv[0]}..{api_pv[1]}")
             lw_end = leaflet_window[1]
             if lw_end is not None and (d.valid_to is None or d.valid_to > lw_end):
                 # as in R4: the leaflet cannot vouch for days after it ends
                 # (kw39 Vitasia pages: API 28.9.-3.10., no end printed)
                 d.flag(f"valid_to-clipped-to-leaflet:page {d.valid_to}")
                 d.valid_to = lw_end
-            _apply_tile_date_hints(d, t, year, matched_api=False)
+            _apply_tile_date_hints(d, t, year, matched_api=False,
+                                   allow_later=header_pv is not None)
+            if (api_pv is not None and api_pv[1] is not None
+                    and (d.valid_to is None or d.valid_to > api_pv[1])):
+                d.flag(f"valid_to-clipped-to-confirmed-api:{api_pv[1]}")
+                d.valid_to = api_pv[1]
         records.append(MatchRecord(rule, d, None, t))
 
     return ReconcileResult(records, unmatched_listed)

@@ -6,6 +6,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
 from babaemail.lidl_reconcile import reconcile
+from babaemail.sources.lidl import read_page_validities
 inp = pickle.load(open(HERE / "full_inputs_kw39.pkl", "rb"))
 if len(sys.argv) > 2 and sys.argv[1] == "--page":
     p = int(sys.argv[2])
@@ -18,7 +19,11 @@ if "--crops" in sys.argv:
     pages = HERE.parent / "lidl_truth" / "pages"
     evidence = load_crops({int(p.stem[1:]): p.read_bytes() for p in pages.glob("p*.png")})
     inp["readings"] = refine_readings(inp["readings"], evidence)
-rr = reconcile(inp["cands"], inp["readings"], **inp["kw"], ship_website_only=True)
+pages = HERE.parent / "lidl_truth" / "pages"
+page_bytes = {int(p.stem[1:]): p.read_bytes() for p in pages.glob("p*.png")}
+page_validity = read_page_validities(page_bytes, inp["kw"]["leaflet_window"])
+rr = reconcile(inp["cands"], inp["readings"], **inp["kw"],
+               page_validity=page_validity, ship_website_only=True)
 website = [d for d in rr.deals if d.source_kind == "website_only"]
 leaflet_shipped = [d for d in rr.shipped if d.source_kind == "leaflet"]
 leaflet_held = [d for d in rr.quarantined if d.source_kind == "leaflet"]
