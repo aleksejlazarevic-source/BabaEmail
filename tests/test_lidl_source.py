@@ -120,6 +120,7 @@ def test_page_validity_requires_two_blind_readers_to_agree(monkeypatch):
 
 @pytest.mark.parametrize("vlm_read, reason", [
     (((29, 9), (30, 9)), "disagreement"),
+    (((28, 9), (29, 9)), "disagreement"),   # starts agree, ends differ (borrowed banner end)
     (None, "vlm-none"),
 ])
 def test_page_validity_rejects_vlm_disagreement_or_none(monkeypatch, vlm_read, reason):
@@ -156,6 +157,17 @@ def test_page_validity_runs_blind_vlm_even_when_ocr_is_missing(monkeypatch):
     assert lidl_mod.read_page_validities({7: b"png"}, WEEK, workers=1, stats=stats) == {}
     assert calls == [b"png"]
     assert stats == {7: "ocr-missing-or-ambiguous; vlm-none"}
+
+
+def test_page_validity_never_falls_back_to_vlm_alone(monkeypatch):
+    # OCR rejected the header (e.g. a nested Lidl Plus teaser) but the VLM returns a
+    # plausible window: one reader is never enough.
+    monkeypatch.setattr(lidl_mod, "read_page_header_validity", lambda *a: None)
+    monkeypatch.setattr(vlm, "ollama_session", lambda *a, **k: FakeSession()())
+    monkeypatch.setattr(vlm, "read_header_validity", lambda png, **kw: ((28, 9), (30, 9)))
+    stats = {}
+    assert lidl_mod.read_page_validities({7: b"png"}, WEEK, workers=1, stats=stats) == {}
+    assert stats[7].startswith("ocr-missing-or-ambiguous")
 
 
 def cand(erp, title, price, old=None, pct=None, *, brand=None, lp=False):
