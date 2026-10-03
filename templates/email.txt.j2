@@ -10,6 +10,8 @@
 {% endmacro %}
 {{ title }}
 {{ count }} izdelkov v {{ store_count }} trgovinah
+{% if unchecked %}{{ unchecked }}
+{% endif %}
 
 {% for failure in failures %}{{ failure }}
 {% endfor %}

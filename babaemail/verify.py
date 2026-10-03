@@ -62,6 +62,15 @@ def verify_deal(deal: Deal, source: SourceResult, today: date, lookahead_days: i
         reasons.append('expired')
     if deal.valid_to is not None and deal.valid_to < deal.valid_from:
         reasons.append('invalid-validity-window')
+    # A printed leaflet cannot establish a deal outside the leaflet's own
+    # declared window.  API-only Lidl offers intentionally have their own
+    # dates and are therefore exempt from this cross-check.
+    if deal.source_kind == 'leaflet':
+        outside_window = ((source.valid_from is not None and deal.valid_from < source.valid_from)
+                          or (source.valid_to is not None and deal.valid_to is not None
+                              and deal.valid_to > source.valid_to))
+        if outside_window:
+            reasons.append('outside-leaflet-window')
     if deal.valid_from > today + timedelta(days=lookahead_days):
         reasons.append('starts-after-lookahead')
     return reasons

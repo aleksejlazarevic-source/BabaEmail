@@ -87,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     html_path, text_path = (args.out / f'email-{args.date}.{suffix}' for suffix in ('html', 'txt'))
     html_path.write_text(html, 'utf-8')
     text_path.write_text(text, 'utf-8')
-    failed = any(not s.contributes for s in sources)
+    unchecked = {s['key'] for s in preferences['stores'] if s.get('checked', True) is False}
+    failed = any(not s.contributes for s in sources if s.retailer not in unchecked)
     print(f'Wrote {html_path}, {text_path}, {report_path}; {len(selection.items)} items; HTML {len(html.encode("utf-8"))} bytes')
     if args.send and not args.dry_run:
         try:

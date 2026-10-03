@@ -12,7 +12,7 @@ LABELS = {
     'shramba': 'Shramba', 'sladko': 'Sladko in prigrizki', 'pijace': 'Pijače',
     'zamrznjeno': 'Zamrznjeno', 'gospodinjstvo': 'Gospodinjstvo', 'ostalo': 'Ostalo',
     'oblacila': 'Oblačila', 'orodje': 'Orodje', 'elektronika': 'Elektronika',
-    'vrt': 'Vrt', 'igrace': 'Igrače',
+    'vrt': 'Vrt', 'igrace': 'Igrače', 'neprehrana': 'Neživilsko',
 }
 
 
@@ -21,23 +21,26 @@ def normalized(text: str) -> str:
                    if unicodedata.category(c) != 'Mn')
 
 
-# First match wins. Non-food brands and household terms precede food stems.
+# First match wins.  Match complete words or deliberate word stems, never an
+# arbitrary substring ("ribani" is grated, not fish).  The short exclusions
+# keep ambiguous food words out of an otherwise broad stem family.
 RULES = [
-    ('orodje', r'parkside|vrtal|brusil|vijac|orodj|kladiv'),
-    ('oblacila', r'esmara|lupilu|crivit|livergy|majic|hlac|nogavic|oblac|jakn|copat|cevl'),
-    ('elektronika', r'silvercrest|slusalk|televiz|polnil|elektronik|baterij'),
-    ('vrt', r'vrtna|vrtni|vrtno|sadik|gnojil|zemlja za|loncnica'),
-    ('igrace', r'playtive|igrac|puzzle|sestavljanka'),
-    ('gospodinjstvo', r'livarno|w5\b|cien\b|silan|persil|ariel|cistil|detergent|praln|mehcal|pomival|toalet|papirnat|robck|vrec.*smet|gobica|milo|sampon|zobn|plenice'),
-    ('zamrznjeno', r'zamrzn|sladoled|pomfrit'),
-    ('ribe', r'\brib|losos|postrv|sarenk|tun[ai]|sardin|oslic|skus|kozic|lignj'),
-    ('meso', r'meso|mesni|pisc|svinj|govej|goved|telec|pur[aij]|klobas|salam|sunk|prsut|cevap|pleskavic|slanina|perut|zrezk|pancet|chicken|nugget'),
-    ('mlecno', r'mlek|mlec|milbona|pilos|jogurt|skut|\bsir|\bsmetan|\bmaslo|\bjajc|kefir|margarin'),
-    ('sadje_zelenjava', r'jabolk|hrusk|banan|mango|grozd|bresk|sliv|pomaranc|limon|mandarin|avokad|kivi|borovnic|malin|jagod|fige|pesa|krompir|paradiz|kumar|solat|koren|cebul|cesen|paprik|buck|zelje|brokoli|cveta|gob[ae]'),
-    ('kruh', r'kruh|zemlj|pekov|roglj|baget|burek|borek|pecivo|struck'),
-    ('sladko', r'cokolad|cokol|piskot|keks|bonbon|cips|cokolino|napolit|alesto|oreh|mandlj|lesnik|prigriz'),
-    ('pijace', r'pivo|\bvin[oa]|sok|pijac|\bvod[ae]|radensk|nektar|kav[aen]|\bcaj|fruc|janzevec'),
-    ('shramba', r'testen|spaget|makaron|\briz|moka|olje|kis\b|konzerv|omak|namaz|med\b|marmelad|lec[ae]|fizol|cicerik|zacimb|sol\b|kosmic|jesprenj|sladkor'),
+    ('orodje', (), ('parkside', 'vrtal', 'brusil', 'vijac', 'orodj', 'kladiv')),
+    ('oblacila', (), ('esmara', 'lupilu', 'crivit', 'livergy', 'majic', 'hlac', 'nogavic', 'oblac', 'jakn', 'copat', 'cevl')),
+    ('elektronika', (), ('silvercrest', 'slusalk', 'televiz', 'polnil', 'elektronik', 'baterij', 'sesal')),
+    ('vrt', (), ('vrtna', 'vrtni', 'vrtno', 'sadik', 'gnojil', 'loncnica')),
+    ('igrace', (), ('playtive', 'igrac', 'puzzle', 'sestavljanka')),
+    ('neprehrana', ('zaustavljalnik', 'deznik', 'pse', 'psa', 'psi', 'pesek', 'igra', 'obraz', 'krema za obraz'), ('svec', 'vlosek', 'kovcek', 'kapacitet', 'cvrtnik', 'elektron', 'mikrov', 'higiensk', 'kozmetik', 'briv', 'susilec', 'susilnik', 'mack', 'zival', 'knjig', 'druzabn')),
+    ('gospodinjstvo', ('w5', 'cien', 'silan', 'persil', 'ariel', 'bref', 'faks', 'wc', 'jar', 'dash'), ('livarno', 'cistil', 'detergent', 'praln', 'mehcal', 'pomival', 'toalet', 'papirnat', 'papir', 'robck', 'vrec', 'gobica', 'milo', 'sampon', 'zobn', 'plenice', 'obesank', 'razmasceval', 'prhan')),
+    ('zamrznjeno', (), ('zamrzn', 'sladoled', 'pomfrit', 'spomladan', 'calzone')),
+    ('kruh', (), ('kruh', 'zemlj', 'pekov', 'roglj', 'baget', 'burek', 'borek', 'pecivo', 'struck', 'hlebec')),
+    ('ribe', ('riba', 'ribe', 'ribji', 'ribje', 'ocean', 'sea'), ('losos', 'postrv', 'sarenk', 'tun', 'sardin', 'oslic', 'skus', 'kozic', 'skamp', 'lignj')),
+    ('meso', (), ('meso', 'mesni', 'pisc', 'svinj', 'govej', 'goved', 'telec', 'pur', 'jagnj', 'klobas', 'salam', 'sunk', 'prsut', 'cevap', 'pleskavic', 'slanina', 'perut', 'zrezk', 'pancet', 'chicken', 'nugget', 'mortadel', 'bresaol', 'narezek', 'zasek', 'ocvirk', 'vratin', 'hrenovk', 'pecenic')),
+    ('mlecno', (), ('mlek', 'mlec', 'milbona', 'pilos', 'jogurt', 'skut', 'sir', 'smetan', 'maslo', 'jajc', 'kefir', 'margarin', 'mozzarell', 'kajmak', 'gorgonzol')),
+    ('sadje_zelenjava', (), ('jabolk', 'hrusk', 'banan', 'mango', 'grozd', 'bresk', 'sliv', 'pomaranc', 'limon', 'mandarin', 'avokad', 'kivi', 'borovnic', 'malin', 'jagod', 'fige', 'pesa', 'krompir', 'paradiz', 'kumar', 'solat', 'koren', 'cebul', 'cesen', 'paprik', 'buck', 'zelje', 'brokoli', 'cveta', 'gob')),
+    ('sladko', (), ('cokolad', 'cokol', 'piskot', 'keks', 'bonbon', 'cips', 'cokolino', 'napolit', 'alesto', 'oreh', 'mandlj', 'lesnik', 'prigriz', 'biskvit', 'kinder', 'bueno', 'pingui', 'cards', 'lada', 'sladic', 'desert', 'tiramisu', 'cannoli', 'vaflj', 'kolack', 'rolad', 'gumi', 'flips', 'smoki')),
+    ('pijace', ('hop', 'cao', 'fruc'), ('pivo', 'vin', 'sok', 'pijac', 'vod', 'radensk', 'nektar', 'kav', 'caj', 'janzevec', 'bellarom', 'espresso', 'kakav', 'cockta', 'cola', 'cider', 'redbull', 'kombucha', 'energi')),
+    ('shramba', ('riz', 'kis', 'med', 'sol'), ('testen', 'spaget', 'makaron', 'njok', 'testo', 'moka', 'olje', 'konzerv', 'omak', 'namaz', 'marmelad', 'lec', 'fizol', 'cicerik', 'zacimb', 'kosmic', 'jesprenj', 'sladkor', 'vegeta', 'kvas', 'kapr', 'oliv', 'panko', 'drobtin', 'juh', 'ragu', 'majonez', 'rezanc', 'pesto', 'lazanj', 'salsa', 'paradiz')),
 ]
 HINTS = {
     'f+v': 'sadje_zelenjava', 'fruit': 'sadje_zelenjava', 'vegetable': 'sadje_zelenjava',
@@ -48,8 +51,9 @@ HINTS = {
 
 def categorize(deal: Deal) -> str:
     text = normalized(f'{deal.brand or ""} {deal.name}')
-    for key, pattern in RULES:
-        if re.search(pattern, text):
+    words = tuple(re.findall(r'\w+', text))
+    for key, exact, stems in RULES:
+        if any(word in exact for word in words) or any(word.startswith(stem) for word in words for stem in stems):
             return key
     hint = normalized(deal.retailer_category or '')
     if hint in LABELS:
@@ -57,7 +61,8 @@ def categorize(deal: Deal) -> str:
     for term, key in HINTS.items():
         if term in hint:
             return key
-    for key, pattern in RULES:
-        if re.search(pattern, hint):
+    hint_words = tuple(re.findall(r'\w+', hint))
+    for key, exact, stems in RULES:
+        if any(word in exact for word in hint_words) or any(word.startswith(stem) for word in hint_words for stem in stems):
             return key
     return 'ostalo'

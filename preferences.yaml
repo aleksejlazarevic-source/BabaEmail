@@ -1,10 +1,11 @@
 # Privzete vrednosti – še niso potrjene z babi.
 stores:
-  - {key: lidl, max_items: 45}
-  - {key: hofer, max_items: 8}
-  - {key: mercator, max_items: 8}
-  - {key: spar, max_items: 8}
-  - {key: tus, max_items: 8}
+  - {key: lidl, max_items: 42, website_only_max: 6}
+  # checked: false = cene te trgovine še niso preverjene z ročnim ključem; ne pokaži jih.
+  - {key: hofer, max_items: 8, checked: false}
+  - {key: mercator, max_items: 8, checked: false}
+  - {key: spar, max_items: 8, checked: false}
+  - {key: tus, max_items: 8, checked: false}
 default_floor: 20
 # floor: null podeduje default_floor.
 categories:
@@ -24,6 +25,7 @@ categories:
   elektronika: {label: Elektronika, show: false, floor: null}
   vrt: {label: Vrt, show: false, floor: null}
   igrace: {label: Igrače, show: false, floor: null}
+  neprehrana: {label: Neživilsko, show: false, floor: null}
 always_show: []
 max_items: 80
 send:
@@ -32,3 +34,4 @@ send:
 lookahead_days: 3
 changelog:
   - '2026-10-03: Začetne, še nepotrjene nastavitve za prvi predogled.'
+  - '2026-10-03: Hofer, Mercator, Spar, Tuš izklopljeni (checked: false), dokler njihove cene niso preverjene.'

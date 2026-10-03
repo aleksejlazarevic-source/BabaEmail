@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
+import re
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
@@ -25,6 +26,11 @@ def euros(value: Decimal, unit: str | None = None) -> str:
 
 def short_date(day: date) -> str:
     return f'{SHORT_DAYS[day.weekday()]} {day.day}. {day.month}.'
+
+
+def format_unit_price(text: str) -> str:
+    """Localise only a plainly printed decimal after an equals sign."""
+    return re.sub(r'(=\s*)(\d+)\.(\d{1,2})(?=\s*(?:$|[^\d]))', r'\1\2,\3', text)
 
 
 def deal_view(deal: Deal, today: date) -> dict:
@@ -58,7 +64,7 @@ def deal_view(deal: Deal, today: date) -> dict:
         validity.append('do ' + short_date(deal.valid_to))
     return {'name': name, 'price': price, 'old': old, 'pct': pct,
             'condition': condition, 'condition_kind': deal.condition_kind,
-            'unit': deal.unit_price or '', 'loyalty': deal.loyalty_required or '',
+            'unit': format_unit_price(deal.unit_price) if deal.unit_price else '', 'loyalty': deal.loyalty_required or '',
             'validity': ' · '.join(validity)}
 
 
@@ -89,13 +95,21 @@ def render(selection: Selection, sources: list[SourceResult], preferences: dict,
         stores.append({'label': STORE_LABELS[key], 'key': key, 'groups': groups,
                        'website': website, 'partners': partners,
                        'lidl_plus': key == 'lidl' and any(d.loyalty_required for d in items)})
+    unchecked_keys = [c['key'] for c in preferences['stores'] if c.get('checked', True) is False]
     failures = [f'Danes ni bilo mogoče preveriti akcij v trgovini {STORE_LABELS.get(s.retailer, s.retailer)}.'
-                for s in sources if s.status is not SourceStatus.OK or not s.items]
+                for s in sources if (s.status is not SourceStatus.OK or not s.items)
+                and s.retailer not in unchecked_keys]
+    names = [STORE_LABELS.get(k, k) for k in unchecked_keys]
+    unchecked = None
+    if names:
+        joined = names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' in ' + names[-1]
+        unchecked = (f'{joined} še {"ni vključen" if len(names) == 1 else "niso vključeni"}, '
+                     'ker njihovih cen še nismo preverili.')
     notices = [n.text for s in sources if s.contributes for n in s.notices
                if n.proven and n.text and (n.day is None or today <= n.day <= today + timedelta(days=preferences['lookahead_days']))]
     context = {'title': f'Akcije za {WEEKDAYS[today.weekday()]}, {today.day}. {today.month}.',
                'count': len(selection.items), 'store_count': len(stores),
-               'failures': failures, 'notices': notices, 'stores': stores}
+               'failures': failures, 'notices': notices, 'stores': stores, 'unchecked': unchecked}
     env = Environment(loader=FileSystemLoader(ROOT / 'templates'), undefined=StrictUndefined,
                       autoescape=select_autoescape(['html', 'xml', 'html.j2']),
                       trim_blocks=True, lstrip_blocks=True)

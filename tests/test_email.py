@@ -13,7 +13,7 @@ import pytest
 from babaemail.categorize import categorize
 from babaemail.mailer import REQUIRED, SMTPConfig, send_email
 from babaemail.models import Deal, Notice, SourceResult, SourceStatus
-from babaemail.render import ROOT, deal_view, euros, render
+from babaemail.render import ROOT, deal_view, euros, format_unit_price, render
 from babaemail.select import Selection, load_preferences, select
 from babaemail.store import load_lidl, write_history
 from babaemail.verify import verify
@@ -21,9 +21,20 @@ from babaemail.verify import verify
 TODAY = date(2026, 9, 26)
 
 
+def _all_stores_checked(path):
+    # These tests exercise multi-store behaviour, independent of which stores the
+    # live preferences.yaml currently has switched on.
+    data = load_preferences(ROOT / 'preferences.yaml')
+    for store in data['stores']:
+        store['checked'] = True
+    import yaml
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), 'utf-8')
+    return path
+
+
 @pytest.fixture
-def prefs():
-    return load_preferences(ROOT / 'preferences.yaml')
+def prefs(tmp_path):
+    return load_preferences(_all_stores_checked(tmp_path / 'prefs-all.yaml'))
 
 
 def deal(**kw):
@@ -99,6 +110,14 @@ def test_bonus_pack_exception():
     assert verify(source([item]), TODAY).accepted == [item]
 
 
+def test_leaflet_deal_cannot_escape_source_window_but_website_only_can():
+    item = deal(name='Spomladanski zavitki', valid_from=date(2026, 9, 28), valid_to=date(2026, 10, 7))
+    result = verify(source([item], valid_from=date(2026, 10, 1), valid_to=date(2026, 10, 7)), TODAY, 14)
+    assert 'outside-leaflet-window' in result.rejected[0].reasons
+    item.source_kind = 'website_only'
+    assert verify(source([item], valid_from=date(2026, 10, 1), valid_to=date(2026, 10, 7)), TODAY, 14).accepted == [item]
+
+
 @pytest.mark.parametrize(('kind', 'kwargs', 'price', 'pct'), [
     ('second-item', {'price_new': Decimal('.39'), 'price_old': Decimal('1.99'),
                      'condition': '-80% na drugi kos', 'discount_published': Decimal(80)},
@@ -134,6 +153,9 @@ def test_kg_every_price_and_decimal():
     view = deal_view(deal(price_unit='kg', price_new=Decimal('.39'), price_old=Decimal('1.99'),
                           discount_published=None, condition_kind='second-item', condition='−80%'), TODAY)
     assert view['price'].count('€/kg') == 2
+    assert format_unit_price('1 kg = 10.00') == '1 kg = 10,00'
+    assert format_unit_price('Cena 10.00') == 'Cena 10.00'
+    assert format_unit_price('1 kg = približno 10.00') == '1 kg = približno 10.00'
 
 
 def test_unknown_and_nonfood_categories():
@@ -142,6 +164,34 @@ def test_unknown_and_nonfood_categories():
                        ('SilverCrest', 'elektronika'), ('Livarno', 'gospodinjstvo')]:
         assert categorize(deal(name='izdelek', brand=brand)) == key
     assert categorize(deal(name='Xyzzy', retailer_category='F+V')) == 'sadje_zelenjava'
+
+
+@pytest.mark.parametrize(('name', 'brand', 'category'), [
+    ('Ribani sir za gratiniranje', 'MILBONA', 'mlecno'),
+    ('Njoki', 'HARVEST BASKET', 'shramba'),
+    ('Vlečeno testo', 'chef select', 'shramba'),
+    ('Škampi', 'Ocean Sea', 'ribe'),
+    ('Espresso Extra Dark Roast', 'BELLAROM', 'pijace'),
+    ('Hop a Cao', None, 'pijace'),
+    ('Kakavov napitek', 'BELLAROM', 'pijace'),
+    ('Biskvitne rezine', 'REALFORNO', 'sladko'),
+    ('Izbrane ribje jedi', None, 'ribe'),
+    ('ZAUSTAVLJALNIK VRAT', None, 'neprehrana'),
+    ('Solarna sveča Diana', 'VESTINA', 'neprehrana'),
+    ('DEŽNIK', None, 'neprehrana'),
+])
+def test_review_category_cases(name, brand, category):
+    assert categorize(deal(name=name, brand=brand)) == category
+
+
+def test_website_only_is_capped_and_deduplicated_against_leaflet(prefs):
+    leaflet = deal(name='Slovensko zelje', price_new=Decimal('.65'), price_old=Decimal('.94'), discount_published=Decimal(30))
+    duplicate = deal(name='Belo zelje', price_new=Decimal('.65'), price_old=Decimal('.94'), discount_published=Decimal(30), source_kind='website_only')
+    unique = [deal(name=f'Spletni izdelek {n}', source_kind='website_only') for n in range(1, 8)]
+    result = select([verify(source([leaflet, duplicate, *unique]), TODAY)], prefs)
+    websites = [d for d in result.items if d.source_kind == 'website_only']
+    assert len(websites) == 6 and duplicate not in result.items
+    assert {cut.reason for cut in result.cuts} >= {'website-only-duplicate-leaflet', 'website-only-limit'}
 
 
 def test_verify_before_preferences_and_always_never_bypasses_safety(prefs):
@@ -321,7 +371,7 @@ def test_cli_dry_run_offline_exit_banner_no_smtp_and_report(tmp_path, monkeypatc
     monkeypatch.setattr(cli, 'send_email', lambda *a, **kw: calls.append('sent'))
     monkeypatch.setattr(cli, 'fetch_live', lambda *a: pytest.fail('offline must not fetch'))
     path = dump(tmp_path / 'lidl_test.json', cache_doc())
-    code = cli.main(['--dry-run', '--send', '--offline', '--date', str(TODAY),
+    code = cli.main(['--preferences', str(_all_stores_checked(tmp_path / 'p.yaml')), '--dry-run', '--send', '--offline', '--date', str(TODAY),
                      '--lidl-json', str(path), '--out', str(tmp_path)])
     assert code == 1 and calls == []
     assert not (tmp_path / 'history').exists()
@@ -336,7 +386,7 @@ def test_cli_all_ok_and_store_failure_still_writes(tmp_path, monkeypatch):
     cli = importlib.import_module('babaemail.main')
     monkeypatch.setattr(cli, 'fetch_live', lambda key, today: source([deal(retailer=key)], retailer=key))
     path = dump(tmp_path / 'lidl_test.json', cache_doc())
-    args = ['--dry-run', '--date', str(TODAY), '--lidl-json', str(path), '--out', str(tmp_path)]
+    args = ['--preferences', str(_all_stores_checked(tmp_path / 'p.yaml')), '--dry-run', '--date', str(TODAY), '--lidl-json', str(path), '--out', str(tmp_path)]
     assert cli.main(args) == 0
     monkeypatch.setattr(cli, 'fetch_live', lambda key, today: source([], retailer=key))
     assert cli.main(args) == 1
@@ -386,7 +436,7 @@ def test_cli_mock_send_failure_alert_and_history(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, 'fetch_live', lambda key, today: source([], retailer=key, status=SourceStatus.BLOCKED))
     monkeypatch.setattr(cli, 'send_email', lambda *a, **kw: calls.append(kw))
     path = dump(tmp_path / 'lidl_test.json', cache_doc())
-    args = ['--send', '--date', str(TODAY), '--lidl-json', str(path), '--out', str(tmp_path)]
+    args = ['--preferences', str(_all_stores_checked(tmp_path / 'p.yaml')), '--send', '--date', str(TODAY), '--lidl-json', str(path), '--out', str(tmp_path)]
     assert cli.main(args) == 1
     assert len(calls) == 1 and 'spar: status=blocked' in calls[0]['alert']
     assert len(list((tmp_path / 'history').glob('*.json'))) == 1
@@ -415,3 +465,54 @@ def test_source_informational_flags_do_not_quarantine(prefs):
     item = deal(flags=['leaflet-page:1', 'leaflet-confirmed:ocr+vlm'])
     result = verify(source([item]), TODAY)
     assert select([result], prefs).items == [item]
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("Sveži kremni sir", "mlecno"),
+    ("Pšenična bela moka", "shramba"),
+    ("KREMNE JUHE", "shramba"),
+    ("Rogljiček s šunko in sirom", "kruh"),
+    ("Pizza štručka s salamo in mozzarello", "kruh"),
+    ("KREMA ZA OBRAZ BB", "neprehrana"),
+    ("Prigrizek za pse", "neprehrana"),
+    ("PESEK ZA MAČKE", "neprehrana"),
+    ("Sušilec las Remington", "neprehrana"),
+])
+def test_categorize_review_cases(name, expected):
+    from babaemail.categorize import categorize
+    assert categorize(_deal_for_category(name)) == expected
+
+
+def _deal_for_category(name):
+    from datetime import date
+    from babaemail.models import Deal
+    return Deal(retailer="spar", name=name, leaflet_id="x", source_url="x",
+                valid_from=date(2026, 10, 1), valid_to=None)
+
+
+def test_unchecked_store_is_cut_and_named_not_bannered():
+    from datetime import date
+    from decimal import Decimal
+    from babaemail.models import Deal, SourceResult, SourceStatus
+    from babaemail.render import render
+    from babaemail.select import select
+    from babaemail.verify import verify
+    from datetime import datetime
+    today = date(2026, 10, 3)
+    spar = SourceResult('spar', SourceStatus.OK, 'x', datetime(2026, 10, 3), items=[
+        Deal(retailer='spar', name='Na izdelke iz promocije točk zvestobe ni', leaflet_id='s',
+             source_url='x', valid_from=today, valid_to=None, price_new=Decimal('7.99'),
+             price_old=Decimal('15.99'))])
+    tus = SourceResult('tus', SourceStatus.BLOCKED, 'x', datetime(2026, 10, 3))
+    prefs = {'stores': [{'key': 'spar', 'max_items': 8, 'checked': False},
+                        {'key': 'tus', 'max_items': 8, 'checked': False}],
+             'default_floor': 20, 'categories': {}, 'always_show': [], 'max_items': 80,
+             'lookahead_days': 3}
+    verified = [verify(spar, today, 3), verify(tus, today, 3)]
+    selection = select(verified, prefs)
+    assert selection.items == []
+    assert {c.reason for c in selection.cuts} == {'store-not-yet-checked'}
+    html, text = render(selection, [spar, tus], prefs, today)
+    assert 'Spar in Tuš še niso vključeni' in html and 'Spar in Tuš še niso vključeni' in text
+    assert 'Danes ni bilo mogoče' not in html
+    assert 'zvestobe' not in html
