@@ -381,6 +381,29 @@ def test_readers_disagreeing_on_lidl_plus_are_decided_2_of_3_with_the_api():
     assert any(f.startswith("lidl-plus-2-of-3:api+vlm") for f in d.flags)
 
 
+def test_a_vote_never_clears_lidl_plus_a_reader_saw():
+    # kw40 p44 drobovina: the tile prints "Z Lidl Plus -25 %"; OCR saw it,
+    # the API and the VLM did not. Shipping it without LP would show a price
+    # she can only get with the app.
+    res = run([cand("1", "Mango", "0.99", "1.49", "33", lp=False)],
+              [vlm(1, "Mango", "0.99", lp=False), ocr(1, "0.99", "1.49", "33", lp=True)])
+    d = by_erp(res, "1")
+    assert d.is_quarantined and "lidl-plus-disputed" in reasons(d)[0]
+    assert d.loyalty_required is None
+
+
+def test_api_dates_never_start_a_leaflet_deal_early():
+    from datetime import date as _d
+    c = cand("1", "Mango", "0.99", "1.49", "33", windows=((_d(2026, 9, 28), _d(2026, 10, 3)),))
+    rs = [vlm(1, "Mango", "0.99"), ocr(1, "0.99", "1.49", "33", name="Mango")]
+    window = (_d(2026, 10, 1), _d(2026, 10, 7))
+    d = by_erp(run([c], rs, leaflet_window=window), "1")
+    assert d.valid_from == _d(2026, 10, 1)
+    d = by_erp(run([c], rs, leaflet_window=window,
+                   page_validity={1: (_d(2026, 10, 2), _d(2026, 10, 3))}), "1")
+    assert (d.valid_from, d.valid_to) == (_d(2026, 10, 2), _d(2026, 10, 3))
+
+
 def test_lidl_plus_unknown_when_no_majority():
     res = run([cand("1", "Mango", "0.99", "1.49", "33", lp=True)],
               [vlm(1, "Mango", "0.99", lp=True), vlm(1, "Mango", "0.99", lp=False)])

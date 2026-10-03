@@ -130,7 +130,9 @@ R3b A BRAND or BRAND-DIFFERS match is a pair only when something beyond brand +
 R4  VERIFIED. A matched pair with new_price exactly equal (Decimal equality)
     and a Lidl Plus status on the leaflet equal to the API's. When the two
     leaflet readers disagree on Lidl Plus, the API is the third vote: 2 of 3
-    decide (flag ``lidl-plus-2-of-3:api+<reader>``). It ships with the
+    decide (flag ``lidl-plus-2-of-3:api+<reader>``), but only towards LP
+    required; a vote that would clear LP a reader saw is quarantined
+    ``lidl-plus-disputed`` (kw40 p44). It ships with the
     API's name, old price, % and dates, flagged
     ``leaflet-confirmed:<sources>`` (e.g. ``leaflet-confirmed:vlm``) and
     ``leaflet-page:<n>``. R4b: when the API has no old price and no %, a
@@ -1545,14 +1547,25 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             d.quarantine(f"ambiguous-api-match: equally good {others}")
         lp = t.lidl_plus
         src_votes = t.lidl_plus_by_source
+        disputed = False
         if lp is None and len(src_votes) == 2 and c.lidl_plus in src_votes.values():
             # Two independent leaflet readers disagree; the API is a third
-            # independent source. 2 of 3 decide, and the dissent is recorded.
+            # independent source. 2 of 3 decide, and the dissent is recorded --
+            # but only towards "Lidl Plus required". A vote must never clear LP
+            # that a reader saw printed (kw40 p44 drobovina: "Z Lidl Plus -25 %"
+            # on the tile, api+vlm outvoted OCR). Showing LP when it isn't needed
+            # costs her nothing; missing it means paying the higher price.
             agree = next(k for k, v in src_votes.items() if v == c.lidl_plus)
             d.flag(f"lidl-plus-2-of-3:api+{agree} (dissent: "
                    + ", ".join(f"{k}={v}" for k, v in src_votes.items() if k != agree) + ")")
-            lp = c.lidl_plus
-        if lp is None:
+            if c.lidl_plus:
+                lp = c.lidl_plus
+            else:
+                disputed = True
+        if disputed:
+            d.quarantine(f"lidl-plus-disputed: a reader saw Lidl Plus, the vote would clear it "
+                         f"({t.describe()})")
+        elif lp is None:
             why = "readers disagree" if len(t.lidl_plus_votes) > 1 else "no reader saw it"
             d.quarantine(f"leaflet-lidl-plus-unknown: {why} ({t.describe()})")
         elif lp != c.lidl_plus:
@@ -1573,6 +1586,22 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
             # 24.9.-3.10., leaflet 24.-30.9.). Shorten, never lengthen.
             d.flag(f"valid_to-clipped-to-leaflet:api {d.valid_to}")
             d.valid_to = lw_end
+        # Nor for days before it starts: the API record can begin earlier (kw40
+        # p42 zavitki: API 28.9.-3.10., page header "Od petka, 2. 10. do 3. 10.").
+        # A proven page header narrows further. Website dates only ever narrow.
+        starts = [leaflet_window[0]]
+        hpv = page_validity.get(t.page) if t.page is not None else None
+        if hpv is not None:
+            starts.append(hpv[0])
+            if hpv[1] is not None and (d.valid_to is None or d.valid_to > hpv[1]):
+                d.flag(f"valid_to-clipped-to-page-header:api {d.valid_to}")
+                d.valid_to = hpv[1]
+        start = max(x for x in starts if x is not None) if any(starts) else None
+        if start is not None and d.valid_from < start:
+            d.flag(f"valid_from-clipped-to-leaflet:api {d.valid_from}")
+            d.valid_from = start
+        if d.valid_to is not None and d.valid_to < d.valid_from:
+            d.quarantine(f"date-window-empty-after-clipping: {d.valid_from}..{d.valid_to}")
         _apply_tile_date_hints(d, t, year, matched_api=True)
         records.append(MatchRecord("verified", d, c, t, tier))
         verified_keys[(_name_key(t.name), t.new_price)] = c.erp
