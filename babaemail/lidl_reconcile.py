@@ -1599,6 +1599,11 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
         start = max(x for x in starts if x is not None) if any(starts) else None
         if start is not None and d.valid_from < start:
             d.flag(f"valid_from-clipped-to-leaflet:api {d.valid_from}")
+            if hpv is None:
+                # The API window isn't this leaflet's, and no proven page header
+                # says when the offer starts: the first leaflet day would be a guess.
+                d.quarantine(f"leaflet-start-unproven: api starts {d.valid_from}, leaflet "
+                             f"{leaflet_window[0]}, page {t.page} header not proven")
             d.valid_from = start
         if d.valid_to is not None and d.valid_to < d.valid_from:
             d.quarantine(f"date-window-empty-after-clipping: {d.valid_from}..{d.valid_to}")

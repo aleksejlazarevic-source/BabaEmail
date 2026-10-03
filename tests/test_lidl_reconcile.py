@@ -399,6 +399,7 @@ def test_api_dates_never_start_a_leaflet_deal_early():
     window = (_d(2026, 10, 1), _d(2026, 10, 7))
     d = by_erp(run([c], rs, leaflet_window=window), "1")
     assert d.valid_from == _d(2026, 10, 1)
+    assert "leaflet-start-unproven" in reasons(d)[0]
     d = by_erp(run([c], rs, leaflet_window=window,
                    page_validity={1: (_d(2026, 10, 2), _d(2026, 10, 3))}), "1")
     assert (d.valid_from, d.valid_to) == (_d(2026, 10, 2), _d(2026, 10, 3))
