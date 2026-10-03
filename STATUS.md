@@ -1,5 +1,26 @@
 # STATUS — read this first when picking the project back up
 
+## 2026-10-03: email layer merged; kw40 fair test; Lidl-only for now
+
+- **Email layer exists** (merged from branch `email`): `preferences.yaml`, `babaemail/{categorize,verify,select,
+  store,render,mailer,main}.py`, `templates/email.{html,txt}.j2`, `tests/test_email.py`, `EMAIL.md`.
+  Run: `.venv/bin/python -m babaemail.main --dry-run [--date D] [--lidl-json P]` → `out/email-D.{html,txt}`,
+  `out/report-D.txt`. `--send` needs `BABAEMAIL_SMTP_*`, `BABAEMAIL_FROM/TO/ALERT_TO`; nothing has ever been sent.
+- **Hofer, Mercator, Spar, Tuš are `checked: false`** in preferences.yaml: fetched and verified, never shown; the
+  email names them as not covered (contract rule 3). Reason: never graded against an answer key, and the first
+  preview showed a Spar fine-print fragment ("Na izdelke iz promocije točk zvestobe ni" 7.99) as a deal. Each needs
+  a Lidl-style answer key + grading before `checked: true`.
+- **kw40 fair test** (blind 12-page key `scratch/lidl_truth_kw40/`, grader `scratch/lidl_kw40_grade/grade_kw40.py`):
+  untouched run (`out/kw40_run1/`) shipped 31/64, 0 wrong prices, 2 harmful fields (p44 LP cleared by a 2-of-3 vote;
+  p42 API start date 28.9. before the page's 2.10.). Fixed in b2b481f/0c5fdac: an LP vote only ever adds LP; API
+  dates only narrow a leaflet window; unproven starts are held. Re-run (`out/kw40_fix/`): 30 ok, 0 wrong, 0 harmful,
+  34 held, 0 missing. kw39 grade_full: 267/293 ok, 0 wrong/harmful/unmatched.
+- **Coverage is the open problem on kw40 (~47 % of keyed deals ship)**: `api-flag:price_record_starts` (API record
+  starts a day after the leaflet) and y2d's strict two-reader page headers (24/66 proven). Queued as y6.
+- **Queued Codex chain** (`~/Work/babaemail-coordination/chain_y.sh`, y3 names, y4 multi-buy/LP crop, y5 partner
+  offers + email wiring, y6 coverage), gated by pytest + grade_full + fresh review.
+- Not pushed: 30 local commits; history rewrite for author emails awaits Aleks (brief question 14).
+
 Last session: 2026-09-27 (Lidl). Before that: 2026-09-24. Phase 0 (extraction) is done for all five stores.
 Nothing user-facing exists yet — no email has ever been generated or sent.
 
