@@ -1,0 +1,34 @@
+# Privzete vrednosti – še niso potrjene z babi.
+stores:
+  - {key: lidl, max_items: 45}
+  - {key: hofer, max_items: 8}
+  - {key: mercator, max_items: 8}
+  - {key: spar, max_items: 8}
+  - {key: tus, max_items: 8}
+default_floor: 20
+# floor: null podeduje default_floor.
+categories:
+  meso: {label: Meso, show: true, floor: null}
+  ribe: {label: Ribe, show: true, floor: null}
+  mlecno: {label: Mlečni izdelki in jajca, show: true, floor: null}
+  sadje_zelenjava: {label: Sadje in zelenjava, show: true, floor: null}
+  kruh: {label: Kruh in pekovski izdelki, show: true, floor: null}
+  shramba: {label: Shramba, show: true, floor: null}
+  sladko: {label: Sladko in prigrizki, show: true, floor: null}
+  pijace: {label: Pijače, show: true, floor: null}
+  zamrznjeno: {label: Zamrznjeno, show: true, floor: null}
+  gospodinjstvo: {label: Gospodinjstvo, show: true, floor: null}
+  ostalo: {label: Ostalo, show: true, floor: null}
+  oblacila: {label: Oblačila, show: false, floor: null}
+  orodje: {label: Orodje, show: false, floor: null}
+  elektronika: {label: Elektronika, show: false, floor: null}
+  vrt: {label: Vrt, show: false, floor: null}
+  igrace: {label: Igrače, show: false, floor: null}
+always_show: []
+max_items: 80
+send:
+  days: [pon, tor, sre, cet, pet, sob, ned]
+  hour: 7
+lookahead_days: 3
+changelog:
+  - '2026-10-03: Začetne, še nepotrjene nastavitve za prvi predogled.'

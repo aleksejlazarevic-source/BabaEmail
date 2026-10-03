@@ -1,0 +1,32 @@
+{% macro product(d) %}
+<tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-size:18px;line-height:1.4;overflow-wrap:anywhere;">
+<div style="font-size:20px;font-weight:bold;">{{ d.name }}</div>
+<div style="font-size:24px;font-weight:bold;">{{ d.price }}</div>
+{% if d.old %}<div><s>{{ d.old }}</s>{% if d.pct is not none %} &nbsp; −{{ d.pct }} %{% endif %}</div>
+{% elif d.pct is not none %}<div>−{{ d.pct }} %</div>{% endif %}
+{% if d.condition %}<div>{{ d.condition }}</div>{% endif %}
+{% if d.unit %}<div>{{ d.unit }}</div>{% endif %}
+{% if d.loyalty %}<div style="font-weight:bold;">{{ d.loyalty }}</div>{% endif %}
+{% if d.validity %}<div>{{ d.validity }}</div>{% endif %}
+</td></tr>
+{% endmacro %}
+<!DOCTYPE html>
+<html lang="sl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{{ title }}</title></head>
+<body style="margin:0;padding:0;background-color:#fff;color:#161616;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.4;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background-color:#fff;color:#161616;"><tr><td align="center" style="padding:16px 12px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;table-layout:fixed;"><tr><td>
+<h1 style="font-size:26px;line-height:1.2;margin:0 0 8px;">{{ title }}</h1>
+<p style="margin:0 0 16px;">{{ count }} izdelkov v {{ store_count }} trgovinah</p>
+{% for failure in failures %}<p style="margin:8px 0;padding:12px;background-color:#fff0d9;border:1px solid #a66a00;">{{ failure }}</p>{% endfor %}
+{% if notices %}<div style="padding:12px;margin:12px 0;background-color:#eef5ed;border:1px solid #557755;">{% for notice in notices %}<p style="margin:4px 0;">{{ notice }}</p>{% endfor %}</div>{% endif %}
+</td></tr>
+{% for store in stores %}<tr><td>
+<h2 style="font-size:26px;margin:24px 0 8px;">{{ store.label }}</h2>
+{% if store.lidl_plus %}<p style="font-size:18px;margin:0 0 8px;">Lidl Plus: samo z aplikacijo Lidl Plus.</p>{% endif %}
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;">
+{% for group in store.groups %}<tr><td><h3 style="font-size:21px;margin:18px 0 0;">{{ group.label }}</h3></td></tr>{% for d in group.deals %}{{ product(d) }}{% endfor %}{% endfor %}
+{% if store.website %}<tr><td><h3 style="font-size:21px;margin:18px 0 0;">Še na spletni strani Lidl (niso v letaku)</h3></td></tr>{% for d in store.website %}{{ product(d) }}{% endfor %}{% endif %}
+{% if store.partners %}<tr><td><h3 style="font-size:21px;margin:18px 0 0;">Lidl Plus: ugodnosti partnerjev</h3></td></tr>{% for d in store.partners %}{{ product(d) }}{% endfor %}{% endif %}
+</table></td></tr>{% endfor %}
+<tr><td><p style="font-size:14px;margin:24px 0 0;">Cene so preverjene iz letakov. Če kaj ne drži, povej Aleksu.</p></td></tr>
+</table></td></tr></table></body></html>

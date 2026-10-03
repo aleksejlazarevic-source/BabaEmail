@@ -1,0 +1,28 @@
+{% macro product(d) %}
+{{ d.name }}
+{{ d.price }}{% if d.old %} (prej {{ d.old }}){% endif %}{% if d.pct is not none %} · −{{ d.pct }} %{% endif %}
+
+{% if d.condition %}{{ d.condition }}
+{% endif %}{% if d.unit %}{{ d.unit }}
+{% endif %}{% if d.loyalty %}{{ d.loyalty }}
+{% endif %}{% if d.validity %}{{ d.validity }}
+{% endif %}
+{% endmacro %}
+{{ title }}
+{{ count }} izdelkov v {{ store_count }} trgovinah
+
+{% for failure in failures %}{{ failure }}
+{% endfor %}
+{% for notice in notices %}{{ notice }}
+{% endfor %}
+{% for store in stores %}
+{{ store.label }}
+{% if store.lidl_plus %}Lidl Plus: samo z aplikacijo Lidl Plus.
+{% endif %}{% for group in store.groups %}
+{{ group.label }}
+{% for d in group.deals %}{{ product(d) }}{% endfor %}{% endfor %}
+{% if store.website %}Še na spletni strani Lidl (niso v letaku)
+{% for d in store.website %}{{ product(d) }}{% endfor %}{% endif %}
+{% if store.partners %}Lidl Plus: ugodnosti partnerjev
+{% for d in store.partners %}{{ product(d) }}{% endfor %}{% endif %}{% endfor %}
+Cene so preverjene iz letakov. Če kaj ne drži, povej Aleksu.
