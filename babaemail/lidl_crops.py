@@ -21,7 +21,8 @@ from pathlib import Path
 import httpx
 
 from . import vlm
-from .lidl_reconcile import (LeafletReading, _share_product_word, fold,
+from .lidl_reconcile import (LeafletReading, _ocr_text_proves_name,
+                             _share_product_word, _stems, _unverified_why, fold,
                              ocr_reconciled, split_leaflet_name)
 
 CACHE_DIR = Path(__file__).resolve().parents[1] / '.cache' / 'lidl-crops'
@@ -222,6 +223,14 @@ def _crop_box(reading, width: int, height: int):
     x0 = min(b[0] for b in boxes); y0 = min(b[1] for b in boxes)
     x1 = max(b[2] for b in boxes); y1 = max(b[3] for b in boxes)
     ph = max(1, price[3] - price[1])
+    # A name-only hold commonly has no usable OCR name geometry at all. Lidl's
+    # non-food layouts put the label immediately left of, and slightly above,
+    # the large price. Give the reread enough of that label to transcribe it.
+    # ``read_crop`` still rejects the box if this expansion catches a second
+    # price, so the wider search cannot merge two offers.
+    if not flag_panel:
+        x0 = min(x0, price[0] - 4 * ph)
+        y0 = min(y0, price[1] - 2 * ph)
     pad = max(24, round(ph * .18))
     box = (max(0, int(x0 - pad)), max(0, int(y0 - pad)),
            min(width, int(x1 + pad)), min(height, int(y1 + pad)))
@@ -238,21 +247,32 @@ def select_crop_boxes(pngs, readings, preliminary, evidence=(), limit=40):
     """
     from PIL import Image
 
+    ocr_price_counts = {}
+    for r in readings:
+        if r.source == 'ocr' and r.page is not None and r.new_price is not None:
+            key = (r.page, r.new_price)
+            ocr_price_counts[key] = ocr_price_counts.get(key, 0) + 1
+
     held_ids = set()
     for rec in preliminary.records:
         reasons = [f for f in rec.deal.flags if f.startswith('quarantine:')]
         if (rec.rule == 'leaflet-only' and rec.tile is not None and len(reasons) == 1
                 and reasons[0].startswith('quarantine:leaflet-only-unverified:')):
-            held_ids.update(id(r) for r in rec.tile.readings)
+            why = _unverified_why(rec.tile)
+            name_only = any(s.startswith('name has one reader') for s in why)
+            lone_ocr = (rec.tile.sources == ('ocr',)
+                        and ocr_price_counts.get((rec.tile.page, rec.tile.new_price)) == 1)
+            if name_only or lone_ocr:
+                held_ids.update(id(r) for r in rec.tile.readings)
 
-    proven_geometry = set()
-    for data in evidence:
-        try:
-            proof = _proof(data)
-        except (KeyError, TypeError, ValueError):
-            proof = None
-        if proof is not None:
-            proven_geometry.add((data.get('page'), proof['price_bbox']))
+    # Only evidence that refinement actually accepted is settled. A readable
+    # crop can still fail an LP/name/geometry gate; it must remain eligible for
+    # a better, newly derived crop instead of being suppressed by its cache.
+    proven_geometry = {
+        (r.page, tuple(r.raw.get('price_bbox', ())))
+        for r in readings if r.source == 'ocr' and isinstance(r.raw, dict)
+        and isinstance(r.raw.get('crop_confirmation'), dict)
+    }
 
     vlm_by_key = {}
     for r in readings:
@@ -274,14 +294,6 @@ def select_crop_boxes(pngs, readings, preliminary, evidence=(), limit=40):
                  if isinstance(r.lidl_plus, bool) and v.lidl_plus == r.lidl_plus]
         if not peers:
             continue
-        detail = r.raw.get('raw') if isinstance(r.raw.get('raw'), dict) else r.raw
-        badge = r.raw.get('badge')
-        bare = badge is None and r.old_price is None and r.pct is None
-        discount = badge == 'discount'
-        from_price = (badge == 'flag'
-                      and re.search(r'\bze\s*od\b', fold(detail.get('flag_text') or '')))
-        if not (bare or discount or from_price):
-            continue
         if r.page not in sizes:
             with Image.open(io.BytesIO(pngs[r.page])) as im:
                 sizes[r.page] = im.size
@@ -294,7 +306,14 @@ def select_crop_boxes(pngs, readings, preliminary, evidence=(), limit=40):
 
 
 def _proof(data):
-    """Validate independent reads; return no proof on missing/ambiguous data."""
+    """Validate a crop read; name independence is checked in refinement.
+
+    OCR and the crop VLM must agree on the price.  The crop name is only a
+    candidate here: :func:`refine_readings` separately requires agreement
+    from a full-page VLM, tile-owned OCR text, or a second crop.  Keeping those
+    stages separate lets bilingual full-page names be repaired without ever
+    treating broad/borrowed crop OCR text as name proof.
+    """
     if data.get('version') != VERSION or len(data.get('ocr_tiles', ())) != 1:
         return None
     tile = data['ocr_tiles'][0]
@@ -309,15 +328,26 @@ def _proof(data):
         return None
     if price != price.quantize(Decimal('.01')):
         return None
-    name = model['name']
-    texts = data.get('ocr_texts', ())
-    if not any(contains_name(text, name) for text in texts):
+    name = model['name'].strip()
+    brand, product = split_leaflet_name(name)
+    stems = _stems(product if brand else name)
+    if not stems:
         return None
+    meaningful = [w for w in words(product if brand else name)
+                  if not w.isdigit() and w not in {'maks', 'max', 'kg', 'g', 'ml', 'l',
+                                                   'kos', 'kosa', 'kompl', 'komplet'}]
+    if not meaningful:
+        return None
+    texts = data.get('ocr_texts', ())
     # A price qualifier may only be introduced when BOTH readers copied it.
-    from_price = (words(model.get('badge_text')) == ['ze', 'od']
+    badge_words = words(model.get('badge_text'))
+    from_price = (badge_words[:2] == ['ze', 'od']
+                  and (len(badge_words) == 2
+                       or re.fullmatch(r'ze\s*od\s+\d+[.,]\d{2}',
+                                       fold(model.get('badge_text') or '')) is not None)
                   and any(re.search(r'\bze\s*od\b', fold(t or '')) for t in texts)
                   and not any(re.search(r'gratis|drugi\s+kos|nakup|kupon|%', fold(t or '')) for t in texts)
-                  and tile.get('badge') == 'flag'
+                  and tile.get('badge') in (None, 'flag')
                   and tile.get('old_price') is None and tile.get('pct') is None)
     old, pct = _decimal(tile.get('old_price')), _decimal(tile.get('pct'))
     r = LeafletReading('ocr', data['page'], price, old, pct)
@@ -329,10 +359,15 @@ def _proof(data):
     multi_buy = _multi_buy(data, model, price)
     x0, y0, _, _ = data['crop_box']
     a, b, c, d = tile['price_bbox']
+    crop_ocr = LeafletReading(
+        'ocr', data['page'], price, name=tile.get('name'),
+        text=tuple((tile.get('raw') or {}).get('text_lines') or ()), raw=tile,
+    )
     return dict(name=name, price=price, price_bbox=(a+x0, b+y0, c+x0, d+y0),
                 old_pct=(old, pct) if old_proven else None, from_price=from_price,
                 multi_buy=multi_buy,
-                lidl_plus=model.get('lidl_plus'))
+                lidl_plus=model.get('lidl_plus'),
+                crop_ocr_name=_ocr_text_proves_name(crop_ocr, name))
 
 
 _SINGLE = re.compile(r'cena\s+za\s+1\s+kos\s*:\s*(\d+[.,]\d{2})(?!\d)', re.I)
@@ -380,13 +415,15 @@ def refine_readings(readings, evidence):
     """R0d: replace only names/independently proven fields, never a new price.
 
     The full-page OCR price geometry must equal the crop's price geometry.
-    A matching full-page VLM price is mandatory too, and exactly one full-page
-    VLM name must share a non-brand product word with the crop name.
+    The crop name must agree with a full-page VLM, tile-owned OCR text, or an
+    identical second crop. A crop VLM may supply the second price reader for
+    one uniquely located OCR-only tile, but never for an ambiguous collision.
     Crops cannot overrule existing Lidl Plus votes, dates, or API flags.
     """
     out = list(readings)
     # Disagreeing crop rereads are not settled by file order. Keep the tile
-    # unchanged until the conflict is reviewed. Identical proofs collapse.
+    # unchanged until the conflict is reviewed. Identical names collapse;
+    # volatile cache identifiers do not make otherwise equal proofs disagree.
     grouped = {}
     for data in evidence:
         proof = _proof(data)
@@ -394,9 +431,15 @@ def refine_readings(readings, evidence):
             grouped.setdefault((data['page'], proof['price_bbox']), []).append((data, proof))
     used = set()
     for group in grouped.values():
-        data, proof = group[0]
-        if any(p != proof for _, p in group[1:]):
+        # A smaller crop has less opportunity to borrow a neighbouring label.
+        # It may therefore supersede a broader reread when every crop agrees
+        # on the normalized name. Any actual name disagreement keeps the tile
+        # held, independent of cache/file order.
+        if len({tuple(words(p['name'])) for _, p in group}) != 1:
             continue
+        data, proof = min(group, key=lambda item:
+                          ((item[0]['crop_box'][2] - item[0]['crop_box'][0])
+                           * (item[0]['crop_box'][3] - item[0]['crop_box'][1])))
         page, price = data['page'], proof['price']
         oi = [i for i, r in enumerate(out) if r.source == 'ocr' and r.page == page
               and r.new_price == price and isinstance(r.raw, dict)
@@ -404,20 +447,53 @@ def refine_readings(readings, evidence):
         vi = [i for i, r in enumerate(out) if r.source == 'vlm' and r.page == page
               and r.new_price == price]
         named = [i for i in vi if _share_product_word(out[i].name, proof['name'])]
-        # A shared price (and even a shared brand) does not bind the crop to
-        # this product.  Require the independent page reader to share a
-        # non-brand product word, using the same rule as plain-price tiles.
-        # This also prevents a bare brand or an unrelated lone descriptor
-        # from becoming the shipped name through the unique-price fallback.
-        if len(named) != 1:
+        if len(oi) != 1 or used.intersection(oi):
             continue
-        vi = named
-        if len(oi) != 1 or not vi or used.intersection(oi + vi):
+        a = out[oi[0]]
+        ocr_name = (_share_product_word(a.name, proof['name'])
+                    or _ocr_text_proves_name(a, proof['name']))
+        crop_name = proof['crop_ocr_name']
+        second_crop = len(group) > 1
+        if len(named) == 1:
+            vi = named
+        elif len(named) == 0 and (ocr_name or crop_name or second_crop):
+            if len(vi) == 1:
+                vi = vi
+            elif not vi:
+                # The page OCR plus the crop VLM are the two independent
+                # readers. This is safe only for one exact OCR geometry.
+                template = LeafletReading('vlm', page, price,
+                                           lidl_plus=proof['lidl_plus'],
+                                           name=proof['name'])
+                out.append(template)
+                vi = [len(out) - 1]
+            else:
+                # Same-price VLM variants are resolved only when their other
+                # identifying metadata agree. Add the crop's common printed
+                # label and leave the variants unbacked; never pick by order.
+                meta = {(split_leaflet_name(out[i].name)[0], out[i].lidl_plus,
+                         out[i].valid_to_text, out[i].unit) for i in vi}
+                if len(meta) != 1:
+                    continue
+                out.append(replace(out[vi[0]], name=proof['name']))
+                vi = [len(out) - 1]
+        else:
             continue
-        a, b = out[oi[0]], out[vi[0]]
-        brand = words(split_leaflet_name(b.name)[0])
-        if brand and words(proof['name'])[:len(brand)] != brand:
+        if used.intersection(vi):
             continue
+        b = out[vi[0]]
+        # One crop reader still needs one independent name reader. Broad OCR
+        # strings are deliberately absent here because they may contain a
+        # neighbouring label.
+        if not (len(named) == 1 or ocr_name or crop_name or second_crop):
+            continue
+        canonical_name = proof['name']
+        crop_brand = split_leaflet_name(canonical_name)[0]
+        page_brand = split_leaflet_name(b.name)[0]
+        page_brand_words = words(page_brand)
+        if (not crop_brand and page_brand_words
+                and words(canonical_name)[:len(page_brand_words)] != page_brand_words):
+            canonical_name = f'{page_brand} {canonical_name}'
         x0, y0, x1, y1 = data['crop_box']
         # Do not accept a crop that cut off the original detected badge.
         if a.bbox is None or not (x0 <= a.bbox[0] and y0 <= a.bbox[1]
@@ -427,9 +503,14 @@ def refine_readings(readings, evidence):
         if isinstance(lp, bool) and any(r.lidl_plus is not None and r.lidl_plus != lp for r in (a, b)):
             continue
         raw = dict(a.raw)
+        if proof['from_price'] and raw.get('badge') is None:
+            # Both crop readers recovered a lower-bound qualifier that the
+            # full-page colour segmentation missed. Mark it as a flag so R8c
+            # can carry (never drop) the proven condition.
+            raw['badge'] = 'flag'
         raw['crop_confirmation'] = dict(page_sha256=data['page_sha256'],
                                          crop_sha256=data['crop_sha256'],
-                                         name=proof['name'], from_price=proof['from_price'],
+                                         name=canonical_name, from_price=proof['from_price'],
                                          multi_buy=proof['multi_buy'])
         old, pct = a.old_price, a.pct
         if proof['old_pct'] is not None and a.raw.get('badge') == 'discount':
@@ -438,7 +519,7 @@ def refine_readings(readings, evidence):
             # to choose whichever crop reconciles.
             if (old is None or old == co) and (pct is None or pct == cp):
                 old, pct = co, cp
-        out[oi[0]] = replace(a, name=proof['name'], old_price=old, pct=pct, raw=raw)
-        out[vi[0]] = replace(b, name=proof['name'])
+        out[oi[0]] = replace(a, name=canonical_name, old_price=old, pct=pct, raw=raw)
+        out[vi[0]] = replace(b, name=canonical_name)
         used.update(oi + vi)
     return out

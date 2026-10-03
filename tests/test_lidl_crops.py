@@ -82,24 +82,42 @@ def test_crop_name_with_shared_non_brand_product_words_still_ships():
     assert deal.name == NAME
 
 
-@pytest.mark.parametrize('change', ['ocr-price', 'vlm-price', 'missing-name', 'partial-name',
-                                    'two-prices', 'different-box', 'cut-badge', 'lp', 'brand'])
+@pytest.mark.parametrize('change', ['ocr-price', 'vlm-price', 'two-prices',
+                                    'different-box', 'cut-badge', 'lp'])
 def test_crop_cannot_repair_without_every_proof(change):
     data, rs = evidence(), readings()
     model = json.loads(data['vlm']['response'])
     if change == 'ocr-price': data['ocr_tiles'][0]['price'] = '3.89'
     if change == 'vlm-price': model['new_price'] = '3.89'
-    if change == 'missing-name': data['ocr_texts'] = ['BRAND']
-    if change == 'partial-name': data['ocr_texts'] = ['BRAND piškoti']
     if change == 'two-prices': data['ocr_tiles'] *= 2
     if change == 'different-box': data['crop_box'][0] += 10
     if change == 'cut-badge': rs[0] = replace(rs[0], bbox=(0, 0, 110, 120))
     if change == 'lp': model['lidl_plus'] = True
-    if change == 'brand':
-        model['name'] = 'Sadni piškoti'
-        data['ocr_texts'] = ['Sadni piškoti']
     data['vlm']['response'] = json.dumps(model)
     assert refine_readings(rs, [data]) == rs
+
+
+def test_crop_name_and_tile_owned_ocr_can_replace_bilingual_page_name():
+    rs = readings()
+    rs[1] = replace(rs[1], name='BRAND Cuor di Mela')
+    data = evidence()
+    data['ocr_tiles'][0]['raw'] = {'text_lines': ['BRAND', 'Sadni piškoti']}
+    refined = refine_readings(rs, [data])
+    [deal] = run(refined).shipped
+    assert deal.name == NAME
+
+
+def test_borrowed_neighbour_line_cannot_prove_crop_name():
+    rs = readings()
+    rs[1] = replace(rs[1], name='BRAND Cuor di Mela')
+    data = evidence()
+    data['ocr_tiles'][0]['raw'] = {
+        'region_lines': [{'text': NAME, 'bbox': [0, 0, 10, 10]}],
+        'text_lines': [],
+    }
+    data['ocr_texts'] = [NAME]
+    assert refine_readings(rs, [data]) == rs
+    assert not run(refine_readings(rs, [data])).shipped
 
 
 def test_crop_never_supplies_a_missing_full_page_reader():
@@ -193,6 +211,17 @@ def test_from_price_ships_only_with_qualifier_and_unknown_discount():
     assert d.discount_pct is d.discount_display is None  # lower bounds cannot imply savings
 
 
+def test_crop_can_recover_from_price_when_page_badge_segmentation_missed_it():
+    data = evidence()
+    data['ocr_texts'] = [NAME + ' že od']
+    data['ocr_tiles'][0]['raw'] = {'text_lines': [NAME, 'že od']}
+    model = json.loads(data['vlm']['response'])
+    model['badge_text'] = 'že od 2.89'
+    data['vlm']['response'] = json.dumps(model)
+    [d] = run(refine_readings(readings(), [data])).shipped
+    assert (d.condition_kind, d.condition) == ('from-price', 'že od')
+
+
 @pytest.mark.parametrize('ocr_text,vlm_badge', [(NAME, 'že od'), (NAME+' že od', None),
     (NAME+' že od 2+1 gratis', 'že od'), (NAME+' že od', '2+1 gratis')])
 def test_unknown_or_conditional_badge_never_becomes_plain_price(ocr_text, vlm_badge):
@@ -251,12 +280,13 @@ def test_auto_selection_uses_geometry_only_for_crop_settleable_hold(tmp_path):
                     raw=dict(price_bbox=[180, 150, 260, 210], badge=None,
                              name_bbox=[20, 90, 160, 140], region_lines=[], text_lines=[]))
     result = run(rs)
-    assert select_crop_boxes({4: buf.getvalue()}, rs, result) == [(4, (0, 66, 284, 234))]
+    assert select_crop_boxes({4: buf.getvalue()}, rs, result) == [(4, (0, 6, 284, 234))]
 
-    # An unknown flag condition is not something X1's plain/from-price proof settles.
+    # An unknown flag can still be a misclassified label panel; reread it, but
+    # refinement/reconciliation must prove its exact condition before shipping.
     rs[0].raw['badge'] = 'flag'
     rs[0].raw['flag_text'] = '2+1 gratis'
-    assert select_crop_boxes({4: buf.getvalue()}, rs, run(rs)) == []
+    assert select_crop_boxes({4: buf.getvalue()}, rs, run(rs)) == [(4, (156, 126, 284, 234))]
 
     rs[0].raw.update(flag_text='že od', badge_bbox=[170, 70, 280, 145])
     assert select_crop_boxes({4: buf.getvalue()}, rs, run(rs)) == [(4, (146, 46, 304, 234))]

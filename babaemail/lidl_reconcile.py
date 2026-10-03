@@ -61,10 +61,10 @@ R0c OCR backing of VLM-only tiles. Every Lidl product tile prints its price
 R0d Targeted crop rereads (``lidl_crops``). A cached crop must belong to the
     exact page image (SHA256), contain one OCR price structure, and locate
     that structure at the full-page OCR's exact price coordinates. Its new
-    price must agree with both full-page readers. The crop VLM's COMPLETE
-    label name, including brand, must independently occur in crop OCR text
-    (case, accents and punctuation normalized; no fuzzy word matching).
-    Only then may it repair the paired names. Same-price collisions require
+    price must agree with the page OCR and a VLM reader. The crop name may
+    repair paired names only when a full-page VLM, tile-owned OCR text, or a
+    second crop agrees under the ordinary brand-stripped product-stem rule;
+    broad regional OCR is never name evidence. Same-price collisions require
     one unique matching VLM product name. If one OCR price has multiple VLM
     variant names with identical brand/LP/date/pack, add the crop's proven
     common label and retain the originals as unbacked readings (R0c), never
