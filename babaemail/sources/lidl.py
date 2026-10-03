@@ -74,6 +74,7 @@ _HEADER_FRAGMENT = re.compile(
 )
 _HEADER = re.compile(rf"^\s*\W{{0,4}}{_HEADER_FRAGMENT.pattern}\W{{0,4}}\s*$", re.I)
 _HEADER_FORBIDDEN = re.compile(r"kupon|aktiviraj|lidl\s*plus|popust|velja|%", re.I)
+_DATE_LIKE = re.compile(r"(?<!\d)\d{1,2}\s*\.\s*\d{1,2}\s*\.?")
 _WEEKDAYS = ("ponedeljka", "torka", "srede", "četrtka", "petka", "sobote", "nedelje")
 
 
@@ -87,66 +88,92 @@ def parse_page_header(
 ) -> tuple[date, date | None] | None:
     """Return one unambiguous, page-owned ``Od weekday, d. m.`` window.
 
-    The geometry is part of the proof: a header must be a large line wholly in
-    the top band.  Coupon/banner vocabulary and a malformed printed ``do`` are
-    rejected. Duplicate OCR reads of the same physical line are collapsed;
-    two physically distinct headers are ambiguous even when their dates match.
+    The geometry is part of the proof: a header must be a large region wholly
+    in the top band. Every date-like token in that lane participates in the
+    ambiguity check, including tokens that do not resemble a complete header.
+    Vertically adjacent lines are one region so a split banner cannot lend its
+    date line to the page. Duplicate OCR reads of one physical line collapse.
     """
     height, width = page_shape
     window_start, window_end = leaflet_window
     if window_end < window_start:
         return None
-    found: list[tuple[date, date | None, OcrBox]] = []
+    lane: list[OcrBox] = []
     for line in lines:
-        if (line.bbox[1] < 0 or line.bbox[3] > height * HEADER_BAND
-                or line.height < height * 0.012
-                or line.bbox[2] - line.bbox[0] < width * 0.20
-                or _HEADER_FORBIDDEN.search(line.text)):
+        if (not line.text.strip() or line.bbox[1] < 0
+                or line.bbox[3] > height * HEADER_BAND):
             continue
-        fragments = list(_HEADER_FRAGMENT.finditer(line.text))
-        if len(fragments) > 1:
-            return None
-        if not fragments:
-            continue
-        # A date-bearing banner/teaser is not a page header. Requiring the
-        # complete physical line also prevents a nearby graphic from lending
-        # its date to an otherwise unrelated strip.
-        match = _HEADER.fullmatch(line.text)
-        if match is None:
-            return None
-        # Seeing "do" without a complete d.m. is evidence of an unread end,
-        # not evidence that the page has no end.
-        tail = line.text[match.start():]
-        if re.search(r"\bdo\b", tail, re.I) and match.group(4) is None:
-            return None
-
-        start = _unique_date_in_window(
-            int(match.group(2)), int(match.group(3)), leaflet_window)
-        if start is None or _weekday_index(match.group(1)) != start.weekday():
-            return None
-        end = leaflet_window[1]
-        if match.group(4) is not None:
-            end = _unique_date_in_window(
-                int(match.group(4)), int(match.group(5)), leaflet_window)
-            if end is None:
-                return None
-        if end is not None and end < start:
-            return None
-        found.append((start, end, line))
-
-    physical: list[tuple[date, date | None, OcrBox]] = []
-    for candidate in found:
-        _, _, box = candidate
-        duplicate = False
-        for start, end, prior in physical:
-            overlap_x = min(box.bbox[2], prior.bbox[2]) - max(box.bbox[0], prior.bbox[0])
-            overlap_y = min(box.bbox[3], prior.bbox[3]) - max(box.bbox[1], prior.bbox[1])
-            if ((start, end) == candidate[:2] and overlap_x > 0 and overlap_y > 0):
-                duplicate = True
-                break
+        duplicate = any(
+            " ".join(prior.text.casefold().split())
+            == " ".join(line.text.casefold().split())
+            and min(line.bbox[2], prior.bbox[2]) > max(line.bbox[0], prior.bbox[0])
+            and min(line.bbox[3], prior.bbox[3]) > max(line.bbox[1], prior.bbox[1])
+            for prior in lane
+        )
         if not duplicate:
-            physical.append(candidate)
-    return physical[0][:2] if len(physical) == 1 else None
+            lane.append(line)
+
+    # Tesseract can emit a short hallucinated child line inside the bounding
+    # box of a correctly read header (kw39 p63 does this). It is an overlapping
+    # read of the same pixels, not a vertically adjacent ownership line.
+    lane = [line for line in lane if not (
+        not _DATE_LIKE.search(line.text)
+        and any(
+            _HEADER.fullmatch(other.text)
+            and (min(line.bbox[2], other.bbox[2]) - max(line.bbox[0], other.bbox[0])
+                 >= (line.bbox[2] - line.bbox[0]) * 0.8)
+            and (min(line.bbox[3], other.bbox[3]) - max(line.bbox[1], other.bbox[1])
+                 >= line.height * 0.8)
+            for other in lane if other is not line
+        )
+    )]
+
+    regions: list[list[OcrBox]] = []
+    for line in sorted(lane, key=lambda box: (box.bbox[1], box.bbox[0])):
+        if regions:
+            bottom = max(box.bbox[3] for box in regions[-1])
+            tallest = max(line.height, *(box.height for box in regions[-1]))
+            if line.bbox[1] - bottom <= tallest * 0.5:
+                regions[-1].append(line)
+                continue
+        regions.append([line])
+
+    dated_regions = [region for region in regions
+                     if any(_DATE_LIKE.search(line.text) for line in region)]
+    if len(dated_regions) != 1:
+        return None
+    region = dated_regions[0]
+    text = " ".join(line.text.strip() for line in sorted(
+        region, key=lambda box: (box.bbox[1], box.bbox[0])))
+    top = min(line.bbox[1] for line in region)
+    bottom = max(line.bbox[3] for line in region)
+    left = min(line.bbox[0] for line in region)
+    right = max(line.bbox[2] for line in region)
+    if (bottom - top < height * 0.012 or right - left < width * 0.20
+            or _HEADER_FORBIDDEN.search(text)):
+        return None
+    match = _HEADER.fullmatch(text)
+    if match is None or len(list(_HEADER_FRAGMENT.finditer(text))) != 1:
+        return None
+    # Seeing "do" without a complete d.m. is evidence of an unread end,
+    # not evidence that the page has no end.
+    tail = text[match.start():]
+    if re.search(r"\bdo\b", tail, re.I) and match.group(4) is None:
+        return None
+
+    start = _unique_date_in_window(
+        int(match.group(2)), int(match.group(3)), leaflet_window)
+    if start is None or _weekday_index(match.group(1)) != start.weekday():
+        return None
+    end = leaflet_window[1]
+    if match.group(4) is not None:
+        end = _unique_date_in_window(
+            int(match.group(4)), int(match.group(5)), leaflet_window)
+        if end is None:
+            return None
+    if end is not None and end < start:
+        return None
+    return start, end
 
 
 def _fold_word(text: str) -> str:

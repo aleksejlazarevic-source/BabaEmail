@@ -65,6 +65,31 @@ def test_ambiguous_double_coupon_or_non_top_header_is_rejected(lines):
     assert parse_page_header(lines, (1000, 1000), WEEK) is None
 
 
+def test_page_header_rejects_two_line_teaser_region():
+    lines = [
+        header_line("Nova ponudba", (250, 10, 750, 28)),
+        header_line("Od ponedeljka, 28. 9.", (250, 32, 750, 60)),
+    ]
+    assert parse_page_header(lines, (1000, 1000), WEEK) is None
+
+
+def test_page_header_rejects_separate_generic_date_region():
+    lines = [
+        header_line("Od ponedeljka, 28. 9.", (250, 10, 750, 30)),
+        header_line("Nova ponudba od 30. 9.", (700, 60, 900, 75)),
+    ]
+    assert parse_page_header(lines, (1000, 1000), WEEK) is None
+
+
+def test_page_header_ignores_nested_ocr_echo_without_a_date():
+    lines = [
+        header_line("Od ponedeljka, 28. 9.", (50, 10, 750, 60)),
+        header_line("N4 N, k am 9", (250, 40, 600, 60)),
+    ]
+    assert parse_page_header(lines, (1000, 1000), WEEK) == (
+        date(2026, 9, 28), date(2026, 9, 30))
+
+
 def cand(erp, title, price, old=None, pct=None, *, brand=None, lp=False):
     return LidlCandidate(
         erp=erp, name=f"{brand} {title}" if brand else title, brand=brand, title=title,
