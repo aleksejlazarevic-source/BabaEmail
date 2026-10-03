@@ -516,3 +516,13 @@ def test_unchecked_store_is_cut_and_named_not_bannered():
     assert 'Spar in Tuš še niso vključeni' in html and 'Spar in Tuš še niso vključeni' in text
     assert 'Danes ni bilo mogoče' not in html
     assert 'zvestobe' not in html
+
+
+
+@pytest.mark.parametrize("items, stores, text", [
+    (48, 1, "48 izdelkov v 1 trgovini"), (1, 1, "1 izdelek v 1 trgovini"),
+    (2, 2, "2 izdelka v 2 trgovinah"), (3, 5, "3 izdelki v 5 trgovinah"), (101, 3, "101 izdelek v 3 trgovinah"),
+])
+def test_count_line_slovenian_plurals(items, stores, text):
+    from babaemail.render import count_line
+    assert count_line(items, stores) == text

@@ -16,7 +16,7 @@
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background-color:#fff;color:#161616;"><tr><td align="center" style="padding:16px 12px;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;table-layout:fixed;"><tr><td>
 <h1 style="font-size:26px;line-height:1.2;margin:0 0 8px;">{{ title }}</h1>
-<p style="margin:0 0 16px;">{{ count }} izdelkov v {{ store_count }} trgovinah</p>
+<p style="margin:0 0 16px;">{{ count_line }}</p>
 {% if unchecked %}<p style="margin:0 0 16px;font-size:16px;color:#444;">{{ unchecked }}</p>{% endif %}
 {% for failure in failures %}<p style="margin:8px 0;padding:12px;background-color:#fff0d9;border:1px solid #a66a00;">{{ failure }}</p>{% endfor %}
 {% if notices %}<div style="padding:12px;margin:12px 0;background-color:#eef5ed;border:1px solid #557755;">{% for notice in notices %}<p style="margin:4px 0;">{{ notice }}</p>{% endfor %}</div>{% endif %}

@@ -68,6 +68,18 @@ def deal_view(deal: Deal, today: date) -> dict:
             'validity': ' · '.join(validity)}
 
 
+def _sl_plural(n: int, one: str, two: str, few: str, many: str) -> str:
+    """Slovenian count forms: 1 izdelek, 2 izdelka, 3 izdelki, 5 izdelkov (101 like 1)."""
+    r = n % 100
+    return one if r == 1 else two if r == 2 else few if r in (3, 4) else many
+
+
+def count_line(items: int, stores: int) -> str:
+    noun = _sl_plural(items, 'izdelek', 'izdelka', 'izdelki', 'izdelkov')
+    place = 'trgovini' if stores % 100 == 1 else 'trgovinah'
+    return f'{items} {noun} v {stores} {place}'
+
+
 def render(selection: Selection, sources: list[SourceResult], preferences: dict, today: date) -> tuple[str, str]:
     by_store = {s.retailer: s for s in sources}
     # Defence in depth: an arbitrary Selection cannot bypass the gate.
@@ -109,6 +121,7 @@ def render(selection: Selection, sources: list[SourceResult], preferences: dict,
                if n.proven and n.text and (n.day is None or today <= n.day <= today + timedelta(days=preferences['lookahead_days']))]
     context = {'title': f'Akcije za {WEEKDAYS[today.weekday()]}, {today.day}. {today.month}.',
                'count': len(selection.items), 'store_count': len(stores),
+               'count_line': count_line(len(selection.items), len(stores)),
                'failures': failures, 'notices': notices, 'stores': stores, 'unchecked': unchecked}
     env = Environment(loader=FileSystemLoader(ROOT / 'templates'), undefined=StrictUndefined,
                       autoescape=select_autoescape(['html', 'xml', 'html.j2']),
