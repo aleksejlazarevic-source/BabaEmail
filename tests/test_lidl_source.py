@@ -81,13 +81,81 @@ def test_page_header_rejects_separate_generic_date_region():
     assert parse_page_header(lines, (1000, 1000), WEEK) is None
 
 
-def test_page_header_ignores_nested_ocr_echo_without_a_date():
+def test_page_header_rejects_nested_lidl_plus_box():
     lines = [
         header_line("Od ponedeljka, 28. 9.", (50, 10, 750, 60)),
-        header_line("N4 N, k am 9", (250, 40, 600, 60)),
+        header_line("Lidl Plus Nova ponudba", (250, 40, 600, 60)),
     ]
-    assert parse_page_header(lines, (1000, 1000), WEEK) == (
-        date(2026, 9, 28), date(2026, 9, 30))
+    assert parse_page_header(lines, (1000, 1000), WEEK) is None
+
+
+def test_page_header_rejects_teaser_split_by_eleven_pixel_gap():
+    lines = [
+        header_line("Nova ponudba", (250, 10, 750, 28)),
+        header_line("Od ponedeljka, 28. 9.", (250, 39, 750, 60)),
+    ]
+    assert parse_page_header(lines, (1000, 1000), WEEK) is None
+
+
+def test_page_validity_requires_two_blind_readers_to_agree(monkeypatch):
+    ocr_text = "SECRET OCR TEXT"
+    seen = []
+    monkeypatch.setattr(lidl_mod, "read_page_header_validity",
+                        lambda png, window: (date(2026, 9, 28), date(2026, 9, 30)))
+    monkeypatch.setattr(vlm, "ollama_session", lambda *a, **k: FakeSession()())
+
+    def header_vlm(png, **kwargs):
+        seen.append((png, kwargs))
+        assert ocr_text not in repr((png, kwargs))
+        return (28, 9), (30, 9)
+
+    monkeypatch.setattr(vlm, "read_header_validity", header_vlm)
+    stats = {}
+    assert lidl_mod.read_page_validities({7: b"page pixels"}, WEEK, workers=1,
+                                         stats=stats) == {7: (
+        date(2026, 9, 28), date(2026, 9, 30))}
+    assert stats == {7: "agreed"}
+    assert seen == [(b"page pixels", {"model": vlm.DEFAULT_MODEL, "url": None})]
+
+
+@pytest.mark.parametrize("vlm_read, reason", [
+    (((29, 9), (30, 9)), "disagreement"),
+    (None, "vlm-none"),
+])
+def test_page_validity_rejects_vlm_disagreement_or_none(monkeypatch, vlm_read, reason):
+    monkeypatch.setattr(lidl_mod, "read_page_header_validity",
+                        lambda png, window: (date(2026, 9, 28), date(2026, 9, 30)))
+    monkeypatch.setattr(vlm, "ollama_session", lambda *a, **k: FakeSession()())
+    monkeypatch.setattr(vlm, "read_header_validity", lambda *a, **k: vlm_read)
+    stats = {}
+    assert lidl_mod.read_page_validities({7: b"png"}, WEEK, workers=1, stats=stats) == {}
+    assert stats[7].startswith(reason)
+
+
+def test_page_validity_rejects_vlm_error_and_records_it(monkeypatch):
+    monkeypatch.setattr(lidl_mod, "read_page_header_validity",
+                        lambda png, window: (date(2026, 9, 28), date(2026, 9, 30)))
+    monkeypatch.setattr(vlm, "ollama_session", lambda *a, **k: FakeSession()())
+
+    def fail(*args, **kwargs):
+        raise vlm.VlmUnavailable("bad header read")
+
+    monkeypatch.setattr(vlm, "read_header_validity", fail)
+    stats = {}
+    assert lidl_mod.read_page_validities({7: b"png"}, WEEK, workers=1, stats=stats) == {}
+    assert stats == {7: "vlm-error: bad header read"}
+
+
+def test_page_validity_runs_blind_vlm_even_when_ocr_is_missing(monkeypatch):
+    calls = []
+    monkeypatch.setattr(lidl_mod, "read_page_header_validity", lambda *a: None)
+    monkeypatch.setattr(vlm, "ollama_session", lambda *a, **k: FakeSession()())
+    monkeypatch.setattr(vlm, "read_header_validity",
+                        lambda png, **kw: calls.append(png) or None)
+    stats = {}
+    assert lidl_mod.read_page_validities({7: b"png"}, WEEK, workers=1, stats=stats) == {}
+    assert calls == [b"png"]
+    assert stats == {7: "ocr-missing-or-ambiguous; vlm-none"}
 
 
 def cand(erp, title, price, old=None, pct=None, *, brand=None, lp=False):
@@ -208,12 +276,16 @@ def test_adapter_uses_production_header_path_and_line_geometry(world, monkeypatc
     # substitute only the external OCR engine's line-level result.
     monkeypatch.setattr(lidl_mod, "read_page_validities", REAL_READ_PAGE_VALIDITIES)
     monkeypatch.setattr(ocr, "read_text_tesseract", ocr_lines)
+    monkeypatch.setattr(vlm, "read_header_validity", lambda png, **kw:
+                        ((24, 9), (30, 9)) if png == world["pngs"][1]
+                        else ((28, 9), None))
 
     lidl = Lidl(ocr_workers=1)
     res = lidl.fetch(TODAY)
     assert res.status is SourceStatus.OK, res.error
     assert lidl.last_stats["page_validity"] == {
         1: "2026-09-24..2026-09-30", 2: "2026-09-28..2026-09-30"}
+    assert lidl.last_stats["page_validity_reasons"] == {1: "agreed", 2: "agreed"}
     assert seen == [(80, 1000, 3), (80, 1000, 3)]
 
 

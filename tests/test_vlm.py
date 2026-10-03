@@ -129,6 +129,45 @@ def test_unreadable_image_raises(tmp_path):
         read(FakeOllama(), tmp_path, img=b"not a png")
 
 
+def test_header_reader_crops_lane_uses_blind_prompt_and_full_page_cache_key(tmp_path):
+    body = {"response": '{"from":"28. 9.","to":"30. 9."}', "done_reason": "stop"}
+    fake = FakeOllama(body=body)
+    image = png()
+    assert vlm.read_header_validity(image, cache_dir=tmp_path,
+                                    client=fake.client()) == ((28, 9), (30, 9))
+    assert vlm.read_header_validity(image, cache_dir=tmp_path,
+                                    client=fake.client()) == ((28, 9), (30, 9))
+    [call] = fake.calls
+    assert call["prompt"] == vlm.HEADER_PROMPT
+    assert call["format"] == vlm.HEADER_JSON_SCHEMA
+    assert "OCR" not in call["prompt"]
+    import base64
+    sent = Image.open(io.BytesIO(base64.b64decode(call["images"][0])))
+    assert sent.width == vlm.MAX_WIDTH and sent.height < 200
+    [cache] = tmp_path.glob("*.json")
+    assert cache.name.startswith(vlm.header_cache_key(image, vlm.DEFAULT_MODEL))
+
+
+@pytest.mark.parametrize("response, expected", [
+    ('{"none":true}', None),
+    ('{"from":"1. 1.","to":null}', ((1, 1), None)),
+])
+def test_header_reader_none_and_open_end(tmp_path, response, expected):
+    fake = FakeOllama(body={"response": response, "done_reason": "stop"})
+    assert vlm.read_header_validity(png(), cache_dir=tmp_path,
+                                    client=fake.client()) == expected
+
+
+@pytest.mark.parametrize("response", [
+    '{}', '{"none":false}', '{"from":"32. 9.","to":null}',
+    '{"from":"28. 9.","to":"tomorrow"}',
+])
+def test_header_reader_rejects_malformed_values(tmp_path, response):
+    fake = FakeOllama(body={"response": response, "done_reason": "stop"})
+    with pytest.raises(vlm.VlmUnavailable):
+        vlm.read_header_validity(png(), cache_dir=tmp_path, client=fake.client())
+
+
 @pytest.mark.parametrize("raw,want", [
     (2.99, D("2.99")), ("2.99", D("2.99")), (5, D("5.00")), (2.989, None), (0, None),
     (-1.5, None), (None, None), (True, None), (99999, None),
@@ -147,3 +186,11 @@ def test_prompt_changes_require_a_version_bump():
     fp = hashlib.sha256((vlm.PROMPT + json.dumps(vlm.JSON_SCHEMA, sort_keys=True)
                          + str(vlm.MAX_WIDTH)).encode()).hexdigest()[:16]
     assert (vlm.PROMPT_VERSION, fp) == ("v3", "377eba99023396d6")
+
+
+def test_header_prompt_changes_require_a_version_bump():
+    import hashlib
+    fp = hashlib.sha256((vlm.HEADER_PROMPT
+                         + json.dumps(vlm.HEADER_JSON_SCHEMA, sort_keys=True)
+                         + str(vlm.HEADER_BAND) + str(vlm.MAX_WIDTH)).encode()).hexdigest()[:16]
+    assert (vlm.HEADER_PROMPT_VERSION, fp) == ("header-v1", "22dfd44d09763abe")

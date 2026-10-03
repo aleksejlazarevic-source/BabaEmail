@@ -68,7 +68,9 @@ AUTOSTART = os.environ.get("BABAEMAIL_OLLAMA_AUTOSTART", "1") != "0"
 # explicit unit-price/neighbour warnings, tile-level validity text.
 # v3 = v2 + Lidl Plus scoped to the tile, range-wide LP promotions are not tiles.
 PROMPT_VERSION = "v3"
+HEADER_PROMPT_VERSION = "header-v1"
 MAX_WIDTH = 1100          # the prototype's validated input size; larger was not tested
+HEADER_BAND = 0.08
 NUM_CTX = 8192            # a 1100x1866 page is ~2.6k image tokens; 4096 is too tight
 TIMEOUT_S = 1200.0        # CPU-only 7b: ~2 min/page typical, allow a slow machine
 CACHE_DIR = Path(os.environ.get("BABAEMAIL_VLM_CACHE",
@@ -120,6 +122,25 @@ JSON_SCHEMA = {
         }
     },
     "required": ["items"],
+}
+
+HEADER_PROMPT = """You are shown ONLY the narrow top header lane of one page of a
+Slovenian Lidl leaflet. Read the validity dates printed as the PAGE HEADER.
+Ignore dates in coupons, Lidl Plus boxes, product tiles, and teaser text such as
+\"Nova ponudba\". If there is no single unambiguous page-header validity, output
+{\"none\": true}. Otherwise output the printed day and month only, exactly as
+{\"from\": \"D. M.\", \"to\": \"D. M.\"} or use null for \"to\" when the
+header prints no end date. Do not infer a date that is not visible.
+"""
+
+HEADER_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "from": {"type": "string"},
+        "to": {"type": ["string", "null"]},
+        "none": {"type": "boolean"},
+    },
+    "additionalProperties": False,
 }
 
 # Fields the model is asked for but must never be trusted. Removed from raw.
@@ -204,6 +225,35 @@ def parse_response(text: str, page: int | None) -> list[VlmReading]:
     return out
 
 
+_DAY_MONTH = re.compile(r"^\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*$")
+
+
+def parse_header_response(text: str) -> tuple[tuple[int, int], tuple[int, int] | None] | None:
+    """Parse the deliberately tiny header response without resolving its year."""
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise VlmUnavailable(f"header model returned non-JSON: {str(text)[:200]!r}") from exc
+    if not isinstance(data, dict):
+        raise VlmUnavailable(f"header model JSON is not an object: {str(text)[:200]!r}")
+    if data == {"none": True}:
+        return None
+    if set(data) != {"from", "to"} or not isinstance(data["from"], str):
+        raise VlmUnavailable(f"header model JSON has an invalid shape: {data!r}")
+
+    def day_month(value: object) -> tuple[int, int] | None:
+        if not isinstance(value, str) or (match := _DAY_MONTH.fullmatch(value)) is None:
+            return None
+        day, month = int(match.group(1)), int(match.group(2))
+        return (day, month) if 1 <= day <= 31 and 1 <= month <= 12 else None
+
+    start = day_month(data["from"])
+    end = None if data["to"] is None else day_month(data["to"])
+    if start is None or (data["to"] is not None and end is None):
+        raise VlmUnavailable(f"header model returned invalid day/month values: {data!r}")
+    return start, end
+
+
 # ----------------------------------------------------------------------
 # Image + cache
 # ----------------------------------------------------------------------
@@ -233,20 +283,28 @@ def cache_key(png_bytes: bytes, model: str) -> str:
     return f"{h}-{m}-{PROMPT_VERSION}"
 
 
-def _cache_load(path: Path) -> str | None:
+def header_cache_key(png_bytes: bytes, model: str) -> str:
+    """Bind header evidence to the complete source page, model, and prompt."""
+    h = hashlib.sha256(png_bytes).hexdigest()
+    m = re.sub(r"[^A-Za-z0-9_.-]", "_", model)
+    return f"{h}-{m}-{HEADER_PROMPT_VERSION}"
+
+
+def _cache_load(path: Path, prompt_version: str = PROMPT_VERSION) -> str | None:
     try:
         d = json.loads(path.read_text("utf-8"))
     except (OSError, ValueError):
         return None
-    if d.get("prompt_version") != PROMPT_VERSION or not isinstance(d.get("response"), str):
+    if d.get("prompt_version") != prompt_version or not isinstance(d.get("response"), str):
         return None
     return d["response"]
 
 
-def _cache_store(path: Path, model: str, response: str, meta: dict) -> None:
+def _cache_store(path: Path, model: str, response: str, meta: dict,
+                 prompt_version: str = PROMPT_VERSION) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"model": model, "prompt_version": PROMPT_VERSION,
+    tmp.write_text(json.dumps({"model": model, "prompt_version": prompt_version,
                                "response": response, **meta}, ensure_ascii=False, indent=1),
                    "utf-8")
     tmp.replace(path)          # atomic: a crash never leaves a half-written cache entry
@@ -257,14 +315,15 @@ def _cache_store(path: Path, model: str, response: str, meta: dict) -> None:
 # ----------------------------------------------------------------------
 
 def _call_ollama(image_png: bytes, model: str, client: httpx.Client | None,
-                 url: str | None = None) -> tuple[str, dict]:
+                 url: str | None = None, *, prompt: str = PROMPT,
+                 schema: dict = JSON_SCHEMA) -> tuple[str, dict]:
     url = (url or OLLAMA_URL).rstrip("/")
     payload = {
         "model": model,
-        "prompt": PROMPT,
+        "prompt": prompt,
         "images": [base64.b64encode(image_png).decode("ascii")],
         "stream": False,
-        "format": JSON_SCHEMA,
+        "format": schema,
         "options": {"temperature": 0, "num_ctx": NUM_CTX},
     }
     own = client is None
@@ -320,6 +379,48 @@ def read_page(png_bytes: bytes, *, model: str = DEFAULT_MODEL, page: int | None 
     if not readings and not allow_empty:
         raise VlmUnavailable(f"model found no price tiles on page {page}")
     return readings
+
+
+def prepare_header_image(png_bytes: bytes, band: float = HEADER_BAND) -> bytes:
+    """Crop the header lane before the model sees the page."""
+    from PIL import Image
+
+    try:
+        im = Image.open(io.BytesIO(png_bytes))
+        im.load()
+    except Exception as exc:
+        raise VlmUnavailable(f"not a readable image: {exc}") from exc
+    if im.mode not in ("RGB", "L"):
+        im = im.convert("RGB")
+    im = im.crop((0, 0, im.width, max(1, round(im.height * band))))
+    return prepare_image(_image_png(im))
+
+
+def _image_png(im) -> bytes:
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def read_header_validity(
+    png_bytes: bytes, *, model: str = DEFAULT_MODEL, cache_dir: Path | None = CACHE_DIR,
+    client: httpx.Client | None = None, url: str | None = None,
+) -> tuple[tuple[int, int], tuple[int, int] | None] | None:
+    """Blind VLM read of a page-header lane, cached by the full page SHA256."""
+    if not png_bytes:
+        raise VlmUnavailable("empty image")
+    path = cache_dir / f"{header_cache_key(png_bytes, model)}.json" if cache_dir else None
+    response = _cache_load(path, HEADER_PROMPT_VERSION) if path else None
+    if response is None:
+        response, meta = _call_ollama(
+            prepare_header_image(png_bytes), model, client, url,
+            prompt=HEADER_PROMPT, schema=HEADER_JSON_SCHEMA)
+        reading = parse_header_response(response)
+        if path:
+            _cache_store(path, model, response, meta, HEADER_PROMPT_VERSION)
+    else:
+        reading = parse_header_response(response)
+    return reading
 
 
 # ----------------------------------------------------------------------

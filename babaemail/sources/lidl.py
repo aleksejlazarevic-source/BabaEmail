@@ -113,27 +113,12 @@ def parse_page_header(
         if not duplicate:
             lane.append(line)
 
-    # Tesseract can emit a short hallucinated child line inside the bounding
-    # box of a correctly read header (kw39 p63 does this). It is an overlapping
-    # read of the same pixels, not a vertically adjacent ownership line.
-    lane = [line for line in lane if not (
-        not _DATE_LIKE.search(line.text)
-        and any(
-            _HEADER.fullmatch(other.text)
-            and (min(line.bbox[2], other.bbox[2]) - max(line.bbox[0], other.bbox[0])
-                 >= (line.bbox[2] - line.bbox[0]) * 0.8)
-            and (min(line.bbox[3], other.bbox[3]) - max(line.bbox[1], other.bbox[1])
-                 >= line.height * 0.8)
-            for other in lane if other is not line
-        )
-    )]
-
     regions: list[list[OcrBox]] = []
     for line in sorted(lane, key=lambda box: (box.bbox[1], box.bbox[0])):
         if regions:
             bottom = max(box.bbox[3] for box in regions[-1])
             tallest = max(line.height, *(box.height for box in regions[-1]))
-            if line.bbox[1] - bottom <= tallest * 0.5:
+            if line.bbox[1] - bottom <= max(tallest * 0.5, height * 0.012):
                 regions[-1].append(line)
                 continue
         regions.append([line])
@@ -240,17 +225,58 @@ def read_page_header_validity(
 
 def read_page_validities(
     pngs: dict[int, bytes], window: tuple[date, date | None], workers: int = OCR_WORKERS,
+    *, model: str = vlm.DEFAULT_MODEL, url: str | None = None,
+    stats: dict[int, str] | None = None,
 ) -> dict[int, tuple[date, date | None]]:
-    """Read unambiguous page-header windows in parallel from rendered pages."""
-    def one(item):
+    """Return only page-header windows independently agreed by OCR and VLM."""
+    outcomes = stats if stats is not None else {}
+
+    def ocr_one(item):
         page, png = item
         if window[1] is None:
             return page, None
         return page, read_page_header_validity(png, (window[0], window[1]))
 
     with ThreadPoolExecutor(max_workers=min(workers, len(pngs))) as ex:
-        read = dict(ex.map(one, pngs.items()))
-    return {page: validity for page, validity in read.items() if validity is not None}
+        ocr_read = dict(ex.map(ocr_one, pngs.items()))
+
+    agreed: dict[int, tuple[date, date | None]] = {}
+    try:
+        session = vlm.ollama_session(model, url)
+        with session:
+            for page in sorted(pngs):
+                ocr_window = ocr_read[page]
+                try:
+                    raw = vlm.read_header_validity(pngs[page], model=model, url=url)
+                except vlm.VlmUnavailable as exc:
+                    outcomes[page] = f"vlm-error: {exc}"
+                    continue
+                if ocr_window is None:
+                    outcomes[page] = ("ocr-missing-or-ambiguous; vlm-none" if raw is None
+                                      else "ocr-missing-or-ambiguous")
+                    continue
+                if raw is None:
+                    outcomes[page] = "vlm-none"
+                    continue
+                start = _unique_date_in_window(raw[0][0], raw[0][1],
+                                               (window[0], window[1]))
+                end = window[1]
+                if raw[1] is not None:
+                    end = _unique_date_in_window(raw[1][0], raw[1][1],
+                                                 (window[0], window[1]))
+                vlm_window = None if start is None or end is None or end < start else (start, end)
+                if vlm_window is None:
+                    outcomes[page] = "vlm-outside-window"
+                elif vlm_window != ocr_window:
+                    outcomes[page] = f"disagreement: ocr={ocr_window}, vlm={vlm_window}"
+                else:
+                    outcomes[page] = "agreed"
+                    agreed[page] = ocr_window
+    except vlm.VlmUnavailable as exc:
+        for page in pngs:
+            if page not in outcomes:
+                outcomes[page] = f"vlm-error: {exc}"
+    return agreed
 
 
 class Lidl(Source):
@@ -341,17 +367,22 @@ class Lidl(Source):
             return res.fail(SourceStatus.PARSE_FAILED, f"ocr returned nothing for pages {missing}")
 
         # Page headers are a separate, narrow OCR read. They are optional
-        # evidence: an unread/ambiguous header merely leaves R8 conservative.
+        # evidence: OCR and a blind VLM crop must agree exactly. An unread,
+        # ambiguous, or failed side merely leaves R8 conservative.
         t0 = time.monotonic()
+        page_validity_reasons: dict[int, str] = {}
         try:
-            page_validity = read_page_validities(
-                pngs, (meta["valid_from"], meta["valid_to"]), self.ocr_workers)
+            page_validity = (read_page_validities(
+                pngs, (meta["valid_from"], meta["valid_to"]), self.ocr_workers,
+                model=self.vlm_model, url=self.ollama_url, stats=page_validity_reasons)
+                if self.use_vlm else {})
         except (OcrUnavailable, OSError, subprocess.SubprocessError) as exc:
             page_validity = {}
             stats["page_validity_error"] = repr(exc)
             log.warning("page headers not read: %r", exc)
         stats["page_validity_s"] = round(time.monotonic() - t0, 1)
         stats["page_validity"] = {p: f"{v[0]}..{v[1]}" for p, v in page_validity.items()}
+        stats["page_validity_reasons"] = page_validity_reasons
 
         # 3b. notices (Senior dan, ...): plain page text. Optional: a failure
         # here costs the notices, never the deals, and is recorded in stats.
