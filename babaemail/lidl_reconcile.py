@@ -68,9 +68,12 @@ R0d Targeted crop rereads (``lidl_crops``). A cached crop must belong to the
     one unique matching VLM product name. If one OCR price has multiple VLM
     variant names with identical brand/LP/date/pack, add the crop's proven
     common label and retain the originals as unbacked readings (R0c), never
-    arbitrarily pick a variant. Existing LP votes/dates stay intact.
+    arbitrarily pick a variant. Existing dates stay intact.
     Crop old/% may supplement OCR only when OCR and crop VLM agree AND R1
     reconciles a plain percentage badge; a VLM value alone is never used.
+    Conflicting full-page Lidl Plus votes may be settled only when crop OCR and
+    crop VLM independently agree on the badge; an uncertain/disagreeing crop
+    leaves the tile held.
 
 R1  OCR old price / % count only when they RECONCILE: old > new, and the
     printed % is Lidl's truncated badge, so the implied reduction

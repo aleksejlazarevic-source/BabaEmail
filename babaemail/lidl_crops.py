@@ -212,11 +212,17 @@ def _crop_box(reading, width: int, height: int):
     # outside such a panel is often nearby campaign furniture (kw39 p42), not
     # the product; including it can pull another price into the crop.
     flag_panel = raw.get('badge') == 'flag'
+    owned = set(raw.get('text_lines') or detail.get('text_lines') or ())
+    # A multi-buy's per-piece line is part of the price semantics and is often
+    # printed just above the coloured flag panel.  Include all tile-owned text
+    # when that line is present; ``read_crop`` still rejects a box containing
+    # more than one price structure.
+    multi_buy_panel = flag_panel and any(
+        re.search(r'cena\s+za\s*1\s+kos', fold(line)) for line in owned)
     name = None if flag_panel else (raw.get('name_bbox') or detail.get('name_bbox'))
     if name and len(name) == 4:
         boxes.append(tuple(name))
-    elif not flag_panel:
-        owned = set(raw.get('text_lines') or detail.get('text_lines') or ())
+    elif not flag_panel or multi_buy_panel:
         boxes.extend(tuple(line['bbox']) for line in
                      (raw.get('region_lines') or detail.get('region_lines') or ())
                      if line.get('text') in owned and len(line.get('bbox', ())) == 4)
@@ -228,7 +234,7 @@ def _crop_box(reading, width: int, height: int):
     # the large price. Give the reread enough of that label to transcribe it.
     # ``read_crop`` still rejects the box if this expansion catches a second
     # price, so the wider search cannot merge two offers.
-    if not flag_panel:
+    if not flag_panel and not reading.name:
         x0 = min(x0, price[0] - 4 * ph)
         y0 = min(y0, price[1] - 2 * ph)
     pad = max(24, round(ph * .18))
@@ -260,9 +266,11 @@ def select_crop_boxes(pngs, readings, preliminary, evidence=(), limit=40):
                 and reasons[0].startswith('quarantine:leaflet-only-unverified:')):
             why = _unverified_why(rec.tile)
             name_only = any(s.startswith('name has one reader') for s in why)
+            multi_buy = any(s.startswith('multi-buy missing two-reader') for s in why)
+            lp_disputed = why == ['Lidl Plus not agreed']
             lone_ocr = (rec.tile.sources == ('ocr',)
                         and ocr_price_counts.get((rec.tile.page, rec.tile.new_price)) == 1)
-            if name_only or lone_ocr:
+            if name_only or multi_buy or lp_disputed or lone_ocr:
                 held_ids.update(id(r) for r in rec.tile.readings)
 
     # Only evidence that refinement actually accepted is settled. A readable
@@ -291,7 +299,9 @@ def select_crop_boxes(pngs, readings, preliminary, evidence=(), limit=40):
         if len(price_box) != 4 or (r.page, price_box) in proven_geometry:
             continue
         peers = [v for v in vlm_by_key.get((r.page, r.new_price), ())
-                 if isinstance(r.lidl_plus, bool) and v.lidl_plus == r.lidl_plus]
+                 if ((not r.name or _share_product_word(r.name, v.name))
+                     and (v.lidl_plus == r.lidl_plus
+                          or {v.lidl_plus, r.lidl_plus} == {False, True}))]
         if not peers:
             continue
         if r.page not in sizes:
@@ -363,10 +373,16 @@ def _proof(data):
         'ocr', data['page'], price, name=tile.get('name'),
         text=tuple((tile.get('raw') or {}).get('text_lines') or ()), raw=tile,
     )
+    crop_lp = tile.get('lidl_plus')
+    model_lp = model.get('lidl_plus')
+    if isinstance(model_lp, bool) and model_lp != crop_lp:
+        return None
+    lp_proven = (crop_lp if isinstance(crop_lp, bool) and model_lp == crop_lp
+                 else None)
     return dict(name=name, price=price, price_bbox=(a+x0, b+y0, c+x0, d+y0),
                 old_pct=(old, pct) if old_proven else None, from_price=from_price,
                 multi_buy=multi_buy,
-                lidl_plus=model.get('lidl_plus'),
+                lidl_plus=lp_proven,
                 crop_ocr_name=_ocr_text_proves_name(crop_ocr, name))
 
 
@@ -418,7 +434,8 @@ def refine_readings(readings, evidence):
     The crop name must agree with a full-page VLM, tile-owned OCR text, or an
     identical second crop. A crop VLM may supply the second price reader for
     one uniquely located OCR-only tile, but never for an ambiguous collision.
-    Crops cannot overrule existing Lidl Plus votes, dates, or API flags.
+    A crop can settle conflicting full-page Lidl Plus votes only when its OCR
+    badge detector and VLM independently agree. Dates and API flags stay intact.
     """
     out = list(readings)
     # Disagreeing crop rereads are not settled by file order. Keep the tile
@@ -440,6 +457,10 @@ def refine_readings(readings, evidence):
         data, proof = min(group, key=lambda item:
                           ((item[0]['crop_box'][2] - item[0]['crop_box'][0])
                            * (item[0]['crop_box'][3] - item[0]['crop_box'][1])))
+        crop_lps = [p['lidl_plus'] for _, p in group]
+        lp_consensus = (crop_lps[0] if crop_lps
+                        and all(isinstance(v, bool) and v == crop_lps[0]
+                                for v in crop_lps) else None)
         page, price = data['page'], proof['price']
         oi = [i for i, r in enumerate(out) if r.source == 'ocr' and r.page == page
               and r.new_price == price and isinstance(r.raw, dict)
@@ -499,9 +520,7 @@ def refine_readings(readings, evidence):
         if a.bbox is None or not (x0 <= a.bbox[0] and y0 <= a.bbox[1]
                                    and x1 >= a.bbox[2] and y1 >= a.bbox[3]):
             continue
-        lp = proof['lidl_plus']
-        if isinstance(lp, bool) and any(r.lidl_plus is not None and r.lidl_plus != lp for r in (a, b)):
-            continue
+        lp = lp_consensus
         raw = dict(a.raw)
         if proof['from_price'] and raw.get('badge') is None:
             # Both crop readers recovered a lower-bound qualifier that the
@@ -511,7 +530,7 @@ def refine_readings(readings, evidence):
         raw['crop_confirmation'] = dict(page_sha256=data['page_sha256'],
                                          crop_sha256=data['crop_sha256'],
                                          name=canonical_name, from_price=proof['from_price'],
-                                         multi_buy=proof['multi_buy'])
+                                         multi_buy=proof['multi_buy'], lidl_plus=lp)
         old, pct = a.old_price, a.pct
         if proof['old_pct'] is not None and a.raw.get('badge') == 'discount':
             co, cp = proof['old_pct']
@@ -519,7 +538,10 @@ def refine_readings(readings, evidence):
             # to choose whichever crop reconciles.
             if (old is None or old == co) and (pct is None or pct == cp):
                 old, pct = co, cp
-        out[oi[0]] = replace(a, name=canonical_name, old_price=old, pct=pct, raw=raw)
-        out[vi[0]] = replace(b, name=canonical_name)
+        out[oi[0]] = replace(a, name=canonical_name, old_price=old, pct=pct,
+                             lidl_plus=lp if isinstance(lp, bool) else a.lidl_plus,
+                             raw=raw)
+        out[vi[0]] = replace(b, name=canonical_name,
+                             lidl_plus=lp if isinstance(lp, bool) else b.lidl_plus)
         used.update(oi + vi)
     return out

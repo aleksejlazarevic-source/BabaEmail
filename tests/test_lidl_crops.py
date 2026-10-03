@@ -8,7 +8,7 @@ from decimal import Decimal as D
 
 import pytest
 
-from babaemail.lidl_crops import (_proof, load_crops, refine_readings, save_crop,
+from babaemail.lidl_crops import (_crop_box, _proof, load_crops, refine_readings, save_crop,
                                   select_crop_boxes)
 from babaemail.lidl_reconcile import LeafletReading, reconcile
 from babaemail.models import Deal
@@ -28,7 +28,7 @@ def evidence(*, name=NAME, price='2.89', badge=None, old=None, pct=None):
     return dict(version=1, page=4, page_sha256=hashlib.sha256(b'page').hexdigest(),
                 crop_sha256='crop', crop_box=[10, 20, 210, 220],
                 ocr_tiles=[dict(price=price, price_bbox=[40, 50, 100, 100],
-                                badge=badge, old_price=old, pct=pct)],
+                                badge=badge, old_price=old, pct=pct, lidl_plus=False)],
                 ocr_texts=[name + (' že od' if badge == 'flag' else '')],
                 vlm=dict(response=json.dumps(dict(name=name, new_price=price,
                     old_price=old, discount_pct=pct, lidl_plus=False,
@@ -238,6 +238,56 @@ def test_from_price_still_needs_lidl_plus_agreement_and_validity():
     assert not reconcile([], rs, leaflet_id='test', leaflet_window=WEEK).shipped
 
 
+def test_crop_lp_badge_settles_page_reader_disagreement_only_with_two_crop_readers():
+    rs = readings(price='2.29', old='3.29', pct='30')
+    rs[1] = replace(rs[1], lidl_plus=True)
+    data = evidence(price='2.29', badge='discount', old='3.29', pct='30')
+    data['ocr_tiles'][0]['lidl_plus'] = True
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = True
+    data['vlm']['response'] = json.dumps(model)
+
+    refined = refine_readings(rs, [data])
+    assert {r.lidl_plus for r in refined} == {True}
+    assert refined[0].raw['crop_confirmation']['lidl_plus'] is True
+    [deal] = run(refined).shipped
+    assert deal.loyalty_required == 'Lidl Plus'
+
+
+def test_crop_lp_badge_disagreement_cannot_settle_page_readers():
+    rs = readings(price='2.29', old='3.29', pct='30')
+    rs[1] = replace(rs[1], lidl_plus=True)
+    data = evidence(price='2.29', badge='discount', old='3.29', pct='30')
+    data['ocr_tiles'][0]['lidl_plus'] = True
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = False
+    data['vlm']['response'] = json.dumps(model)
+
+    refined = refine_readings(rs, [data])
+    assert {r.lidl_plus for r in refined} == {False, True}
+    assert not run(refined).shipped
+
+
+def test_one_uncertain_crop_keeps_lp_disagreement_held():
+    rs = readings(price='2.29', old='3.29', pct='30')
+    rs[1] = replace(rs[1], lidl_plus=True)
+    proven = evidence(price='2.29', badge='discount', old='3.29', pct='30')
+    proven['ocr_tiles'][0]['lidl_plus'] = True
+    model = json.loads(proven['vlm']['response'])
+    model['lidl_plus'] = True
+    proven['vlm']['response'] = json.dumps(model)
+    uncertain = copy.deepcopy(proven)
+    uncertain['crop_sha256'] = 'another-crop'
+    uncertain['ocr_tiles'][0]['lidl_plus'] = None
+    model = json.loads(uncertain['vlm']['response'])
+    model['lidl_plus'] = None
+    uncertain['vlm']['response'] = json.dumps(model)
+
+    refined = refine_readings(rs, [proven, uncertain])
+    assert {r.lidl_plus for r in refined} == {False, True}
+    assert not run(refined).shipped
+
+
 def test_multibuy_proof_keeps_crop_proven_exact_quantity():
     data = evidence(name='ARGUS Svetlo pivo', price='10.27', badge='flag')
     data['ocr_texts'] = [
@@ -290,3 +340,38 @@ def test_auto_selection_uses_geometry_only_for_crop_settleable_hold(tmp_path):
 
     rs[0].raw.update(flag_text='že od', badge_bbox=[170, 70, 280, 145])
     assert select_crop_boxes({4: buf.getvalue()}, rs, run(rs)) == [(4, (146, 46, 304, 234))]
+
+
+def test_auto_selection_includes_lp_disagreement_and_named_multibuy():
+    from PIL import Image
+    import io
+
+    buf = io.BytesIO()
+    Image.new('RGB', (400, 300), 'white').save(buf, 'PNG')
+
+    lp = readings(price='1.99', badge='discount', old='2.99', pct='33')
+    lp[0] = replace(lp[0], name=NAME)
+    lp[1] = replace(lp[1], lidl_plus=True)
+    assert len(select_crop_boxes({4: buf.getvalue()}, lp, run(lp))) == 1
+
+    mb = readings(price='6.56', badge='flag')
+    mb[0] = replace(mb[0], name=NAME, text=('cena za 1 kos: 1.64',),
+                    raw=dict(price_bbox=[180, 150, 260, 210], badge='flag',
+                             badge_bbox=[170, 70, 280, 145], flag_text='4+2 gratis',
+                             text_lines=['cena za 1 kos: 1.64'],
+                             region_lines=[dict(text='cena za 1 kos: 1.64',
+                                                bbox=[120, 30, 280, 60])]))
+    mb[1] = replace(mb[1], new_price=D('6.56'))
+    boxes = select_crop_boxes({4: buf.getvalue()}, mb, run(mb))
+    assert len(boxes) == 1 and boxes[0][1][1] <= 30
+
+
+def test_multibuy_crop_box_includes_tile_owned_per_piece_line():
+    r = readings(price='6.56', badge='flag')[0]
+    r = replace(r, bbox=(180, 150, 260, 210), text=('cena za 1 kos: 1.64',),
+                raw=dict(price_bbox=[180, 150, 260, 210], badge='flag',
+                         badge_bbox=[170, 70, 280, 145],
+                         text_lines=['cena za 1 kos: 1.64'],
+                         region_lines=[dict(text='cena za 1 kos: 1.64',
+                                            bbox=[120, 30, 280, 60])]))
+    assert _crop_box(r, 400, 300)[1] <= 30
