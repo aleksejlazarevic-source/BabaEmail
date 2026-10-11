@@ -1,5 +1,40 @@
 # STATUS — read this first when picking the project back up
 
+## 2026-10-11 (session A): LP crop proof closed, history rewritten locally, sending prep done
+
+- **Lidl Plus crop proof** (review loop, 6 rounds, last review CLEAN): one fail-closed decision `_crop_lp_holds` in
+  `babaemail/lidl_crops.py` runs over ALL crop rereads before any proof is discarded. Crop evidence may only ADD LP
+  (both crop readers True, proofs usable, logo proven owned by the target tile); every other crop oddity holds.
+  Anchor identity is corroborated (conflicting brand/pack vetoes). Exception fallback holds too. Commits e995722
+  (mailer) <- 46a065f <- ... (hashes changed by the rewrite below). 967+2 tests pass. kw39 grade_full: 268 ok,
+  25 held, 0 wrong/harmful/unmatched/missing (baseline 269/24; the one extra hold is p42 VITASIA 1.99: crop VLM says
+  LP, nothing else does, coupon box in crop). Accepted-as-is: crop OCR False + crop VLM null + no logo = "no claim";
+  OCR "18 kg" matches "1,8 kg" (dropped comma only).
+- **kw40 can no longer be re-run** (Lidl removed the leaflet, original API candidates lost). Only the recorded
+  result remains (30 ok / 0 wrong / 34 held, `out/kw40_fix/`). New leaflets must be graded going forward.
+- **Git history rewritten LOCALLY** (58 commits, author+committer email -> GitHub noreply; contents/messages had no
+  old addresses). NOT PUSHED. Aleks runs: see `~/Work/babaemail-coordination/push_command.txt`
+  (`--force-with-lease` pinned to GitHub main 1ae7d46). Backup mirror (has old emails, never push) was in the session
+  scratchpad `/tmp/...` -- gone after reboot. Repo is PUBLIC (since 14 Sep); GitHub may still show old commits by ID.
+  After a successful push: `git reflog expire --expire=now --all && git gc --prune=now`.
+- **Sending prep**: `mailer.py` loads `~/.config/babaemail/smtp.env` (mode 600, outside the repo, port 587 STARTTLS
+  only). Password line is blank until Aleks pastes the Gmail app password. Missing/blank -> fails loud (exit 2).
+  Grandma's address lives only in that file. Preview: `out/preview_kw40_as_of_2026-10-05/` (real kw40 data, dated
+  inside the window, 48 items); the 2026-10-11 preview is an empty banner email because no current leaflet is cached.
+- Codex: use `gpt-6.1-sol`; the old `codex` on PATH (0.155) rejects it, so `launch.sh`/`worker.py` call
+  `~/.local/share/mise/installs/codex/0.160.1/bin/codex`. Codex hit its usage limit (back 14:25); this session's
+  fix/review work ran on Claude sub-agents instead.
+
+### Session B starts here
+Precondition: Aleks pushed (push_command.txt) and pasted the app password into `smtp.env` himself.
+1. Extract the CURRENT Lidl leaflet live (kw41/kw42; `scripts/run_lidl.py`), grade what can be graded, build the
+   real preview for today, show Aleks.
+2. First real send: `--send` to Aleks only (TO overridden), Aleks checks it on his phone. Claude never sends to Grandma;
+   Aleks runs the Grandma send himself.
+3. Then queued Codex jobs: y5 (partner offers + email wiring), y6 (coverage). Not started.
+4. Open owner questions (asked 11 Oct): product photos, show all deals biggest-savings-first, BCC copy, does Grandma
+   open that Gmail regularly. Schedule/daily send (GitHub Actions or local timer) not built yet.
+
 ## 2026-10-03: email layer merged; kw40 fair test; Lidl-only for now
 
 - **Email layer exists** (merged from branch `email`): `preferences.yaml`, `babaemail/{categorize,verify,select,
