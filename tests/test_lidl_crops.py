@@ -431,6 +431,87 @@ def test_synthetic_vlm_lp_uncertainty_never_copies_page_ocr_vote():
     refined = refine_readings(rs, [data])
     assert [r.lidl_plus for r in refined] == [False, None]
     assert not run(refined).shipped
+    result = reconcile([candidate(lp=False)], refined, leaflet_id='test',
+                       leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    [record] = result.records
+    assert record.rule == 'verified' and record.candidate is not None
+    assert any('crop-lidl-plus-unresolved' in f for f in record.deal.flags)
+
+
+def test_real_logo_detector_leftover_neighbour_price_cannot_prove_coverage():
+    import cv2
+    import numpy as np
+    from types import SimpleNamespace
+    from babaemail.lidl_crops import _crop_lp_owned
+    from babaemail.lidl_reconcile import build_tiles
+    from babaemail.sources.lidl import Tile, _find_lp_logo
+
+    blue = np.zeros((200, 200), dtype=np.uint8)
+    yellow = blue.copy()
+    cv2.rectangle(blue, (110, 10), (154, 54), 1, -1)
+    cv2.circle(yellow, (132, 32), 13, 1, -1)
+    blue[yellow == 1] = 0
+    ps = SimpleNamespace(bbox=(40, 50, 100, 100), height=50)
+    tile = Tile(4, 'Y', ps.bbox, ps.bbox)
+    _find_lp_logo(tile, {'Y': yellow}, blue, ps)
+    assert tile.lp_logo and not tile.raw.get('logo_truncated')
+    data = lp_evidence()
+    data['ocr_tiles'][0]['raw'] = tile.raw
+    data['ocr_tiles'][0]['badge_bbox'] = None
+
+    # OCR missed the coffee's 4.99 anchor beside the target; the page VLM
+    # missed distant detergent at the same price. Price fallback pairs them.
+    coffee = LeafletReading('vlm', 4, D('4.99'), name='OTHER Sosednja kava',
+                            lidl_plus=True)
+    detergent = LeafletReading('ocr', 4, D('4.99'), name='CLEAN Pralni detergent',
+                               lidl_plus=False,
+                               raw={'price_bbox': [700, 70, 760, 120]})
+    rs = [*readings(), coffee, detergent]
+    paired = next(t for t in build_tiles(rs) if t.new_price == D('4.99'))
+    assert paired.sources == ('ocr', 'vlm') and not paired.ocr_name_paired
+
+    # With the coffee's actual anchor present, geometry rejects its logo.
+    coffee_ocr = replace(detergent, name=coffee.name, lidl_plus=True,
+                         raw={'price_bbox': [170, 70, 230, 120]})
+    assert not _crop_lp_owned(_proof(data), [*rs, coffee_ocr], data['crop_box'])
+    # Missing geometry cannot turn that neighbour's logo into target proof.
+    result = run(refine_readings(rs, [data]))
+    target = next(d for d in result.deals if d.price_new == D('2.89'))
+    assert target.is_quarantined
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+
+
+def test_unnamed_neighbour_requires_guarded_unique_brand_and_pack():
+    from babaemail.lidl_crops import _crop_lp_owned
+
+    texts = ('OTHER', '500 g / 1 kg = 9.98')
+    anchor = LeafletReading('ocr', 4, D('4.99'), lidl_plus=False, text=texts,
+                            raw={'price_bbox': [700, 70, 760, 120],
+                                 'raw': {'text_lines': list(texts)}})
+    model = LeafletReading('vlm', 4, D('4.99'), name='OTHER Sosednja kava',
+                           lidl_plus=False, unit='500 g')
+    data = lp_evidence()
+    proof = _proof(data)
+    assert _crop_lp_owned(proof, [*readings(), anchor, model], data['crop_box'])
+
+    for bad_anchor, bad_model in [
+        (anchor, replace(model, unit=None)),
+        (anchor, replace(model, unit='600 g')),
+        (anchor, replace(model, name='CLEAN Pralni detergent')),
+        (replace(anchor, name='OTHER Pralni detergent'), model),
+        (replace(anchor, text=()), model),  # no matching tile-owned audit text
+        (replace(anchor, raw={**anchor.raw, 'raw': {'region_lines': list(texts)}}), model),
+    ]:
+        assert not _crop_lp_owned(proof, [*readings(), bad_anchor, bad_model],
+                                  data['crop_box'])
+    # Another product with the same brand and pack cannot share the anchor.
+    duplicate = replace(model, name='OTHER Instant kava')
+    assert not _crop_lp_owned(proof, [*readings(), anchor, model, duplicate],
+                              data['crop_box'])
+    second_anchor = replace(anchor, raw={**anchor.raw, 'price_bbox': [800, 70, 860, 120]})
+    assert not _crop_lp_owned(proof, [*readings(), anchor, second_anchor, model],
+                              data['crop_box'])
 
 
 @pytest.mark.parametrize('price', ['4.99', '2.89'])

@@ -23,7 +23,8 @@ import httpx
 from . import vlm
 from .lidl_reconcile import (LeafletReading, _ocr_text_proves_name,
                              _share_product_word, _stems, _unverified_why,
-                             build_tiles, fold, ocr_reconciled, split_leaflet_name)
+                             build_tiles, fold, ocr_reconciled, pack_size,
+                             split_leaflet_name)
 
 CACHE_DIR = Path(__file__).resolve().parents[1] / '.cache' / 'lidl-crops'
 VERSION = 1
@@ -460,6 +461,47 @@ def _box_owned(box, target, anchors):
                for x in xs for y in ys for i, a in enumerate(anchors) if i != target)
 
 
+def _anchor_brand_pack_owned(ocr, model, page_readings):
+    """An unnamed anchor needs exact, unique brand AND printed pack evidence.
+
+    This is the same pack-size corroboration used for brand API matches, but
+    from the two leaflet readers. Never override a conflicting OCR name or
+    use regional/borrowed text. Price alone and brand alone prove nothing.
+    """
+    if ocr.name:
+        return False
+
+    def metadata(r):
+        detail = r.raw.get('raw') if isinstance(r.raw, dict) else None
+        lines = detail.get('text_lines') if isinstance(detail, dict) else None
+        if (not isinstance(lines, (list, tuple))
+                or not all(isinstance(line, str) for line in lines)
+                or tuple(lines) != r.text):
+            return (), None
+        brands = [words(line) for line in lines if line.isupper()
+                  and all(word.isalpha() for word in line.split())]
+        packs = {pack_size(line) for line in lines} - {None}
+        return brands, next(iter(packs)) if len(packs) == 1 else None
+
+    brands, pack = metadata(ocr)
+    if pack is None or pack != pack_size(model.unit):
+        return False
+    for brand in brands:
+        if not brand or words(model.name)[:len(brand)] != brand:
+            continue
+        # Both readers must independently locate exactly one offer with this
+        # signature. Same-brand, same-size collisions remain unlocated.
+        models = [r for r in page_readings if r.source == 'vlm'
+                  and r.new_price == model.new_price and pack_size(r.unit) == pack
+                  and words(r.name)[:len(brand)] == brand]
+        anchors = [r for r in page_readings if r.source == 'ocr'
+                   and r.new_price == model.new_price
+                   and metadata(r)[1] == pack and brand in metadata(r)[0]]
+        if len(models) == len(anchors) == 1:
+            return True
+    return False
+
+
 def _crop_lp_owned(proof, page_readings, crop_box):
     """Bind crop-local logo geometry to ALL page prices, including off-crop.
 
@@ -480,20 +522,25 @@ def _crop_lp_owned(proof, page_readings, crop_box):
     # A page-VLM offer without a paired OCR price has no geometric location.
     # Its logo could be anywhere, including in this crop. Require coverage of
     # every VLM tile before the nearest-anchor partition can prove ownership.
+    # A price-only leftover pairing supplies no identity evidence: its OCR
+    # anchor may belong to a different product the VLM missed.
     for tile in build_tiles(page_readings):
-        if ('vlm' in tile.sources
-                and not any(r.source == 'ocr' for r in tile.readings)):
-            return False
-        # The last-pair price fallback is useful for reconciliation, but a
-        # VLM neighbour at the target's price cannot acquire its geometry
-        # when the crop independently identifies a different product.
-        if (any(r.source == 'ocr' and isinstance(r.raw, dict)
-                and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox']
-                for r in tile.readings)
-                and any(r.source == 'vlm'
-                        and not _share_product_word(r.name, proof['name'])
-                        for r in tile.readings)):
-            return False
+        for v in (r for r in tile.readings if r.source == 'vlm'):
+            for r in (r for r in tile.readings if r.source == 'ocr'):
+                is_target = (isinstance(r.raw, dict)
+                             and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox'])
+                # The exact target anchor has an independent crop name. Every
+                # other anchor needs its own OCR identity, never crop text.
+                if is_target:
+                    corroborated = _share_product_word(v.name, proof['name'])
+                else:
+                    corroborated = (_share_product_word(r.name, v.name)
+                                    or _ocr_text_proves_name(r, v.name)
+                                    or _anchor_brand_pack_owned(r, v, page_readings))
+                if not corroborated:
+                    return False
+            if not any(r.source == 'ocr' for r in tile.readings):
+                return False
     prices, badges = [], []
     for r in (r for r in page_readings if r.source == 'ocr'):
         raw = r.raw if isinstance(r.raw, dict) else {}
@@ -648,9 +695,12 @@ def refine_readings(readings, evidence):
                 # readers. This is safe only for one exact OCR geometry.
                 # The LP vote must come from crop agreement too: copying
                 # a.lidl_plus would manufacture a second vote from one reader.
+                synthetic_raw = ({'crop_lidl_plus_holds': [
+                    'crop-lidl-plus-unresolved: synthetic reader lacks crop LP consensus']}
+                    if lp_consensus is None else None)
                 template = LeafletReading('vlm', page, price,
                                            lidl_plus=lp_consensus,
-                                           name=proof['name'])
+                                           name=proof['name'], raw=synthetic_raw)
                 out.append(template)
                 vi = [len(out) - 1]
             else:
