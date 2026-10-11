@@ -942,3 +942,126 @@ def test_multibuy_crop_box_includes_tile_owned_per_piece_line():
                          region_lines=[dict(text='cena za 1 kos: 1.64',
                                             bbox=[120, 30, 280, 60])]))
     assert _crop_box(r, 400, 300)[1] <= 30
+
+
+# --- y4fix5: one fail-closed crop-LP decision --------------------------------
+
+def _crop_votes(data, crop_ocr, crop_vlm):
+    tile = data['ocr_tiles'][0]
+    tile['lidl_plus'] = crop_ocr
+    if crop_ocr is True:
+        tile.update(badge_bbox=[40, 30, 100, 50], raw={'logo_bbox': [100, 30, 120, 50]})
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = crop_vlm
+    data['vlm']['response'] = json.dumps(model)
+    return data
+
+
+@pytest.mark.parametrize('page_vlm', [True, False])
+def test_crop_vlm_true_without_logo_geometry_holds_against_negative_page_and_api(page_vlm):
+    # Review y4fix4 #1: a complete logo outside crop OCR's detector window.
+    # Crop OCR False (no geometry) + crop VLM True + page/API False = hold.
+    data = _crop_votes(evidence(), False, True)
+    assert (data['ocr_tiles'][0].get('raw') or {}).get('logo_bbox') is None
+    rs = [replace(r, name=NAME) for r in readings()]
+    if not page_vlm:
+        rs = rs[:1]
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-conflict' in f for d in result.quarantined for f in d.flags)
+
+
+def test_adapter_unit_none_guarded_pack_vetoes_shared_word_corroboration():
+    # Review y4fix4 #2 through the production OCR adapter: the distant coffee
+    # anchor has unit=None and "250 g" only in its guarded tile text.
+    from babaemail.lidl_crops import _crop_lp_owned
+    from babaemail.sources.lidl import Tile, tile_to_leaflet_reading
+
+    data = real_logo_evidence()
+    coffee = LeafletReading('vlm', 4, D('4.99'), name='BELLAROM Mleta kava',
+                            lidl_plus=True, unit='500 g')
+    tile = Tile(4, 'Y', (700, 70, 760, 120), (700, 70, 760, 120), price=D('4.99'),
+                raw={'brand': 'BELLAROM', 'name': 'Mleta kava',
+                     'text_lines': ['BELLAROM', 'Mleta kava', '250 g']})
+    distant = tile_to_leaflet_reading(tile)
+    assert distant.unit is None and '250 g' in distant.text
+    rs = [*readings(), coffee, distant]
+    # The coffee's real anchor beside the target rejects ownership.
+    actual = replace(distant, unit='500 g', text=(),
+                     raw={'price_bbox': [170, 70, 230, 120]})
+    assert not _crop_lp_owned(_proof(data), [*rs, actual], data['crop_box'])
+    assert not _crop_lp_owned(_proof(data), rs, data['crop_box'])
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    target = next(r for r in result.records if r.candidate is not None)
+    assert target.deal.is_quarantined
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.deal.flags)
+
+
+@pytest.mark.parametrize('text_pack,owned', [('18 kg', True), ('1,8 kg', True),
+                                             ('250 g', False), ('8 kg', False)])
+def test_guarded_pack_tolerates_only_a_dropped_decimal_comma(text_pack, owned):
+    from babaemail.lidl_crops import _crop_lp_owned
+    from babaemail.sources.lidl import Tile, tile_to_leaflet_reading
+
+    data = real_logo_evidence()
+    cereal = LeafletReading('vlm', 4, D('9.99'), name='PODRAVKA Čokolešnik',
+                            lidl_plus=False, unit='1,8 kg / 1 kg')
+    tile = Tile(4, 'Y', (700, 70, 760, 120), (700, 70, 760, 120), price=D('9.99'),
+                raw={'brand': 'PODRAVKA', 'name': 'Čokolešnik',
+                     'text_lines': ['PODRAVKA', 'Čokolešnik', text_pack]})
+    rs = [*readings(), cereal, tile_to_leaflet_reading(tile)]
+    assert _crop_lp_owned(_proof(data), rs, data['crop_box']) is owned
+
+
+def test_permitted_crop_lp_that_refinement_cannot_apply_holds():
+    # Both crop readers say True with owned geometry, but the crop clipped the
+    # page anchor, so refinement skips it. 46fcab8 silently dropped the LP.
+    rs = readings()
+    rs[0] = replace(rs[0], bbox=(5, 70, 110, 120))
+    result = run(refine_readings(rs, [lp_evidence()]))
+    assert not result.shipped
+    assert any('crop-lidl-plus-unresolved' in f for d in result.quarantined for f in d.flags)
+
+
+def test_unlocatable_crop_with_lp_claim_holds_overlapping_anchor():
+    # Crop OCR found two tiles, so the reread cannot bind to one anchor; its
+    # VLM still says True. The overlapping anchor is held, never shipped.
+    data = lp_evidence()
+    data['ocr_tiles'].append(dict(data['ocr_tiles'][0], price_bbox=[140, 50, 190, 100]))
+    far = LeafletReading('ocr', 4, D('4.99'), lidl_plus=False, name='OTHER Kava',
+                         raw={'price_bbox': [900, 900, 960, 950]})
+    refined = refine_readings([*readings(), far], [data])
+    assert refined[0].raw['crop_lidl_plus_holds']
+    assert not refined[2].raw.get('crop_lidl_plus_holds')
+    assert not [d for d in run(refined).shipped if d.price_new == D('2.89')]
+
+
+def test_refinement_failure_fallback_keeps_crop_lp_holds():
+    from babaemail.lidl_crops import apply_crop_lp_holds
+    data = _crop_votes(evidence(), False, True)
+    held = apply_crop_lp_holds(readings(), [data])
+    assert any('crop-lidl-plus-conflict' in f for f in held[0].raw['crop_lidl_plus_holds'])
+    assert not run(held).shipped
+
+
+@pytest.mark.parametrize('page_ocr,page_vlm,api,crop_ocr,crop_vlm', list(
+    __import__('itertools').product((True, False, None), repeat=5)))
+def test_property_crop_lp_only_adds_under_the_full_positive_rule(
+        page_ocr, page_vlm, api, crop_ocr, crop_vlm):
+    data = _crop_votes(evidence(), crop_ocr, crop_vlm)
+    rs = [replace(r, name=NAME, lidl_plus=v)
+          for r, v in zip(readings(), (page_ocr, page_vlm))]
+    result = reconcile([candidate(lp=api)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    shipped = [d for d in result.shipped if d.price_new == D('2.89')]
+    assert len(shipped) <= 1
+    for deal in shipped:
+        lp = deal.loyalty_required == 'Lidl Plus'
+        if crop_ocr is True or crop_vlm is True:
+            assert lp, 'a crop reader said True but the item shipped without LP'
+        if lp:
+            assert crop_ocr is True and crop_vlm is True, 'LP shipped without full crop proof'
+    if (page_ocr, page_vlm, api, crop_ocr, crop_vlm) == (False,) * 5:
+        assert shipped and shipped[0].loyalty_required is None  # not vacuous

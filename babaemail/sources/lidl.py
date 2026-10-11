@@ -441,6 +441,8 @@ class Lidl(Source):
         except Exception as exc:
             stats['crop_refine_error'] = stats.get('crop_refine_error', 0) + 1
             log.warning("crop refinement skipped: %r", exc)
+            # Skipping refinement must not skip its LP holds (never raises).
+            readings = lidl_crops.apply_crop_lp_holds(readings, crop_evidence)
 
         # Identify held leaflet-only tiles before spending any crop VLM calls.
         # Selection uses only full-page OCR geometry and reconciliation output;
@@ -484,6 +486,7 @@ class Lidl(Source):
         except Exception as exc:
             stats['crop_refine_error'] = stats.get('crop_refine_error', 0) + 1
             log.warning("crop refinement skipped: %r", exc)
+            readings = lidl_crops.apply_crop_lp_holds(readings, crop_read)
         stats["crop_evidence"] = len(crop_evidence)
 
         rr = reconcile(list(cands), readings, **reconcile_kw)

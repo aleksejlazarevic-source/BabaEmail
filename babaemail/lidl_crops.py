@@ -494,9 +494,24 @@ def _anchor_metadata(r, *, text_pack=False):
     return brands, packs
 
 
+def _dropped_separator(text_pack, packs):
+    """The selected pack an OCR text pack equals with only its ',' lost.
+
+    Full-page OCR routinely drops a decimal comma ("1,8 kg" -> "18 kg").
+    Only an exact digit-and-unit match to a selected pack qualifies; any
+    other different number (250 g vs 500 g) stays a conflict.
+    """
+    same = [p for p in packs if '.' in p and '.' not in text_pack
+            and p.replace('.', '') == text_pack]
+    return same[0] if len(same) == 1 else text_pack
+
+
 def _anchor_identity_conflicts(a, b, *, text_pack=False):
     ab, ap = _anchor_metadata(a, text_pack=text_pack)
     bb, bp = _anchor_metadata(b)
+    if text_pack:
+        selected = _anchor_metadata(a)[1]
+        ap = selected | {_dropped_separator(p, bp) for p in ap - selected}
     # A VLM often title-cases the brand, so split_leaflet_name cannot mark
     # it as a brand. A known OCR brand still has to match the name's prefix;
     # missing/conflicting brand transcription cannot locate a positive logo.
@@ -591,10 +606,13 @@ def _crop_lp_owned(proof, page_readings, crop_box):
         if is_target:
             return (not _anchor_identity_conflicts(crop_name, v)
                     and _share_product_word(v.name, proof['name']))
-        if _share_product_word(r.name, v.name):
-            return True
+        # Guarded printed pack/brand text (e.g. OCR unit=None with "250 g"
+        # in its own tile lines) vetoes EVERY non-target corroboration path,
+        # including shared product words. Checked once, before any return.
         if _anchor_identity_conflicts(r, v, text_pack=True):
             return False
+        if _share_product_word(r.name, v.name):
+            return True
         return (_ocr_text_proves_name(r, v.name)
                 or _anchor_brand_pack_owned(r, v, page_readings))
 
@@ -683,6 +701,8 @@ def _crop_lp_target(data):
     if data.get('version') != VERSION or len(data.get('ocr_tiles', ())) != 1:
         return None
     tile = data['ocr_tiles'][0]
+    if not isinstance(tile, dict):
+        return None
     try:
         x, y, _, _ = data['crop_box']
         a, b, c, d = tile['price_bbox']
@@ -702,6 +722,185 @@ def _crop_lp_target(data):
                                    or data.get('logo_geometry_complete') is False))
 
 
+_HOLD_OWNERSHIP = 'crop-lidl-plus-ownership-unproven: logo/badge not proven target-owned'
+_HOLD_TRUNCATED = ('crop-lidl-plus-ownership-unproven: '
+                   'detector logo component truncated/unverified')
+_HOLD_CONFLICT = 'crop-lidl-plus-conflict: crop OCR and VLM disagree'
+_HOLD_LOGO = 'crop-lidl-plus-conflict: negative crop votes contradict detector logo'
+_HOLD_REREADS = 'crop-lidl-plus-conflict: crop rereads disagree'
+_HOLD_UNRESOLVED = 'crop-lidl-plus-unresolved: crop logo evidence lacks two-reader agreement'
+_HOLD_NEGATIVE = 'crop-lidl-plus-negative-conflict: crop rereads do not confirm page LP True'
+_HOLD_UNLOCATED = 'crop-lidl-plus-unresolved: LP evidence in an unlocatable crop reread'
+_HOLD_NOT_APPLIED = 'crop-lidl-plus-unresolved: positive crop LP could not be applied'
+_HOLD_ERROR = 'crop-lidl-plus-unresolved: crop LP decision failed'
+
+
+def _crop_lp_positive_signal(data):
+    """Any reader in this record claims or may claim LP. Never raises.
+
+    Used only for records that cannot be bound to one page anchor: any True,
+    detected logo, truncated logo or non-boolean claim is uncertainty.
+    """
+    try:
+        tiles = data.get('ocr_tiles')
+        tiles = tiles if isinstance(tiles, list) else []
+        for tile in tiles:
+            if not isinstance(tile, dict):
+                continue
+            detail = tile.get('raw') if isinstance(tile.get('raw'), dict) else {}
+            if (tile.get('lidl_plus') not in (False, None)
+                    or detail.get('logo_bbox') is not None or detail.get('logo_truncated')):
+                return True
+        if data.get('logo_geometry_complete') is False:
+            return True
+        try:
+            model = json.loads(data['vlm']['response'])
+        except (KeyError, TypeError, ValueError):
+            return False
+        return isinstance(model, dict) and model.get('lidl_plus') not in (False, None)
+    except Exception:
+        return True
+
+
+def _crop_lp_vote(target):
+    """One reread: 'positive', 'negative', 'abstain', or a hold reason.
+
+    'abstain' is the single non-claim: crop OCR found no logo (False, no
+    detector geometry) and the crop VLM answered null ("uncertain"). The VLM
+    prompt invites null and it is the VLM's usual answer, so it adds nothing
+    either way: no LP is added, and the page/API readers still need their own
+    agreement. Every other non-unanimous shape holds.
+    """
+    a, b = target['crop_lp'], target['model_lp']
+    if target['geometry_unproven']:
+        return _HOLD_TRUNCATED
+    if a is True and b is True:
+        return 'positive'
+    if a is False and b is False:
+        return _HOLD_LOGO if target['logo_seen'] else 'negative'
+    if a is False and b is None and not target['logo_seen']:
+        return 'abstain'
+    if type(a) is bool and type(b) is bool:
+        return _HOLD_CONFLICT       # either polarity, logo geometry or not
+    return _HOLD_UNRESOLVED
+
+
+def _crop_lp_decision(entries, anchor, page_readings):
+    """The ONE crop-LP decision for one page anchor, over ALL raw rereads.
+
+    Runs before any name/price proof is filtered. Returns (add_lp, holds).
+    add_lp only when every reread is True/True with usable proof and target
+    ownership proven by complete anchor coverage. Otherwise crop evidence can
+    only hold; it never clears or changes a page/API LP vote.
+    """
+    votes, holds = [], set()
+    for data, target, proof in entries:
+        vote = _crop_lp_vote(target)
+        if vote in ('positive', 'negative', 'abstain'):
+            votes.append(vote)
+        else:
+            holds.add(vote)
+        if vote == 'positive' and (proof is None or not _crop_lp_owned(
+                proof, page_readings, data['crop_box'])):
+            holds.add(_HOLD_OWNERSHIP)
+    if 'positive' in votes and set(votes) != {'positive'}:
+        holds.add(_HOLD_REREADS)
+    if set(votes) != {'positive'}:
+        # Only a full positive crop decision may stand beside a page True.
+        # False/False, abstaining or held rereads never clear or confirm it.
+        peers = [r for r in page_readings if r.source == 'vlm'
+                 and r.new_price == anchor.new_price]
+        named = [r for r in peers if _share_product_word(r.name, anchor.name)]
+        peers = named if named else peers if len(peers) == 1 else []
+        if any(r.lidl_plus is True for r in [anchor, *peers]):
+            holds.add(_HOLD_NEGATIVE)
+    if holds:
+        return False, holds
+    return bool(votes) and set(votes) == {'positive'}, set()
+
+
+def _overlaps(box, crop_box):
+    try:
+        return (box[0] < crop_box[2] and crop_box[0] < box[2]
+                and box[1] < crop_box[3] and crop_box[1] < box[3])
+    except (TypeError, IndexError):
+        return True
+
+
+def _crop_lp_holds(readings, evidence):
+    """Bind every reread to page anchors and decide LP once. Never raises.
+
+    Returns (held readings, anchors allowed to gain LP). A record that cannot
+    be bound to exactly its anchor but carries any LP signal holds every OCR
+    anchor its crop overlaps (all page anchors if that is unknown).
+    """
+    readings = list(readings)
+    out = list(readings)
+    holds, allowed = {}, set()
+
+    def hold(i, reason):
+        holds.setdefault(i, set()).add(reason)
+
+    def ocr_on(page):
+        return [i for i, r in enumerate(readings) if r.source == 'ocr'
+                and (page is None or r.page == page)]
+
+    pending = {}
+    for data in evidence:
+        try:
+            try:
+                target = _crop_lp_target(data)
+            except Exception:
+                target = None
+            try:
+                proof = _proof(data)
+            except Exception:
+                proof = None
+            oi = [] if target is None else [
+                i for i in ocr_on(target['page']) if isinstance(readings[i].raw, dict)
+                and tuple(readings[i].raw.get('price_bbox', ())) == target['price_bbox']]
+            if oi:
+                for i in oi:
+                    pending.setdefault(i, []).append((data, target, proof))
+                continue
+            if not _crop_lp_positive_signal(data):
+                continue        # no claim, and no proof can bind either
+            page = data.get('page') if isinstance(data, dict) else None
+            crop_box = data.get('crop_box') if isinstance(data, dict) else None
+            near = [i for i in ocr_on(page) if crop_box is None
+                    or not isinstance(readings[i].raw, dict)
+                    or _overlaps(readings[i].raw.get('price_bbox'), crop_box)]
+            for i in near or ocr_on(page):
+                hold(i, _HOLD_UNLOCATED)
+        except Exception:
+            for i in ocr_on(None):
+                hold(i, _HOLD_ERROR)
+    for i, entries in pending.items():
+        try:
+            anchor = readings[i]
+            positive, reasons = _crop_lp_decision(
+                entries, anchor, [r for r in readings if r.page == anchor.page])
+        except Exception:
+            positive, reasons = False, {_HOLD_ERROR}
+        # Duplicate anchors at one geometry each get the same entries, so each
+        # carries any hold (and _crop_lp_owned rejects duplicate geometry).
+        if positive:
+            allowed.add(i)
+        for reason in reasons:
+            hold(i, reason)
+    for i, reasons in holds.items():
+        raw = dict(out[i].raw) if isinstance(out[i].raw, dict) else {}
+        raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
+                                             | reasons)
+        out[i] = replace(out[i], raw=raw)
+    return out, allowed
+
+
+def apply_crop_lp_holds(readings, evidence):
+    """Holds only, no name/LP refinement: the fallback if refinement fails."""
+    return _crop_lp_holds(readings, evidence)[0]
+
+
 def refine_readings(readings, evidence):
     """R0d: replace only names/independently proven fields, never a new price.
 
@@ -709,71 +908,29 @@ def refine_readings(readings, evidence):
     The crop name must agree with a full-page VLM, tile-owned OCR text, or an
     identical second crop. A crop VLM may supply the second price reader for
     one uniquely located OCR-only tile, but never for an ambiguous collision.
-    Crop LP evidence only adds True, with two readers and target-owned logo
-    geometry. A negative crop never clears a page True; conflicting negatives
-    or unresolved/unowned logo evidence explicitly hold the tile, even when
-    name/price proof fails. OCR False plus VLM null without logo evidence adds
-    no LP claim and cannot replace a page vote; synthetic readers still hold
-    without crop LP consensus. Dates/API flags stay intact.
+
+    Crop LP: :func:`_crop_lp_holds` decides ONCE, over all raw rereads and
+    before any proof is filtered. Crop evidence can change a result in one
+    way only: add LP when every reread is True/True with proven, complete
+    target ownership. Every other LP claim, conflict or failure is a hold.
+    A permitted LP that this refinement then cannot apply (any later
+    ``continue``) also becomes a hold, so new failure paths default to hold.
+    Dates/API flags stay intact.
     """
+    out, lp_allowed = _crop_lp_holds(readings, evidence)
     readings = list(readings)
-    out = list(readings)
+    lp_applied = set()
     # Disagreeing crop rereads are not settled by file order. Keep the tile
     # unchanged until the conflict is reviewed. Identical names collapse;
     # volatile cache identifiers do not make otherwise equal proofs disagree.
     grouped = {}
-    lp_votes = {}
     for data in evidence:
-        lp_target = _crop_lp_target(data)
         try:
             proof = _proof(data)
         except (KeyError, TypeError, ValueError, InvalidOperation):
-            # One unusable name/price/condition record must not erase a
-            # locatable LP warning or all the other accepted crop evidence.
             proof = None
         if proof is not None:
             grouped.setdefault((data['page'], proof['price_bbox']), []).append((data, proof))
-        if lp_target is not None:
-            oi = [i for i, r in enumerate(out) if r.source == 'ocr'
-                  and r.page == lp_target['page'] and isinstance(r.raw, dict)
-                  and tuple(r.raw.get('price_bbox', ())) == lp_target['price_bbox']]
-            if not oi:
-                continue
-            # Duplicate anchors cannot prove ownership, but each carries the
-            # uncertainty so a later pairing cannot lose the hold.
-            a = out[oi[0]]
-            peers = [r for r in readings if r.source == 'vlm' and r.page == a.page
-                     and r.new_price == a.new_price]
-            named = [r for r in peers if _share_product_word(r.name, a.name)]
-            peers = named if named else peers if len(peers) == 1 else []
-            crop_lp, model_lp = lp_target['crop_lp'], lp_target['model_lp']
-            votes = lp_votes.setdefault(tuple(oi), set())
-            if isinstance(crop_lp, bool) and isinstance(model_lp, bool) and crop_lp == model_lp:
-                votes.add(crop_lp)
-            reason = None
-            if lp_target['geometry_unproven']:
-                reason = 'crop-lidl-plus-ownership-unproven: detector logo component truncated/unverified'
-            elif (isinstance(crop_lp, bool) and isinstance(model_lp, bool) and crop_lp != model_lp
-                  and (crop_lp is True or lp_target['logo_seen'])):
-                reason = 'crop-lidl-plus-conflict: crop OCR and VLM disagree'
-            elif (not isinstance(crop_lp, bool) or not isinstance(model_lp, bool)) and (
-                    crop_lp is not False or model_lp is True or lp_target['logo_seen']):
-                reason = 'crop-lidl-plus-unresolved: crop logo evidence lacks two-reader agreement'
-            elif len(votes) > 1:
-                reason = 'crop-lidl-plus-conflict: crop rereads disagree'
-            elif crop_lp is model_lp is False and any(r.lidl_plus is True for r in [a, *peers]):
-                reason = 'crop-lidl-plus-negative-conflict: crop False/False cannot clear page True'
-            elif crop_lp is model_lp is False and lp_target['logo_seen']:
-                reason = 'crop-lidl-plus-conflict: negative crop votes contradict detector logo'
-            elif crop_lp is model_lp is True and (proof is None or not _crop_lp_owned(
-                    proof, [r for r in readings if r.page == a.page], data['crop_box'])):
-                reason = 'crop-lidl-plus-ownership-unproven: logo/badge not proven target-owned'
-            if reason:
-                for i in oi:
-                    raw = dict(out[i].raw)
-                    raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
-                                                         | {reason})
-                    out[i] = replace(out[i], raw=raw)
     used = set()
     for group in grouped.values():
         # A smaller crop has less opportunity to borrow a neighbouring label.
@@ -853,7 +1010,8 @@ def refine_readings(readings, evidence):
         if a.bbox is None or not (x0 <= a.bbox[0] and y0 <= a.bbox[1]
                                    and x1 >= a.bbox[2] and y1 >= a.bbox[3]):
             continue
-        lp = True if lp_consensus is True and not a.raw.get('crop_lidl_plus_holds') else None
+        lp = (True if oi[0] in lp_allowed and lp_consensus is True
+              and not a.raw.get('crop_lidl_plus_holds') else None)
         raw = dict(a.raw)
         if proof['from_price'] and raw.get('badge') is None:
             # Both crop readers recovered a lower-bound qualifier that the
@@ -877,4 +1035,11 @@ def refine_readings(readings, evidence):
         out[vi[0]] = replace(b, name=canonical_name,
                              lidl_plus=True if lp is True else b.lidl_plus)
         used.update(oi + vi)
+        if lp is True:
+            lp_applied.add(oi[0])
+    for i in lp_allowed - lp_applied:
+        raw = dict(out[i].raw) if isinstance(out[i].raw, dict) else {}
+        raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
+                                             | {_HOLD_NOT_APPLIED})
+        out[i] = replace(out[i], raw=raw)
     return out
