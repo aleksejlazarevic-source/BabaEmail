@@ -421,6 +421,154 @@ def test_one_uncertain_crop_keeps_lp_disagreement_held():
     assert not run(refined).shipped
 
 
+def test_synthetic_vlm_lp_uncertainty_never_copies_page_ocr_vote():
+    data = lp_evidence()
+    data['ocr_tiles'][0]['raw']['text_lines'] = [NAME]
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = None
+    data['vlm']['response'] = json.dumps(model)
+    rs = [replace(readings()[0], name=NAME)]  # page VLM missed this offer
+    refined = refine_readings(rs, [data])
+    assert [r.lidl_plus for r in refined] == [False, None]
+    assert not run(refined).shipped
+
+
+@pytest.mark.parametrize('price', ['4.99', '2.89'])
+def test_unanchored_page_vlm_neighbour_blocks_positive_crop_lp(price):
+    rs = [*readings(), LeafletReading('vlm', 4, D(price),
+                                    name='OTHER Sosednja kava', lidl_plus=True)]
+    refined = refine_readings(rs, [lp_evidence()])
+    assert [r.lidl_plus for r in refined[:2]] == [False, False]
+    result = run(refined)
+    assert not result.shipped
+    target = next(d for d in result.quarantined if d.name == NAME)
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+
+
+def test_same_price_vlm_neighbour_cannot_borrow_missing_targets_geometry():
+    rs = [replace(readings()[0], name=NAME),
+          LeafletReading('vlm', 4, D('2.89'), name='OTHER Sosednja kava', lidl_plus=True)]
+    result = run(refine_readings(rs, [lp_evidence()]))
+    assert not result.shipped
+    assert any('crop-lidl-plus-ownership-unproven' in f
+               for d in result.quarantined for f in d.flags)
+
+
+@pytest.mark.parametrize('edge', ['search', 'crop'])
+def test_real_logo_detector_cannot_prove_truncated_logo_owned(edge):
+    import cv2
+    import numpy as np
+    from types import SimpleNamespace
+    from babaemail.lidl_crops import _box_owned
+    from babaemail.sources.lidl import Tile, _find_lp_logo
+
+    blue = np.zeros((240, 360), dtype=np.uint8)
+    yellow = blue.copy()
+    # The full logo crosses the price ownership boundary x=195. The old
+    # detector clips it to x=190 at its search window, or at a crop edge.
+    cv2.rectangle(blue, (155, 32), (199, 76), 1, -1)
+    cv2.circle(yellow, (177, 54), 13, 1, -1)
+    blue[yellow == 1] = 0
+    crop_right = 210 if edge == 'search' else 190
+    ps = SimpleNamespace(bbox=(40, 50, 100, 100), height=50)
+    tile = Tile(4, 'Y', ps.bbox, ps.bbox)
+    _find_lp_logo(tile, {'Y': yellow[20:220, 10:crop_right]},
+                  blue[20:220, 10:crop_right], ps)
+    data = lp_evidence()
+    data['crop_box'][2] = crop_right
+    data['ocr_tiles'][0]['raw'] = tile.raw
+    data['ocr_tiles'][0]['badge_bbox'] = None
+    neighbour = LeafletReading('ocr', 4, D('4.99'), lidl_plus=True,
+                               raw={'price_bbox': [280, 70, 340, 120]})
+    assert not _box_owned((155, 32, 200, 77), 0,
+                          [(50, 70, 110, 120), (280, 70, 340, 120)])
+    result = run(refine_readings([*readings(), neighbour], [data]))
+    assert not result.shipped
+    target = next(d for d in result.quarantined if d.price_new == D('2.89'))
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+    assert tile.lidl_plus is None
+    assert tile.raw.get('logo_truncated') is True
+
+    # Fresh OCR records preserve the uncertainty too, including when a crop
+    # VLM incorrectly says False and page readers/API otherwise agree.
+    data['ocr_tiles'][0]['lidl_plus'] = tile.lidl_plus
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = False
+    data['vlm']['response'] = json.dumps(model)
+    assert _proof(data)['lidl_plus'] is None
+    result = run(refine_readings(readings(), [data]))
+    assert not result.shipped
+
+    from babaemail.sources.lidl import tile_to_leaflet_reading
+    tile.price = D('2.89')
+    tile.raw['name'] = NAME
+    page_ocr = tile_to_leaflet_reading(tile)
+    assert page_ocr.lidl_plus is None
+    page_vlm = replace(readings()[1], lidl_plus=False)
+    result = reconcile([candidate(lp=False)], [page_ocr, page_vlm], leaflet_id='test',
+                       leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-ownership-unproven' in f
+               for d in result.quarantined for f in d.flags)
+
+
+def test_real_logo_detector_keeps_complete_interior_logo():
+    import cv2
+    import numpy as np
+    from types import SimpleNamespace
+    from babaemail.sources.lidl import Tile, _find_lp_logo
+
+    blue = np.zeros((200, 200), dtype=np.uint8)
+    yellow = blue.copy()
+    cv2.rectangle(blue, (110, 10), (154, 54), 1, -1)
+    cv2.circle(yellow, (132, 32), 13, 1, -1)
+    blue[yellow == 1] = 0
+    ps = SimpleNamespace(bbox=(40, 50, 100, 100), height=50)
+    tile = Tile(4, 'Y', ps.bbox, ps.bbox)
+    _find_lp_logo(tile, {'Y': yellow}, blue, ps)
+    assert tile.lp_logo and tile.lidl_plus
+    assert tile.raw['logo_bbox'] == [110, 10, 155, 55]
+
+
+@pytest.mark.parametrize('truncated', [False, True])
+def test_cached_logo_bounds_must_be_complete_in_page_pixels(tmp_path, truncated):
+    import io
+    from PIL import Image, ImageDraw
+
+    image = Image.new('RGB', (360, 240), 'white')
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((155, 32, 199, 76), fill=(10, 90, 159))
+    draw.ellipse((164, 41, 190, 67), fill=(255, 230, 0))
+    buf = io.BytesIO()
+    image.save(buf, 'PNG')
+    png = buf.getvalue()
+    data = lp_evidence()
+    data['page_sha256'] = hashlib.sha256(png).hexdigest()
+    data['ocr_tiles'][0]['badge_bbox'] = None
+    # Reproduce a pre-fix cached detector rectangle; saved files stay intact.
+    data['ocr_tiles'][0]['raw']['logo_bbox'] = [145, 12, 180 if truncated else 190, 57]
+    path = save_crop(data, tmp_path)
+    [loaded] = load_crops({4: png}, tmp_path)
+    assert loaded['logo_geometry_complete'] is not truncated
+    assert (_proof(loaded)['logo_bbox'] is None) is truncated
+    assert json.loads(path.read_text()) == data
+
+
+@pytest.mark.parametrize('edge', ['left', 'top', 'right', 'bottom'])
+def test_saved_logo_touching_crop_edge_is_not_positive_ownership(edge):
+    from babaemail.lidl_crops import _crop_lp_owned
+
+    data = lp_evidence()
+    x0, y0, x1, y1 = data['crop_box']
+    data['ocr_tiles'][0]['raw']['logo_bbox'] = {
+        'left': [0, 30, 20, 50], 'top': [100, 0, 120, 20],
+        'right': [x1 - x0 - 20, 30, x1 - x0, 50],
+        'bottom': [100, y1 - y0 - 20, 120, y1 - y0],
+    }[edge]
+    # One page anchor would otherwise claim even a clipped component.
+    assert not _crop_lp_owned(_proof(data), readings(), data['crop_box'])
+
+
 def test_multibuy_proof_keeps_crop_proven_exact_quantity():
     data = evidence(name='ARGUS Svetlo pivo', price='10.27', badge='flag')
     data['ocr_texts'] = [

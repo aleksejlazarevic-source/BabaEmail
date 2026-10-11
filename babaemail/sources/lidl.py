@@ -650,7 +650,7 @@ class Tile:
     price: Decimal | None = None
     old_price: Decimal | None = None
     pct: Decimal | None = None
-    lidl_plus: bool = False
+    lidl_plus: bool | None = False
     badge: str | None = None                   # "discount" | "flag" | None
     badge_bbox: tuple[int, int, int, int] | None = None
     badge_lines_above: int = 0
@@ -1071,10 +1071,16 @@ def _find_lp_logo(t: Tile, masks, blue, ps: PriceStructure) -> None:
         inner = masks["Y"][Y0 + y:Y0 + y + h, X0 + x:X0 + x + w]
         _, yb = ocr.components(np.ascontiguousarray(inner), min_area=20)
         if any(b.w > 0.35 * w and b.h > 0.35 * h and 0.75 < b.w / b.h < 1.33 for b in yb):
+            # A partial logo can still pass the shape tests. Reject its bounds
+            # and preserve uncertainty, rather than voting that LP is absent.
+            if x == 0 or y == 0 or x + w == X1 - X0 or y + h == Y1 - Y0:
+                t.raw['logo_truncated'] = True
+                continue
             t.lp_logo = True
             t.raw["logo_bbox"] = [X0 + x, Y0 + y, X0 + x + w, Y0 + y + h]
             break
-    t.lidl_plus = t.lp_logo or t.lp_text
+    t.lidl_plus = (True if t.lp_logo or t.lp_text else
+                   None if t.raw.get('logo_truncated') else False)
 
 
 # Leaflet furniture that sits in or beside a name block but is not a name.
@@ -1188,7 +1194,8 @@ def tile_to_leaflet_reading(t: Tile):
       a second-item price would reconcile as a plain discount.
     * lidl_plus: True when the blue LP logo was found. "Z Lidl Plus" text
       without a logo is None (no opinion), since LP coupon diamonds carry text but no
-      logo and the printed price there is the normal one. Otherwise False.
+      logo and the printed price there is the normal one. A truncated logo
+      is also None and explicitly holds the tile. Otherwise False.
     * name is "BRAND name" when OCR read an all-caps brand line above the
       name (the VLM's convention, which lidl_reconcile.split_leaflet_name
       splits again): the brand is what makes a brand-only match possible.
@@ -1197,7 +1204,11 @@ def tile_to_leaflet_reading(t: Tile):
     from ..lidl_reconcile import LeafletReading
 
     conditional = t.badge_lines_below > 0
-    lp = True if t.lp_logo else (None if t.lp_text else False)
+    lp = True if t.lp_logo else (None if t.lp_text or t.raw.get('logo_truncated') else False)
+    raw = t.record()
+    if t.raw.get('logo_truncated'):
+        raw['crop_lidl_plus_holds'] = [
+            'crop-lidl-plus-ownership-unproven: detector logo component truncated']
     return LeafletReading(
         source="ocr",
         page=t.page,
@@ -1208,7 +1219,7 @@ def tile_to_leaflet_reading(t: Tile):
         name=_reading_name(t),
         bbox=tuple(float(v) for v in t.bbox),
         text=tuple(t.raw.get("text_lines", ())),
-        raw=t.record(),
+        raw=raw,
     )
 
 

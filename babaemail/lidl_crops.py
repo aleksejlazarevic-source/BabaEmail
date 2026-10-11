@@ -22,8 +22,8 @@ import httpx
 
 from . import vlm
 from .lidl_reconcile import (LeafletReading, _ocr_text_proves_name,
-                             _share_product_word, _stems, _unverified_why, fold,
-                             ocr_reconciled, split_leaflet_name)
+                             _share_product_word, _stems, _unverified_why,
+                             build_tiles, fold, ocr_reconciled, split_leaflet_name)
 
 CACHE_DIR = Path(__file__).resolve().parents[1] / '.cache' / 'lidl-crops'
 VERSION = 1
@@ -163,6 +163,33 @@ def save_crop(evidence, cache_dir=CACHE_DIR):
     return path
 
 
+def _cached_logo_complete(data, page_image):
+    """Validate legacy detector bounds against pixels beyond the saved box.
+
+    Old caches segmented a restricted window and could save a clipped logo.
+    A one-pixel border suffices to disprove truncation: a complete connected
+    blue component has exactly the saved bounds and cannot reach that border.
+    This rechecks geometry only; it never rereads a name, price or LP vote.
+    """
+    import numpy as np
+    from . import ocr
+
+    tile = data['ocr_tiles'][0]
+    logo = tile['raw']['logo_bbox']
+    if (not isinstance(logo, (list, tuple)) or len(logo) != 4
+            or not all(type(v) is int for v in logo)):
+        return False
+    cx, cy, _, _ = data['crop_box']
+    x0, y0, x1, y1 = (int(v) for v in
+                      (logo[0] + cx, logo[1] + cy, logo[2] + cx, logo[3] + cy))
+    if not (0 < x0 < x1 < page_image.width and 0 < y0 < y1 < page_image.height):
+        return False
+    rgb = np.array(page_image.crop((x0 - 1, y0 - 1, x1 + 1, y1 + 1)))
+    _, blobs = ocr.components(ocr.lp_blue_mask(rgb))
+    return any((b.x, b.y, b.x1, b.y1) == (1, 1, x1 - x0 + 1, y1 - y0 + 1)
+               for b in blobs)
+
+
 def load_crops(pngs: dict[int, bytes], cache_dir=CACHE_DIR, stats: dict | None = None):
     """Load usable evidence, skipping corrupt/stale files independently.
 
@@ -175,6 +202,7 @@ def load_crops(pngs: dict[int, bytes], cache_dir=CACHE_DIR, stats: dict | None =
     counts.setdefault('crop_files_bad', 0)
     counts.setdefault('crop_files_stale', 0)
     digests = {page: hashlib.sha256(png).hexdigest() for page, png in pngs.items()}
+    page_images = {}
     for path in sorted(cache_dir.glob('*.json')):
         try:
             data = json.loads(path.read_text())
@@ -189,6 +217,20 @@ def load_crops(pngs: dict[int, bytes], cache_dir=CACHE_DIR, stats: dict | None =
         if data.get('page_sha256') != digests[page]:
             counts['crop_files_stale'] += 1
             continue
+        tiles = data.get('ocr_tiles')
+        if (isinstance(tiles, list) and len(tiles) == 1
+                and isinstance(tiles[0], dict)
+                and isinstance(tiles[0].get('raw'), dict)
+                and tiles[0]['raw'].get('logo_bbox') is not None):
+            try:
+                from PIL import Image
+                if page not in page_images:
+                    page_images[page] = Image.open(io.BytesIO(pngs[page])).convert('RGB')
+                data['logo_geometry_complete'] = _cached_logo_complete(data, page_images[page])
+            except (OSError, ValueError, TypeError, KeyError, IndexError, OverflowError):
+                # Keep the evidence and explicitly refuse positive ownership;
+                # skipping it could leave a page False/False free to ship.
+                data['logo_geometry_complete'] = False
         out.append(data)
     return out
 
@@ -375,7 +417,10 @@ def _proof(data):
     )
     crop_lp = tile.get('lidl_plus')
     model_lp = model.get('lidl_plus')
-    if isinstance(model_lp, bool) and model_lp != crop_lp:
+    lp_geometry_unproven = (bool((tile.get('raw') or {}).get('logo_truncated'))
+                            or data.get('logo_geometry_complete') is False)
+    if (isinstance(model_lp, bool) and model_lp != crop_lp
+            and not lp_geometry_unproven):
         return None
     lp_proven = (crop_lp if isinstance(crop_lp, bool) and model_lp == crop_lp
                  else None)
@@ -389,7 +434,9 @@ def _proof(data):
                 old_pct=(old, pct) if old_proven else None, from_price=from_price,
                 multi_buy=multi_buy,
                 lidl_plus=lp_proven,
-                logo_bbox=page_box((tile.get('raw') or {}).get('logo_bbox')),
+                lp_geometry_unproven=lp_geometry_unproven,
+                logo_bbox=(page_box((tile.get('raw') or {}).get('logo_bbox'))
+                           if data.get('logo_geometry_complete') is not False else None),
                 badge_bbox=page_box(tile.get('badge_bbox')),
                 crop_ocr_name=_ocr_text_proves_name(crop_ocr, name))
 
@@ -427,11 +474,28 @@ def _crop_lp_owned(proof, page_readings, crop_box):
         return tuple(value) if value[0] < value[2] and value[1] < value[3] else None
 
     logo = box(proof['logo_bbox'])
-    if logo is None or not (crop_box[0] <= logo[0] and crop_box[1] <= logo[1]
-                            and logo[2] <= crop_box[2] and logo[3] <= crop_box[3]):
+    if logo is None or not (crop_box[0] < logo[0] and crop_box[1] < logo[1]
+                            and logo[2] < crop_box[2] and logo[3] < crop_box[3]):
         return False
+    # A page-VLM offer without a paired OCR price has no geometric location.
+    # Its logo could be anywhere, including in this crop. Require coverage of
+    # every VLM tile before the nearest-anchor partition can prove ownership.
+    for tile in build_tiles(page_readings):
+        if ('vlm' in tile.sources
+                and not any(r.source == 'ocr' for r in tile.readings)):
+            return False
+        # The last-pair price fallback is useful for reconciliation, but a
+        # VLM neighbour at the target's price cannot acquire its geometry
+        # when the crop independently identifies a different product.
+        if (any(r.source == 'ocr' and isinstance(r.raw, dict)
+                and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox']
+                for r in tile.readings)
+                and any(r.source == 'vlm'
+                        and not _share_product_word(r.name, proof['name'])
+                        for r in tile.readings)):
+            return False
     prices, badges = [], []
-    for r in page_readings:
+    for r in (r for r in page_readings if r.source == 'ocr'):
         raw = r.raw if isinstance(r.raw, dict) else {}
         price = box(raw.get('price_bbox'))
         if price is None:
@@ -532,10 +596,12 @@ def refine_readings(readings, evidence):
             named = [r for r in peers if _share_product_word(r.name, proof['name'])]
             peers = named if named else peers if len(peers) == 1 else []
             reason = None
-            if proof['lidl_plus'] is False and any(r.lidl_plus is True for r in [a, *peers]):
+            if proof['lp_geometry_unproven']:
+                reason = 'crop-lidl-plus-ownership-unproven: detector logo component truncated/unverified'
+            elif proof['lidl_plus'] is False and any(r.lidl_plus is True for r in [a, *peers]):
                 reason = 'crop-lidl-plus-negative-conflict: crop False/False cannot clear page True'
             elif proof['lidl_plus'] is True and not _crop_lp_owned(
-                    proof, [r for r in readings if r.source == 'ocr' and r.page == a.page],
+                    proof, [r for r in readings if r.page == a.page],
                     data['crop_box']):
                 reason = 'crop-lidl-plus-ownership-unproven: logo/badge not proven target-owned'
             if reason:
@@ -580,10 +646,10 @@ def refine_readings(readings, evidence):
             elif not vi:
                 # The page OCR plus the crop VLM are the two independent
                 # readers. This is safe only for one exact OCR geometry.
+                # The LP vote must come from crop agreement too: copying
+                # a.lidl_plus would manufacture a second vote from one reader.
                 template = LeafletReading('vlm', page, price,
-                                           lidl_plus=(True if lp_consensus is True
-                                                      and not a.raw.get('crop_lidl_plus_holds')
-                                                      else a.lidl_plus),
+                                           lidl_plus=lp_consensus,
                                            name=proof['name'])
                 out.append(template)
                 vi = [len(out) - 1]
