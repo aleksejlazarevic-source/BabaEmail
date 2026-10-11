@@ -526,3 +526,31 @@ def test_unchecked_store_is_cut_and_named_not_bannered():
 def test_count_line_slovenian_plurals(items, stores, text):
     from babaemail.render import count_line
     assert count_line(items, stores) == text
+
+
+def test_smtp_config_loads_from_env_file_and_env_wins(tmp_path, monkeypatch):
+    from babaemail import mailer
+    f = tmp_path / 'smtp.env'
+    f.write_text('# c\nBABAEMAIL_SMTP_HOST=smtp.example.test\nBABAEMAIL_SMTP_PORT=587\nBABAEMAIL_SMTP_USER=u@example.test\n'
+                 'BABAEMAIL_SMTP_PASSWORD="pw"\nBABAEMAIL_FROM=a@example.test\nBABAEMAIL_TO=b@example.test\n'
+                 'BABAEMAIL_ALERT_TO=c@example.test\n', 'utf-8')
+    monkeypatch.setattr(mailer, 'CONFIG_FILE', f)
+    for key in mailer.REQUIRED:
+        monkeypatch.delenv(key, raising=False)
+    config = mailer.SMTPConfig.from_env()
+    assert (config.host, config.port, config.password, config.recipient) == ('smtp.example.test', 587, 'pw', 'b@example.test')
+    monkeypatch.setenv('BABAEMAIL_TO', 'override@example.test')
+    assert mailer.SMTPConfig.from_env().recipient == 'override@example.test'
+
+
+def test_smtp_config_blank_password_in_file_fails_loud(tmp_path, monkeypatch):
+    from babaemail import mailer
+    f = tmp_path / 'smtp.env'
+    f.write_text('BABAEMAIL_SMTP_HOST=h.example.test\nBABAEMAIL_SMTP_PORT=587\nBABAEMAIL_SMTP_USER=u\n'
+                 'BABAEMAIL_SMTP_PASSWORD=\nBABAEMAIL_FROM=a@example.test\nBABAEMAIL_TO=b@example.test\n'
+                 'BABAEMAIL_ALERT_TO=c@example.test\n', 'utf-8')
+    monkeypatch.setattr(mailer, 'CONFIG_FILE', f)
+    for key in mailer.REQUIRED:
+        monkeypatch.delenv(key, raising=False)
+    with pytest.raises(ValueError, match='BABAEMAIL_SMTP_PASSWORD'):
+        mailer.SMTPConfig.from_env()

@@ -6,10 +6,34 @@ import smtplib
 import ssl
 from dataclasses import dataclass
 from email.message import EmailMessage
+from pathlib import Path
 from typing import Mapping
 
 REQUIRED = ('BABAEMAIL_SMTP_HOST', 'BABAEMAIL_SMTP_PORT', 'BABAEMAIL_SMTP_USER',
             'BABAEMAIL_SMTP_PASSWORD', 'BABAEMAIL_FROM', 'BABAEMAIL_TO', 'BABAEMAIL_ALERT_TO')
+
+
+CONFIG_FILE = Path.home() / '.config' / 'babaemail' / 'smtp.env'
+
+
+def load_env_file(path: Path | None = None) -> dict[str, str]:
+    """Read KEY=VALUE lines (outside the repo). Missing file -> {}; real env vars win."""
+    path = CONFIG_FILE if path is None else path
+    values: dict[str, str] = {}
+    try:
+        lines = path.read_text('utf-8').splitlines()
+    except OSError:
+        return values
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
 
 
 @dataclass(frozen=True)
@@ -24,7 +48,10 @@ class SMTPConfig:
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> SMTPConfig:
-        env = os.environ if environ is None else environ
+        if environ is None:
+            env = {**load_env_file(), **{k: v for k, v in os.environ.items() if v.strip()}}
+        else:
+            env = environ
         missing = [key for key in REQUIRED if not env.get(key, '').strip()]
         if missing:
             raise ValueError('Missing required email environment variables: ' + ', '.join(missing))
