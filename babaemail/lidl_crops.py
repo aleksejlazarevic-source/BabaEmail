@@ -23,7 +23,7 @@ import httpx
 from . import vlm
 from .lidl_reconcile import (LeafletReading, _ocr_text_proves_name,
                              _share_product_word, _stems, _unverified_why,
-                             build_tiles, fold, ocr_reconciled, pack_size,
+                             fold, ocr_reconciled, pack_size,
                              split_leaflet_name)
 
 CACHE_DIR = Path(__file__).resolve().parents[1] / '.cache' / 'lidl-crops'
@@ -370,6 +370,8 @@ def _proof(data):
     if data.get('version') != VERSION or len(data.get('ocr_tiles', ())) != 1:
         return None
     tile = data['ocr_tiles'][0]
+    if not isinstance(tile, dict):
+        return None
     try:
         model = json.loads(data['vlm']['response'])
     except (KeyError, TypeError, ValueError):
@@ -461,6 +463,51 @@ def _box_owned(box, target, anchors):
                for x in xs for y in ys for i, a in enumerate(anchors) if i != target)
 
 
+def _anchor_metadata(r, *, text_pack=False):
+    """Selected identity fields; guarded text metadata for a text fallback.
+
+    A regional OCR number is not a selected unit reading. It may corroborate
+    an otherwise unnamed/variant label only under the guarded-text fallback;
+    it cannot override an independently selected name/brand/unit identity.
+    """
+    brand = tuple(words(split_leaflet_name(r.name)[0]))
+    brands = {brand} if brand else set()
+    packs = {pack_size(r.unit)} - {None}
+    # Some readers copy an exact pack at the end of the selected label name
+    # instead of unit. Only a complete trailing pack token is metadata.
+    suffix = re.search(r'(?<![\w.,])((?:\d+\s*x\s*)?\d+(?:[.,]\d+)?\s*(?:kg|g|ml|l))\s*$',
+                       fold(r.name or ''))
+    if suffix and not re.search(r'\b(?:pribl|za)\b', fold(r.name or '')):
+        packs.add(pack_size(suffix[1]))
+    detail = r.raw.get('raw') if isinstance(r.raw, dict) else None
+    lines = detail.get('text_lines') if isinstance(detail, dict) else None
+    if (r.source == 'ocr' and isinstance(lines, (list, tuple))
+            and all(isinstance(line, str) for line in lines) and tuple(lines) == r.text):
+        # The first standalone upper-case label line is the brand candidate.
+        # Later badge fragments (or all-caps product words) are not brands.
+        label_brand = next((tuple(words(line)) for line in lines if line.isupper()
+                            and all(word.isalpha() for word in line.split()) and words(line)), ())
+        if label_brand:
+            brands.add(label_brand)
+        if text_pack:
+            packs.update(pack_size(line) for line in lines if pack_size(line) is not None)
+    return brands, packs
+
+
+def _anchor_identity_conflicts(a, b, *, text_pack=False):
+    ab, ap = _anchor_metadata(a, text_pack=text_pack)
+    bb, bp = _anchor_metadata(b)
+    # A VLM often title-cases the brand, so split_leaflet_name cannot mark
+    # it as a brand. A known OCR brand still has to match the name's prefix;
+    # missing/conflicting brand transcription cannot locate a positive logo.
+    if a.source == 'ocr' and len(ab) == 1 and not bb:
+        brand = next(iter(ab))
+        if tuple(words(b.name)[:len(brand)]) != brand:
+            return True
+    return (len(ab) > 1 or len(bb) > 1 or len(ap) > 1 or len(bp) > 1
+            or bool(ab and bb and ab != bb) or bool(ap and bp and ap != bp))
+
+
 def _anchor_brand_pack_owned(ocr, model, page_readings):
     """An unnamed anchor needs exact, unique brand AND printed pack evidence.
 
@@ -524,23 +571,39 @@ def _crop_lp_owned(proof, page_readings, crop_box):
     # every VLM tile before the nearest-anchor partition can prove ownership.
     # A price-only leftover pairing supplies no identity evidence: its OCR
     # anchor may belong to a different product the VLM missed.
-    for tile in build_tiles(page_readings):
-        for v in (r for r in tile.readings if r.source == 'vlm'):
-            for r in (r for r in tile.readings if r.source == 'ocr'):
-                is_target = (isinstance(r.raw, dict)
-                             and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox'])
-                # The exact target anchor has an independent crop name. Every
-                # other anchor needs its own OCR identity, never crop text.
-                if is_target:
-                    corroborated = _share_product_word(v.name, proof['name'])
-                else:
-                    corroborated = (_share_product_word(r.name, v.name)
-                                    or _ocr_text_proves_name(r, v.name)
-                                    or _anchor_brand_pack_owned(r, v, page_readings))
-                if not corroborated:
-                    return False
-            if not any(r.source == 'ocr' for r in tile.readings):
-                return False
+    ocr = [r for r in page_readings if r.source == 'ocr']
+    models = {}
+    for v in (r for r in page_readings if r.source == 'vlm'):
+        # Identical repeated reads are one offer; different variants or field
+        # readings must each have a unique location, never a greedy pairing.
+        key = (v.new_price, tuple(words(v.name)), v.unit, v.lidl_plus, v.valid_to_text)
+        models.setdefault(key, v)
+    crop_name = LeafletReading('vlm', None, proof['price'], name=proof['name'])
+
+    def corroborated(r, v):
+        if (r.new_price is None or r.new_price != v.new_price
+                or _anchor_identity_conflicts(r, v)):
+            return False
+        is_target = (isinstance(r.raw, dict)
+                     and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox'])
+        # The exact target has an independent crop name. Every other anchor
+        # needs its own identity. Conflicts veto ALL corroboration fallbacks.
+        if is_target:
+            return (not _anchor_identity_conflicts(crop_name, v)
+                    and _share_product_word(v.name, proof['name']))
+        if _share_product_word(r.name, v.name):
+            return True
+        if _anchor_identity_conflicts(r, v, text_pack=True):
+            return False
+        return (_ocr_text_proves_name(r, v.name)
+                or _anchor_brand_pack_owned(r, v, page_readings))
+
+    located = set()
+    for v in models.values():
+        matches = [i for i, r in enumerate(ocr) if corroborated(r, v)]
+        if len(matches) != 1 or matches[0] in located:
+            return False
+        located.add(matches[0])
     prices, badges = [], []
     for r in (r for r in page_readings if r.source == 'ocr'):
         raw = r.raw if isinstance(r.raw, dict) else {}
@@ -611,6 +674,34 @@ def _multi_buy(data, model, price):
                 exact_quantity=next(iter(oq)) if oq else None)
 
 
+def _crop_lp_target(data):
+    """Locate LP evidence before name/price proof can discard the reread.
+
+    The exact OCR structure binds a hold, not a crop VLM name or price. A bad
+    response is an unresolved vote. Stale pages are rejected by load_crops.
+    """
+    if data.get('version') != VERSION or len(data.get('ocr_tiles', ())) != 1:
+        return None
+    tile = data['ocr_tiles'][0]
+    try:
+        x, y, _, _ = data['crop_box']
+        a, b, c, d = tile['price_bbox']
+        price_box = (a+x, b+y, c+x, d+y)
+    except (KeyError, TypeError, ValueError):
+        return None
+    try:
+        model = json.loads(data['vlm']['response'])
+    except (KeyError, TypeError, ValueError):
+        model = None
+    model_lp = model.get('lidl_plus') if isinstance(model, dict) else None
+    detail = tile.get('raw') if isinstance(tile.get('raw'), dict) else {}
+    return dict(page=data.get('page'), price_bbox=price_box,
+                crop_lp=tile.get('lidl_plus'), model_lp=model_lp,
+                logo_seen=detail.get('logo_bbox') is not None,
+                geometry_unproven=(bool(detail.get('logo_truncated'))
+                                   or data.get('logo_geometry_complete') is False))
+
+
 def refine_readings(readings, evidence):
     """R0d: replace only names/independently proven fields, never a new price.
 
@@ -620,7 +711,10 @@ def refine_readings(readings, evidence):
     one uniquely located OCR-only tile, but never for an ambiguous collision.
     Crop LP evidence only adds True, with two readers and target-owned logo
     geometry. A negative crop never clears a page True; conflicting negatives
-    or unowned positives explicitly hold the tile. Dates/API flags stay intact.
+    or unresolved/unowned logo evidence explicitly hold the tile, even when
+    name/price proof fails. OCR False plus VLM null without logo evidence adds
+    no LP claim and cannot replace a page vote; synthetic readers still hold
+    without crop LP consensus. Dates/API flags stay intact.
     """
     readings = list(readings)
     out = list(readings)
@@ -628,34 +722,58 @@ def refine_readings(readings, evidence):
     # unchanged until the conflict is reviewed. Identical names collapse;
     # volatile cache identifiers do not make otherwise equal proofs disagree.
     grouped = {}
+    lp_votes = {}
     for data in evidence:
-        proof = _proof(data)
+        lp_target = _crop_lp_target(data)
+        try:
+            proof = _proof(data)
+        except (KeyError, TypeError, ValueError, InvalidOperation):
+            # One unusable name/price/condition record must not erase a
+            # locatable LP warning or all the other accepted crop evidence.
+            proof = None
         if proof is not None:
             grouped.setdefault((data['page'], proof['price_bbox']), []).append((data, proof))
+        if lp_target is not None:
             oi = [i for i, r in enumerate(out) if r.source == 'ocr'
-                  and r.page == data['page'] and isinstance(r.raw, dict)
-                  and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox']]
-            if len(oi) != 1:
+                  and r.page == lp_target['page'] and isinstance(r.raw, dict)
+                  and tuple(r.raw.get('price_bbox', ())) == lp_target['price_bbox']]
+            if not oi:
                 continue
+            # Duplicate anchors cannot prove ownership, but each carries the
+            # uncertainty so a later pairing cannot lose the hold.
             a = out[oi[0]]
             peers = [r for r in readings if r.source == 'vlm' and r.page == a.page
                      and r.new_price == a.new_price]
-            named = [r for r in peers if _share_product_word(r.name, proof['name'])]
+            named = [r for r in peers if _share_product_word(r.name, a.name)]
             peers = named if named else peers if len(peers) == 1 else []
+            crop_lp, model_lp = lp_target['crop_lp'], lp_target['model_lp']
+            votes = lp_votes.setdefault(tuple(oi), set())
+            if isinstance(crop_lp, bool) and isinstance(model_lp, bool) and crop_lp == model_lp:
+                votes.add(crop_lp)
             reason = None
-            if proof['lp_geometry_unproven']:
+            if lp_target['geometry_unproven']:
                 reason = 'crop-lidl-plus-ownership-unproven: detector logo component truncated/unverified'
-            elif proof['lidl_plus'] is False and any(r.lidl_plus is True for r in [a, *peers]):
+            elif (isinstance(crop_lp, bool) and isinstance(model_lp, bool) and crop_lp != model_lp
+                  and (crop_lp is True or lp_target['logo_seen'])):
+                reason = 'crop-lidl-plus-conflict: crop OCR and VLM disagree'
+            elif (not isinstance(crop_lp, bool) or not isinstance(model_lp, bool)) and (
+                    crop_lp is not False or model_lp is True or lp_target['logo_seen']):
+                reason = 'crop-lidl-plus-unresolved: crop logo evidence lacks two-reader agreement'
+            elif len(votes) > 1:
+                reason = 'crop-lidl-plus-conflict: crop rereads disagree'
+            elif crop_lp is model_lp is False and any(r.lidl_plus is True for r in [a, *peers]):
                 reason = 'crop-lidl-plus-negative-conflict: crop False/False cannot clear page True'
-            elif proof['lidl_plus'] is True and not _crop_lp_owned(
-                    proof, [r for r in readings if r.page == a.page],
-                    data['crop_box']):
+            elif crop_lp is model_lp is False and lp_target['logo_seen']:
+                reason = 'crop-lidl-plus-conflict: negative crop votes contradict detector logo'
+            elif crop_lp is model_lp is True and (proof is None or not _crop_lp_owned(
+                    proof, [r for r in readings if r.page == a.page], data['crop_box'])):
                 reason = 'crop-lidl-plus-ownership-unproven: logo/badge not proven target-owned'
             if reason:
-                raw = dict(a.raw)
-                raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
-                                                     | {reason})
-                out[oi[0]] = replace(a, raw=raw)
+                for i in oi:
+                    raw = dict(out[i].raw)
+                    raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
+                                                         | {reason})
+                    out[i] = replace(out[i], raw=raw)
     used = set()
     for group in grouped.values():
         # A smaller crop has less opportunity to borrow a neighbouring label.

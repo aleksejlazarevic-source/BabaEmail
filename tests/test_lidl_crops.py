@@ -439,6 +439,211 @@ def test_synthetic_vlm_lp_uncertainty_never_copies_page_ocr_vote():
     assert any('crop-lidl-plus-unresolved' in f for f in record.deal.flags)
 
 
+def real_logo_evidence():
+    """A complete LP component found by the production pixel detector."""
+    import cv2
+    import numpy as np
+    from types import SimpleNamespace
+    from babaemail.sources.lidl import Tile, _find_lp_logo
+
+    blue = np.zeros((200, 200), dtype=np.uint8)
+    yellow = blue.copy()
+    cv2.rectangle(blue, (110, 10), (154, 54), 1, -1)
+    cv2.circle(yellow, (132, 32), 13, 1, -1)
+    blue[yellow == 1] = 0
+    ps = SimpleNamespace(bbox=(40, 50, 100, 100), height=50)
+    tile = Tile(4, 'Y', ps.bbox, ps.bbox)
+    _find_lp_logo(tile, {'Y': yellow}, blue, ps)
+    assert tile.lp_logo and tile.lidl_plus is True
+    assert not tile.raw.get('logo_truncated')
+    data = lp_evidence()
+    data['ocr_tiles'][0]['raw'] = tile.raw
+    data['ocr_tiles'][0]['badge_bbox'] = None
+    return data
+
+
+@pytest.mark.parametrize('page_vlm,proof_failure,crop_vote', [
+    (page_vlm, failure, vote) for page_vlm in (True, False)
+    for failure in (None, 'name', 'price') for vote in (None, False)
+    if (page_vlm, failure, vote) != (False, None, None)  # covered by existing regression
+])
+def test_crop_logo_uncertainty_holds_api_match_before_proof_discard(
+        crop_vote, proof_failure, page_vlm):
+    data = real_logo_evidence()
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = crop_vote
+    if proof_failure == 'name':
+        model['name'] = None
+    elif proof_failure == 'price':
+        model['new_price'] = '3.89'
+    data['vlm']['response'] = json.dumps(model)
+    rs = [replace(r, name=NAME) for r in readings()]
+    if not page_vlm:
+        rs = rs[:1]
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    [record] = result.records
+    assert record.candidate is not None
+    reason = 'crop-lidl-plus-unresolved' if crop_vote is None else 'crop-lidl-plus-conflict'
+    assert any(reason in f for f in record.deal.flags)
+
+
+@pytest.mark.parametrize('brand_case,name_path,conflict', [
+    (case, path, conflict) for case in ('upper', 'title') for path in ('shared', 'text')
+    for conflict in ('brand', 'pack', 'both')
+    # The old exact-text fallback already rejects a missing title-cased brand.
+    if not (case == 'title' and path == 'text' and conflict != 'pack')
+])
+def test_three_product_shared_coffee_cannot_hide_missing_neighbour_anchor(conflict, name_path, brand_case):
+    from babaemail.lidl_crops import _crop_lp_owned
+
+    data = real_logo_evidence()
+    # Nearby BELLAROM's anchor is missed by OCR; distant BARCAFFE's offer
+    # is missed by VLM. Shared "Mleta kava" must not locate either offer.
+    coffee = LeafletReading('vlm', 4, D('4.99'), name='BELLAROM Mleta kava',
+                            lidl_plus=True, unit='500 g')
+    if brand_case == 'title':
+        coffee = replace(coffee, name='Bellarom Mleta kava')
+    brand = 'BARCAFFE' if conflict in ('brand', 'both') else 'BELLAROM'
+    pack = '250 g' if conflict in ('pack', 'both') else '500 g'
+    text = (brand, 'Mleta kava', pack)
+    distant = LeafletReading('ocr', 4, D('4.99'),
+                             name=f'{brand} Mleta kava' if name_path == 'shared' else 'Classic',
+                             lidl_plus=False, unit=pack if name_path == 'shared' else None, text=text,
+                             raw={'price_bbox': [700, 70, 760, 120],
+                                  'raw': {'text_lines': list(text)}})
+    rs = [*readings(), coffee, distant]
+    actual = replace(distant, name=coffee.name, unit=coffee.unit, text=(),
+                     raw={'price_bbox': [170, 70, 230, 120]})
+    assert not _crop_lp_owned(_proof(data), [*rs, actual], data['crop_box'])
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    target = next(r for r in result.records if r.candidate is not None)
+    assert target.deal.is_quarantined
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.deal.flags)
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+def test_shared_word_anchor_pairings_must_be_unique_in_both_readers(reverse):
+    from babaemail.lidl_crops import _crop_lp_owned
+
+    data = real_logo_evidence()
+    models = [LeafletReading('vlm', 4, D('4.99'), name=f'COFFEE Mleta kava {variant}',
+                             lidl_plus=False) for variant in ('Classic', 'Premium')]
+    anchors = [LeafletReading('ocr', 4, D('4.99'), name=f'COFFEE Mleta kava {variant}',
+                              lidl_plus=False, raw={'price_bbox': [x, 70, x+60, 120]})
+               for variant, x in [('Classic', 700), ('Premium', 800)]]
+    if reverse:
+        anchors.reverse()
+        models.reverse()
+    rs = [*readings(), *anchors, *models]
+    assert not _crop_lp_owned(_proof(data), rs, data['crop_box'])
+    target = next(d for d in run(refine_readings(rs, [data])).deals
+                  if d.price_new == D('2.89'))
+    assert target.is_quarantined
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+def test_crop_logo_hold_survives_rejected_name_and_other_crop_order(reverse):
+    uncertain = real_logo_evidence()
+    model = json.loads(uncertain['vlm']['response'])
+    model.update(name=None, lidl_plus=None)
+    uncertain['vlm']['response'] = json.dumps(model)
+    crops = [uncertain, real_logo_evidence()]
+    if reverse:
+        crops.reverse()
+    rs = [replace(r, name=NAME) for r in readings()]
+    result = reconcile([candidate(lp=False)], refine_readings(rs, crops),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    [deal] = result.quarantined
+    assert any('crop-lidl-plus-unresolved' in f for f in deal.flags)
+
+
+def test_crop_logo_hold_is_retained_on_every_duplicate_target_anchor():
+    data = real_logo_evidence()
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = False
+    data['vlm']['response'] = json.dumps(model)
+    rs = [replace(r, name=NAME) for r in readings()]
+    rs.append(rs[0])
+    refined = refine_readings(rs, [data])
+    for r in refined:
+        if r.source == 'ocr':
+            assert any('crop-lidl-plus-conflict' in f for f in r.raw['crop_lidl_plus_holds'])
+    assert not reconcile([candidate(lp=False)], refined, leaflet_id='test',
+                         leaflet_window=WEEK, page_validity={4: WEEK}).shipped
+
+
+def test_target_anchor_cannot_ignore_conflicting_selected_brand():
+    rs = readings()
+    rs[0] = replace(rs[0], name='OTHER Sadni piškoti')
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [real_logo_evidence()]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-ownership-unproven' in f
+               for d in result.quarantined for f in d.flags)
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+def test_opposite_complete_crop_lp_votes_hold_even_with_conflicting_names(reverse):
+    crops = [real_logo_evidence(), evidence(name='BRAND Sladki piškoti')]
+    if reverse:
+        crops.reverse()
+    rs = [replace(r, name=NAME) for r in readings()]
+    result = reconcile([candidate(lp=False)], refine_readings(rs, crops),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-conflict' in f
+               for d in result.quarantined for f in d.flags)
+
+
+@pytest.mark.parametrize('failure', ['json', 'condition'])
+def test_unusable_crop_response_cannot_drop_located_logo_warning(failure):
+    data = real_logo_evidence()
+    if failure == 'json':
+        data['vlm']['response'] = '{'
+    else:
+        model = json.loads(data['vlm']['response'])
+        model.update(lidl_plus=None, badge_text=42)
+        data['vlm']['response'] = json.dumps(model)
+    rs = [replace(r, name=NAME) for r in readings()]
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-unresolved' in f
+               for d in result.quarantined for f in d.flags)
+
+
+def test_negative_crop_votes_cannot_discard_saved_detector_logo():
+    data = real_logo_evidence()
+    data['ocr_tiles'][0]['lidl_plus'] = False
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = False
+    data['vlm']['response'] = json.dumps(model)
+    rs = [replace(r, name=NAME) for r in readings()]
+    result = reconcile([candidate(lp=False)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-conflict' in f
+               for d in result.quarantined for f in d.flags)
+
+
+def test_conflicting_pack_in_selected_anchor_name_vetoes_shared_words():
+    data = real_logo_evidence()
+    model = LeafletReading('vlm', 4, D('4.99'), name='COFFEE Mleta kava',
+                           unit='500 g', lidl_plus=True)
+    anchor = LeafletReading('ocr', 4, D('4.99'), name='COFFEE Mleta kava 250 g',
+                            lidl_plus=False, raw={'price_bbox': [700, 70, 760, 120]})
+    rs = [*readings(), model, anchor]
+    target = next(d for d in run(refine_readings(rs, [data])).deals
+                  if d.price_new == D('2.89'))
+    assert target.is_quarantined
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+
+
 def test_real_logo_detector_leftover_neighbour_price_cannot_prove_coverage():
     import cv2
     import numpy as np
