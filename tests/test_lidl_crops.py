@@ -8,6 +8,7 @@ from decimal import Decimal as D
 
 import pytest
 
+from babaemail.lidl_api import LidlCandidate
 from babaemail.lidl_crops import (_crop_box, _proof, load_crops, refine_readings, save_crop,
                                   select_crop_boxes)
 from babaemail.lidl_reconcile import LeafletReading, reconcile
@@ -44,9 +45,29 @@ def readings(*, price='2.89', badge=None, old=None, pct=None):
     return [a, b]
 
 
+def lp_evidence(**kw):
+    data = evidence(**kw)
+    data['ocr_tiles'][0].update(lidl_plus=True, badge_bbox=[40, 30, 100, 50],
+                                raw={'logo_bbox': [100, 30, 120, 50]})
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = True
+    data['vlm']['response'] = json.dumps(model)
+    return data
+
+
 def run(rs, **kw):
     return reconcile([], rs, leaflet_id='test', leaflet_window=WEEK,
                      page_validity={4: WEEK}, **kw)
+
+
+def candidate(*, lp):
+    return LidlCandidate(
+        erp='1', name=NAME, brand=None, title=NAME, url='https://www.lidl.si/p/p1',
+        category='Food', new_price=D('2.89'), old_price=None, pct=None,
+        discount_text=None, lidl_plus=lp, lidl_plus_text=None, highlight_text=None,
+        regular_price=None, conditional=False, conditional_reason=None,
+        packaging=None, price_unit=None, base_price_text=None,
+        windows=[WEEK], all_windows=[WEEK], sources=('sitemap',), data_from='gridboxes')
 
 
 def test_crop_name_repair_ships_plain_price_and_discount_stays_unknown():
@@ -241,17 +262,133 @@ def test_from_price_still_needs_lidl_plus_agreement_and_validity():
 def test_crop_lp_badge_settles_page_reader_disagreement_only_with_two_crop_readers():
     rs = readings(price='2.29', old='3.29', pct='30')
     rs[1] = replace(rs[1], lidl_plus=True)
-    data = evidence(price='2.29', badge='discount', old='3.29', pct='30')
-    data['ocr_tiles'][0]['lidl_plus'] = True
-    model = json.loads(data['vlm']['response'])
-    model['lidl_plus'] = True
-    data['vlm']['response'] = json.dumps(model)
+    data = lp_evidence(price='2.29', badge='discount', old='3.29', pct='30')
 
     refined = refine_readings(rs, [data])
     assert {r.lidl_plus for r in refined} == {True}
     assert refined[0].raw['crop_confirmation']['lidl_plus'] is True
     [deal] = run(refined).shipped
     assert deal.loyalty_required == 'Lidl Plus'
+
+
+@pytest.mark.parametrize('votes', [(False, True), (True, False), (True, True)])
+def test_false_false_crop_never_clears_positive_page_lp_and_explicitly_holds(votes):
+    rs = [replace(r, lidl_plus=v) for r, v in zip(readings(), votes)]
+    refined = refine_readings(rs, [evidence()])
+    assert [r.lidl_plus for r in refined] == list(votes)
+    result = run(refined)
+    assert not result.shipped
+    [deal] = result.quarantined
+    assert any('crop-lidl-plus-negative-conflict' in f for f in deal.flags)
+
+
+@pytest.mark.parametrize('votes', [(True, False), (False, True)])
+@pytest.mark.parametrize('api_lp', [False, True])
+def test_negative_crop_lp_hold_survives_api_vote_including_kw40_p44_shape(votes, api_lp):
+    # p44 failure shape: OCR True, page VLM False, API False. Also check the
+    # reverse page vote and API True, which would otherwise settle 2-of-3.
+    rs = [replace(r, name=NAME, lidl_plus=v) for r, v in zip(readings(), votes)]
+    refined = refine_readings(rs, [evidence()])
+    result = reconcile([candidate(lp=api_lp)], refined, leaflet_id='test',
+                       leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    [record] = result.records
+    assert record.rule == 'verified' and record.candidate is not None
+    assert any('crop-lidl-plus-negative-conflict' in f for f in record.deal.flags)
+
+
+@pytest.mark.parametrize('logo', [None, [195, 30, 215, 50], [120, 30, 140, 50]])
+def test_crop_positive_lp_without_complete_target_logo_geometry_holds(logo):
+    data = lp_evidence()
+    data['ocr_tiles'][0]['raw']['logo_bbox'] = logo
+    rs = readings()
+    # A real neighbouring price anchor, including the unreadable-price case.
+    rs.append(LeafletReading('ocr', 4, None, lidl_plus=False,
+                            raw={'price_bbox': [170, 70, 230, 120]}))
+    result = run(refine_readings(rs, [data]))
+    assert not result.shipped
+    target = next(d for d in result.quarantined if d.price_new == D('2.89'))
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+
+
+def test_adjacent_tile_logo_inside_one_price_crop_cannot_label_target():
+    data = lp_evidence()
+    data['ocr_tiles'][0]['raw']['logo_bbox'] = [160, 30, 190, 60]
+    # Crop x ends at 210; the neighbour's price starts at 220. Its logo
+    # (page [170, 50, 200, 80]) is fully visible inside the target crop.
+    neighbour = LeafletReading('ocr', 4, D('4.99'), lidl_plus=True,
+                                raw={'price_bbox': [220, 70, 280, 120],
+                                     'badge_bbox': [170, 50, 280, 70]})
+    data['ocr_tiles'][0]['badge_bbox'] = None
+    rs = [*readings(), neighbour]
+    assert len(data['ocr_tiles']) == 1
+    assert neighbour.raw['price_bbox'][0] > data['crop_box'][2]
+    refined = refine_readings(rs, [data])
+    assert [r.lidl_plus for r in refined[:2]] == [False, False]
+    result = run(refined)
+    assert not result.shipped
+    target = next(d for d in result.quarantined if d.price_new == D('2.89'))
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in target.flags)
+
+
+def test_target_owned_logo_still_adds_lp_with_neighbour_outside_crop():
+    neighbour = LeafletReading('ocr', 4, D('4.99'), lidl_plus=False,
+                                raw={'price_bbox': [220, 70, 280, 120]})
+    result = run(refine_readings([*readings(), neighbour], [lp_evidence()]))
+    [deal] = result.shipped
+    assert deal.loyalty_required == 'Lidl Plus'
+
+
+def test_unproven_positive_crop_lp_holds_even_when_page_and_api_already_agree():
+    data = lp_evidence()
+    data['ocr_tiles'][0]['raw'] = {}
+    rs = [replace(r, name=NAME, lidl_plus=True) for r in readings()]
+    result = reconcile([candidate(lp=True)], refine_readings(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    [deal] = result.quarantined
+    assert any('crop-lidl-plus-ownership-unproven' in f for f in deal.flags)
+
+
+@pytest.mark.parametrize('case', ['valid', 'negative-lp', 'borrowed-lp',
+                                 'missing-piece', 'wrong-total'])
+def test_multibuy_crop_requires_owned_lp_and_keeps_per_piece_gates(case):
+    data = lp_evidence(price='6.56', badge='flag')
+    data['ocr_texts'] = [NAME, '4+2 gratis', 'cena za 1 kos: 1,64',
+                         'velja za nakup točno 6 kosov']
+    data['ocr_badge_count'] = '4+2'
+    model = json.loads(data['vlm']['response'])
+    model.update(badge_text='4+2 gratis', single_piece_text='cena za 1 kos: 1,64',
+                 purchase_quantity_text='velja za nakup točno 6 kosov')
+    rs = readings(price='6.56', badge='flag')
+    rs[0] = replace(rs[0], name=NAME, text=('cena za 1 kos: 1,64',))
+    rs[1] = replace(rs[1], lidl_plus=True)
+    if case == 'negative-lp':
+        data['ocr_tiles'][0]['lidl_plus'] = model['lidl_plus'] = False
+    elif case == 'borrowed-lp':
+        data['ocr_tiles'][0]['raw']['logo_bbox'] = [160, 30, 190, 60]
+        rs.append(LeafletReading('ocr', 4, D('4.99'), lidl_plus=True,
+                                 raw={'price_bbox': [220, 70, 280, 120],
+                                      'badge_bbox': [170, 50, 280, 70]}))
+    elif case == 'missing-piece':
+        model['single_piece_text'] = None
+    elif case == 'wrong-total':
+        model['single_piece_text'] = 'cena za 1 kos: 1,65'
+        data['ocr_texts'][2] = model['single_piece_text']
+    data['vlm']['response'] = json.dumps(model)
+    result = run(refine_readings(rs, [data]))
+    if case == 'valid':
+        [deal] = result.shipped
+        assert deal.loyalty_required == 'Lidl Plus'
+        assert deal.condition_kind == 'multi-buy'
+        assert deal.condition == '4+2 gratis; velja za nakup točno 6 kosov; cena za 1 kos 1,64 €'
+    else:
+        assert not result.shipped
+        target = next(d for d in result.quarantined if d.price_new == D('6.56'))
+        reason = ('crop-lidl-plus-negative-conflict' if case == 'negative-lp'
+                  else 'crop-lidl-plus-ownership-unproven' if case == 'borrowed-lp'
+                  else 'multi-buy missing two-reader')
+        assert any(reason in f for f in target.flags)
 
 
 def test_crop_lp_badge_disagreement_cannot_settle_page_readers():
@@ -271,11 +408,7 @@ def test_crop_lp_badge_disagreement_cannot_settle_page_readers():
 def test_one_uncertain_crop_keeps_lp_disagreement_held():
     rs = readings(price='2.29', old='3.29', pct='30')
     rs[1] = replace(rs[1], lidl_plus=True)
-    proven = evidence(price='2.29', badge='discount', old='3.29', pct='30')
-    proven['ocr_tiles'][0]['lidl_plus'] = True
-    model = json.loads(proven['vlm']['response'])
-    model['lidl_plus'] = True
-    proven['vlm']['response'] = json.dumps(model)
+    proven = lp_evidence(price='2.29', badge='discount', old='3.29', pct='30')
     uncertain = copy.deepcopy(proven)
     uncertain['crop_sha256'] = 'another-crop'
     uncertain['ocr_tiles'][0]['lidl_plus'] = None

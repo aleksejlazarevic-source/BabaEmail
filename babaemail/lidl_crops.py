@@ -379,11 +379,84 @@ def _proof(data):
         return None
     lp_proven = (crop_lp if isinstance(crop_lp, bool) and model_lp == crop_lp
                  else None)
+    def page_box(box):
+        if (not isinstance(box, (list, tuple)) or len(box) != 4
+                or not all(isinstance(v, (int, float)) for v in box)):
+            return None
+        return (box[0]+x0, box[1]+y0, box[2]+x0, box[3]+y0)
+
     return dict(name=name, price=price, price_bbox=(a+x0, b+y0, c+x0, d+y0),
                 old_pct=(old, pct) if old_proven else None, from_price=from_price,
                 multi_buy=multi_buy,
                 lidl_plus=lp_proven,
+                logo_bbox=page_box((tile.get('raw') or {}).get('logo_bbox')),
+                badge_bbox=page_box(tile.get('badge_bbox')),
                 crop_ocr_name=_ocr_text_proves_name(crop_ocr, name))
+
+
+def _box_owned(box, target, anchors):
+    """The ENTIRE box must lie strictly in the target's nearest-anchor cell.
+
+    Rectangle distance is piecewise linear in x/y. Check the cell vertices
+    at every anchor edge inside the box, not just its centre: a badge crossing
+    a partition or tying two prices is not proven to belong to either tile.
+    """
+    xs = {box[0], box[2]} | {x for a in anchors for x in (a[0], a[2])
+                            if box[0] < x < box[2]}
+    ys = {box[1], box[3]} | {y for a in anchors for y in (a[1], a[3])
+                            if box[1] < y < box[3]}
+
+    def distance(x, y, a):
+        return max(0, a[0]-x, x-a[2]) + max(0, a[1]-y, y-a[3])
+
+    return all(distance(x, y, anchors[target]) < distance(x, y, a)
+               for x in xs for y in ys for i, a in enumerate(anchors) if i != target)
+
+
+def _crop_lp_owned(proof, page_readings, crop_box):
+    """Bind crop-local logo geometry to ALL page prices, including off-crop.
+
+    Price badges may extend the anchor only if their own price ownership is
+    proven first. No logo geometry, clipped logo, missing page anchors or a
+    tied/borrowed badge is positive LP proof.
+    """
+    def box(value):
+        if (not isinstance(value, (list, tuple)) or len(value) != 4
+                or not all(isinstance(v, (int, float)) for v in value)):
+            return None
+        return tuple(value) if value[0] < value[2] and value[1] < value[3] else None
+
+    logo = box(proof['logo_bbox'])
+    if logo is None or not (crop_box[0] <= logo[0] and crop_box[1] <= logo[1]
+                            and logo[2] <= crop_box[2] and logo[3] <= crop_box[3]):
+        return False
+    prices, badges = [], []
+    for r in page_readings:
+        raw = r.raw if isinstance(r.raw, dict) else {}
+        price = box(raw.get('price_bbox'))
+        if price is None:
+            return False
+        detail = raw.get('raw') if isinstance(raw.get('raw'), dict) else raw
+        prices.append(price)
+        badges.append(box(raw.get('badge_bbox') or detail.get('badge_bbox')))
+    matches = [i for i, price in enumerate(prices) if price == proof['price_bbox']]
+    if len(matches) != 1:
+        return False
+    target = matches[0]
+    badge = box(proof['badge_bbox'])
+    if badge is not None and not _box_owned(badge, target, prices):
+        return False
+    # Use the crop's recovered target badge, and the full-page neighbours'
+    # badges. Never let an unowned badge enlarge any tile's anchor.
+    badges[target] = badge or badges[target]
+    anchors = []
+    for i, (price, badge) in enumerate(zip(prices, badges)):
+        if badge is not None and _box_owned(badge, i, prices):
+            anchors.append((min(price[0], badge[0]), min(price[1], badge[1]),
+                            max(price[2], badge[2]), max(price[3], badge[3])))
+        else:
+            anchors.append(price)
+    return _box_owned(logo, target, anchors)
 
 
 _SINGLE = re.compile(r'cena\s+za\s+1\s+kos\s*:\s*(\d+[.,]\d{2})(?!\d)', re.I)
@@ -434,9 +507,11 @@ def refine_readings(readings, evidence):
     The crop name must agree with a full-page VLM, tile-owned OCR text, or an
     identical second crop. A crop VLM may supply the second price reader for
     one uniquely located OCR-only tile, but never for an ambiguous collision.
-    A crop can settle conflicting full-page Lidl Plus votes only when its OCR
-    badge detector and VLM independently agree. Dates and API flags stay intact.
+    Crop LP evidence only adds True, with two readers and target-owned logo
+    geometry. A negative crop never clears a page True; conflicting negatives
+    or unowned positives explicitly hold the tile. Dates/API flags stay intact.
     """
+    readings = list(readings)
     out = list(readings)
     # Disagreeing crop rereads are not settled by file order. Keep the tile
     # unchanged until the conflict is reviewed. Identical names collapse;
@@ -446,6 +521,28 @@ def refine_readings(readings, evidence):
         proof = _proof(data)
         if proof is not None:
             grouped.setdefault((data['page'], proof['price_bbox']), []).append((data, proof))
+            oi = [i for i, r in enumerate(out) if r.source == 'ocr'
+                  and r.page == data['page'] and isinstance(r.raw, dict)
+                  and tuple(r.raw.get('price_bbox', ())) == proof['price_bbox']]
+            if len(oi) != 1:
+                continue
+            a = out[oi[0]]
+            peers = [r for r in readings if r.source == 'vlm' and r.page == a.page
+                     and r.new_price == a.new_price]
+            named = [r for r in peers if _share_product_word(r.name, proof['name'])]
+            peers = named if named else peers if len(peers) == 1 else []
+            reason = None
+            if proof['lidl_plus'] is False and any(r.lidl_plus is True for r in [a, *peers]):
+                reason = 'crop-lidl-plus-negative-conflict: crop False/False cannot clear page True'
+            elif proof['lidl_plus'] is True and not _crop_lp_owned(
+                    proof, [r for r in readings if r.source == 'ocr' and r.page == a.page],
+                    data['crop_box']):
+                reason = 'crop-lidl-plus-ownership-unproven: logo/badge not proven target-owned'
+            if reason:
+                raw = dict(a.raw)
+                raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
+                                                     | {reason})
+                out[oi[0]] = replace(a, raw=raw)
     used = set()
     for group in grouped.values():
         # A smaller crop has less opportunity to borrow a neighbouring label.
@@ -484,7 +581,9 @@ def refine_readings(readings, evidence):
                 # The page OCR plus the crop VLM are the two independent
                 # readers. This is safe only for one exact OCR geometry.
                 template = LeafletReading('vlm', page, price,
-                                           lidl_plus=proof['lidl_plus'],
+                                           lidl_plus=(True if lp_consensus is True
+                                                      and not a.raw.get('crop_lidl_plus_holds')
+                                                      else a.lidl_plus),
                                            name=proof['name'])
                 out.append(template)
                 vi = [len(out) - 1]
@@ -520,7 +619,7 @@ def refine_readings(readings, evidence):
         if a.bbox is None or not (x0 <= a.bbox[0] and y0 <= a.bbox[1]
                                    and x1 >= a.bbox[2] and y1 >= a.bbox[3]):
             continue
-        lp = lp_consensus
+        lp = True if lp_consensus is True and not a.raw.get('crop_lidl_plus_holds') else None
         raw = dict(a.raw)
         if proof['from_price'] and raw.get('badge') is None:
             # Both crop readers recovered a lower-bound qualifier that the
@@ -539,9 +638,9 @@ def refine_readings(readings, evidence):
             if (old is None or old == co) and (pct is None or pct == cp):
                 old, pct = co, cp
         out[oi[0]] = replace(a, name=canonical_name, old_price=old, pct=pct,
-                             lidl_plus=lp if isinstance(lp, bool) else a.lidl_plus,
+                             lidl_plus=True if lp is True else a.lidl_plus,
                              raw=raw)
         out[vi[0]] = replace(b, name=canonical_name,
-                             lidl_plus=lp if isinstance(lp, bool) else b.lidl_plus)
+                             lidl_plus=True if lp is True else b.lidl_plus)
         used.update(oi + vi)
     return out

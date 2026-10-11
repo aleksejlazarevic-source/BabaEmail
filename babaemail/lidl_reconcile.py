@@ -817,6 +817,11 @@ def multi_buy_condition(t: LeafletTile, expected: tuple[int, int] | None = None)
     return "; ".join(parts), ""
 
 
+def _crop_lidl_plus_holds(t: LeafletTile) -> list[str]:
+    return sorted({reason for r in t.readings if isinstance(r.raw, dict)
+                   for reason in r.raw.get("crop_lidl_plus_holds", ())})
+
+
 def _unverified_why(t: LeafletTile) -> list[str]:
     """Every R8 proof this tile lacks, in words (quarantine reasons)."""
     if len(t.sources) == 1:
@@ -1506,6 +1511,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                    and old_price_doubt_settled(t, c) else [])
         d = _deal_from_candidate(c, leaflet_id, settled, t)
         d.source_page = t.page
+        for reason in _crop_lidl_plus_holds(t):
+            d.quarantine(reason)
         if ti in badge_resolved:
             d.flag(badge_resolved[ti])
         if t.page is not None:
@@ -1691,6 +1698,8 @@ def reconcile(candidates: Sequence[LidlCandidate], readings: Iterable[LeafletRea
                  source_url=leaflet_url, valid_from=(pv or leaflet_window)[0],
                  valid_to=(pv or leaflet_window)[1], price_new=t.new_price,
                  loyalty_required=LIDL_PLUS if t.lidl_plus else None, source_page=t.page)
+        for reason in _crop_lidl_plus_holds(t):
+            d.quarantine(reason)
         if t.page is not None:
             d.flag(f"leaflet-page:{t.page}")
         if id(t) in overruled:
