@@ -9,8 +9,8 @@ from decimal import Decimal as D
 import pytest
 
 from babaemail.lidl_api import LidlCandidate
-from babaemail.lidl_crops import (_crop_box, _proof, load_crops, refine_readings, save_crop,
-                                  select_crop_boxes)
+from babaemail.lidl_crops import (_crop_box, _proof, apply_crop_lp_holds, load_crops,
+                                  refine_readings, save_crop, select_crop_boxes)
 from babaemail.lidl_reconcile import LeafletReading, reconcile
 from babaemail.models import Deal
 
@@ -946,10 +946,13 @@ def test_multibuy_crop_box_includes_tile_owned_per_piece_line():
 
 # --- y4fix5: one fail-closed crop-LP decision --------------------------------
 
-def _crop_votes(data, crop_ocr, crop_vlm):
+def _crop_votes(data, crop_ocr, crop_vlm, real_logo=None):
     tile = data['ocr_tiles'][0]
     tile['lidl_plus'] = crop_ocr
-    if crop_ocr is True:
+    if crop_ocr is True and real_logo is not None:
+        # Production detector pixels, not synthetic geometry.
+        tile.update(badge_bbox=None, raw=copy.deepcopy(real_logo))
+    elif crop_ocr is True:
         tile.update(badge_bbox=[40, 30, 100, 50], raw={'logo_bbox': [100, 30, 120, 50]})
     model = json.loads(data['vlm']['response'])
     model['lidl_plus'] = crop_vlm
@@ -1046,11 +1049,22 @@ def test_refinement_failure_fallback_keeps_crop_lp_holds():
     assert not run(held).shipped
 
 
+_REAL_LOGO = []
+
+
+def _real_logo_raw():
+    if not _REAL_LOGO:
+        _REAL_LOGO.append(real_logo_evidence()['ocr_tiles'][0]['raw'])
+    return _REAL_LOGO[0]
+
+
+@pytest.mark.parametrize('detector', ['synthetic', 'real-pixels'])
 @pytest.mark.parametrize('page_ocr,page_vlm,api,crop_ocr,crop_vlm', list(
     __import__('itertools').product((True, False, None), repeat=5)))
 def test_property_crop_lp_only_adds_under_the_full_positive_rule(
-        page_ocr, page_vlm, api, crop_ocr, crop_vlm):
-    data = _crop_votes(evidence(), crop_ocr, crop_vlm)
+        page_ocr, page_vlm, api, crop_ocr, crop_vlm, detector):
+    real = _real_logo_raw() if detector == 'real-pixels' else None
+    data = _crop_votes(evidence(), crop_ocr, crop_vlm, real)
     rs = [replace(r, name=NAME, lidl_plus=v)
           for r, v in zip(readings(), (page_ocr, page_vlm))]
     result = reconcile([candidate(lp=api)], refine_readings(rs, [data]),
@@ -1065,3 +1079,46 @@ def test_property_crop_lp_only_adds_under_the_full_positive_rule(
             assert crop_ocr is True and crop_vlm is True, 'LP shipped without full crop proof'
     if (page_ocr, page_vlm, api, crop_ocr, crop_vlm) == (False,) * 5:
         assert shipped and shipped[0].loyalty_required is None  # not vacuous
+
+
+# --- y4fix6: fallback and multi-pass refinement keep the one decision --------
+
+def test_refinement_crash_after_positive_decision_holds_allowed_anchor():
+    # True/True with proven ownership is ALLOWED to add LP; refinement then
+    # crashes (missing page_sha256). The fallback must not leave page/API
+    # False standing: the item is held, never shipped without LP.
+    data = lp_evidence()
+    del data['page_sha256']
+    rs = [replace(r, name=NAME) for r in readings()]
+    with pytest.raises(KeyError):
+        refine_readings(rs, [data])
+    result = reconcile([candidate(lp=False)], apply_crop_lp_holds(rs, [data]),
+                       leaflet_id='test', leaflet_window=WEEK, page_validity={4: WEEK})
+    assert not result.shipped
+    assert any('crop-lidl-plus-unresolved' in f for d in result.quarantined for f in d.flags)
+
+
+def _abstain():
+    data = evidence()
+    model = json.loads(data['vlm']['response'])
+    model['lidl_plus'] = None
+    data['vlm']['response'] = json.dumps(model)
+    return data
+
+
+@pytest.mark.parametrize('first,second', [('negative', 'positive'), ('positive', 'negative'),
+                                          ('abstain', 'positive'), ('positive', 'abstain')])
+@pytest.mark.parametrize('api_lp', [True, False])
+def test_split_refinement_passes_decide_like_one_pass(first, second, api_lp):
+    make = dict(negative=evidence, positive=lp_evidence, abstain=_abstain)
+    a, b = make[first](), make[second]()
+    b['crop_sha256'] = 'second-pass-crop'
+    rs = [replace(r, name=NAME) for r in readings()]
+    one = refine_readings(rs, [a, b])
+    two = refine_readings(refine_readings(rs, [a]), [b])
+    for refined in (one, two):
+        result = reconcile([candidate(lp=api_lp)], refined, leaflet_id='test',
+                           leaflet_window=WEEK, page_validity={4: WEEK})
+        assert not result.shipped
+        assert any(f.startswith('quarantine:crop-lidl-plus')
+                   for d in result.quarantined for f in d.flags)

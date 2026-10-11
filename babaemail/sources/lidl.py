@@ -430,6 +430,9 @@ class Lidl(Source):
         # pass. Page hashes exclude stale evidence. A broken optional cache is
         # recorded and ignored: no crops is the earlier proven-safe behavior.
         crop_stats = {}
+        # The final pass refines these UNREFINED page readings once, over all
+        # cached and new rereads, so one LP decision sees every vote.
+        page_readings = readings
         try:
             crop_evidence = lidl_crops.load_crops(pngs, stats=crop_stats)
         except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -482,11 +485,11 @@ class Lidl(Source):
         stats.update(crop_stats)
         crop_evidence.extend(crop_read)
         try:
-            readings = lidl_crops.refine_readings(readings, crop_read)
+            readings = lidl_crops.refine_readings(page_readings, crop_evidence)
         except Exception as exc:
             stats['crop_refine_error'] = stats.get('crop_refine_error', 0) + 1
             log.warning("crop refinement skipped: %r", exc)
-            readings = lidl_crops.apply_crop_lp_holds(readings, crop_read)
+            readings = lidl_crops.apply_crop_lp_holds(page_readings, crop_evidence)
         stats["crop_evidence"] = len(crop_evidence)
 
         rr = reconcile(list(cands), readings, **reconcile_kw)

@@ -793,7 +793,12 @@ def _crop_lp_decision(entries, anchor, page_readings):
     ownership proven by complete anchor coverage. Otherwise crop evidence can
     only hold; it never clears or changes a page/API LP vote.
     """
-    votes, holds = [], set()
+    # Votes an earlier refinement pass already decided on this anchor stay
+    # part of the one decision: a later pass never decides on its own.
+    prior = anchor.raw.get('crop_lp_votes', ()) if isinstance(anchor.raw, dict) else ()
+    votes, holds = [v for v in prior if v in ('positive', 'negative', 'abstain')], set()
+    if len(votes) != len(tuple(prior)):
+        holds.add(_HOLD_UNRESOLVED)
     for data, target, proof in entries:
         vote = _crop_lp_vote(target)
         if vote in ('positive', 'negative', 'abstain'):
@@ -819,6 +824,17 @@ def _crop_lp_decision(entries, anchor, page_readings):
     return bool(votes) and set(votes) == {'positive'}, set()
 
 
+def _crop_lp_votes_of(entries):
+    out = set()
+    for _, target, _ in entries:
+        try:
+            vote = _crop_lp_vote(target)
+        except Exception:
+            vote = None
+        out.add(vote if vote in ('positive', 'negative', 'abstain') else 'held')
+    return out
+
+
 def _overlaps(box, crop_box):
     try:
         return (box[0] < crop_box[2] and crop_box[0] < box[2]
@@ -836,7 +852,7 @@ def _crop_lp_holds(readings, evidence):
     """
     readings = list(readings)
     out = list(readings)
-    holds, allowed = {}, set()
+    holds, allowed, votes = {}, set(), {}
 
     def hold(i, reason):
         holds.setdefault(i, set()).add(reason)
@@ -888,17 +904,32 @@ def _crop_lp_holds(readings, evidence):
             allowed.add(i)
         for reason in reasons:
             hold(i, reason)
-    for i, reasons in holds.items():
+        raw = readings[i].raw if isinstance(readings[i].raw, dict) else {}
+        votes[i] = set(raw.get('crop_lp_votes', ())) | _crop_lp_votes_of(entries)
+    for i in set(holds) | set(votes):
         raw = dict(out[i].raw) if isinstance(out[i].raw, dict) else {}
-        raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
-                                             | reasons)
+        if i in holds:
+            raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
+                                                 | holds[i])
+        if i in votes:
+            raw['crop_lp_votes'] = sorted(votes[i])
         out[i] = replace(out[i], raw=raw)
     return out, allowed
 
 
 def apply_crop_lp_holds(readings, evidence):
-    """Holds only, no name/LP refinement: the fallback if refinement fails."""
-    return _crop_lp_holds(readings, evidence)[0]
+    """Holds only, no name/LP refinement: the fallback if refinement fails.
+
+    No LP is added here, so an anchor the decision ALLOWED to gain LP is
+    held too: its page/API False must not ship against True/True crops.
+    """
+    out, allowed = _crop_lp_holds(readings, evidence)
+    for i in allowed:
+        raw = dict(out[i].raw) if isinstance(out[i].raw, dict) else {}
+        raw['crop_lidl_plus_holds'] = sorted(set(raw.get('crop_lidl_plus_holds', ()))
+                                             | {_HOLD_NOT_APPLIED})
+        out[i] = replace(out[i], raw=raw)
+    return out
 
 
 def refine_readings(readings, evidence):

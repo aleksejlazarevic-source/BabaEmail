@@ -580,3 +580,34 @@ def test_reader_records_the_tiles_own_text_lines():
     r = _read_synthetic()
     assert r.raw["badge"] is None
     assert any("ribeye steak" in ln for ln in r.text)
+
+
+@pytest.mark.parametrize('crash', [False, True])
+def test_final_crop_pass_decides_once_over_cached_and_new_rereads(world, monkeypatch, crash):
+    # The second refinement must see ALL rereads (cached + new) applied to the
+    # unrefined page readings, never only the new ones on refined readings.
+    cached, new = {'page': 1, 'id': 'cached'}, {'page': 1, 'id': 'new'}
+    calls = []
+    monkeypatch.setattr(lidl_crops, 'load_crops', lambda pngs, stats=None: [cached])
+    monkeypatch.setattr(lidl_crops, 'select_crop_boxes',
+                        lambda *a, **k: [(1, (0, 0, 10, 10))])
+    monkeypatch.setattr(lidl_crops, 'read_crop', lambda *a, **k: new)
+    monkeypatch.setattr(lidl_crops, 'save_crop', lambda evidence: None)
+
+    def refine(readings, evidence):
+        calls.append(('refine', readings, list(evidence)))
+        if crash and len(calls) > 1:
+            raise RuntimeError('late crop failure')
+        return [*readings]
+    monkeypatch.setattr(lidl_crops, 'refine_readings', refine)
+
+    def holds(readings, evidence):
+        calls.append(('holds', readings, list(evidence)))
+        return list(readings)
+    monkeypatch.setattr(lidl_crops, 'apply_crop_lp_holds', holds)
+    Lidl().fetch(TODAY)
+    first, final = calls[0], calls[-1]
+    assert first[0] == 'refine' and first[2] == [cached]
+    assert final[0] == ('holds' if crash else 'refine')
+    assert final[2] == [cached, new]
+    assert final[1] is first[1]     # the unrefined page readings
