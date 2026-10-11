@@ -1,0 +1,116 @@
+STATUS: BLOCKED -- CURRENT reconcile baseline at ccf4a37 is NOT measured.
+No replay JSON was produced. Missing historical API inputs prevent a faithful run.
+Product code and answer keys unchanged. No network, email, push or system changes.
+
+Command: .venv/bin/python scratch/lidl_kw40_grade/replay_kw40.py
+Result: exit 2, no scratch/lidl_kw40_grade/replayed_kw40.json written.
+
+PDF: 66 zoom-3 pages; cached PNG mismatches/missing: []
+VLM full-page cache: 66/66; missing pages: []
+VLM raw header cache: 54/66; missing pages: [6, 25, 26, 27, 28, 31, 32, 33, 34, 35, 36, 37]
+Current load_crops: 61 page-hash-bound entries; {'crop_files_bad': 0, 'crop_files_stale': 52}
+OCR: no kw40 reading pickle found in scratch/lidl_ocr or scratch/lidl_reconcile; local OCR can be rerun from the PDF (no network needed).
+Recorded kw40_fix API counts: {'offers': 125, 'listed': 230, 'no_price': 59}
+Recorded header evidence: 24 agreed windows, 66 outcomes; derived evidence survives, but not all raw header responses.
+Sep23 raw API caches selected for kw40: 17 offers, 62 listed, 81 no-price; 281/355 recorded priced API IDs absent.
+out/kw40_* retains reconciled Deals, not original LidlCandidate objects; 89 unmatched listed records retain only ERP/name/price.
+runs/ and scratch/: captured-input pickles found only for kw39; no full_inputs_kw40.pkl or candidates_kw40.pkl.
+BLOCKED: API candidate input to reconcile: missing /home/forbiddentoast/Work/BabaEmail/scratch/lidl_reconcile/full_inputs_kw40.pkl. Need original 125 offer + 230 listed candidates (including packaging, API title/brand, prices/LP/conditions, flags and all validity windows). Historical run also counted 59 no-price records. Reconciled Deals are lossy and cannot restore these fields; September 23 caches are incomplete. No CURRENT baseline JSON can be measured from the available inputs.
+
+The existing ignored replay draft was preserved before replacement at
+/tmp/babaemail-replay_kw40.preexisting.py. It reconstructed API candidates
+from reconciled Deals, supplied absent values, and omitted records; that
+cannot establish the requested no-invention baseline.
+
+Checks:
+- .venv/bin/python -m py_compile scratch/lidl_kw40_grade/replay_kw40.py: exit 0.
+- .venv/bin/python scratch/lidl_kw40_grade/replay_kw40.py --help: exit 0.
+- Direct socket.create_connection and vlm._call_ollama calls under offline():
+  both rejected with MissingInput; guard check exit 0.
+- Existing grader command below: exit 0; recorded sanity check exactly matches
+  30 OK, 0 wrong-field, 34 held, 0 missing, 0 shipped-unmatched.
+- The successful replay branch is untested because its genuine inputs are absent.
+
+REFERENCE ONLY -- grade of historical out/kw40_fix, NOT a ccf4a37 replay:
+Command: .venv/bin/python scratch/lidl_kw40_grade/grade_kw40.py out/kw40_fix/lidl_lidlov-katalog-2026-kw40.json
+
+HELD         p10-01    2.99 Sveža jajca izpod kamniških planin       quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-02    2.49 Pšenična bela moka                       quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-03    1.99 Francoska solata XXL                     quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-04    3.19 Sir Tilsit                               quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-05    0.99 Kmečko kislo mleko                       quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-06    1.49 Kislo zelje                              quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-07    1.39 Kisla repa                               quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p10-08    1.65 Ajdova kaša                              quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p15-09    2.79 Gazirana mineralna voda                  quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p15-10    9.99 Classic mleta kava                       quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p15-11    2.49 Cockta Original                          quarantine:api-flag:price_record_starts:2026-10-02
+OK           p15-12    0.59 Napitek                                  <- XIXO Napitek  [2026-10-01..2026-10-07]
+OK           p15-13    2.49 Malt ananas                              <- LAŠKO Malt ananas  [2026-10-01..2026-10-07]
+HELD         p15-14    4.39 Energijska pijača                        quarantine:leaflet-only-unverified: OCR saw a badge (flag) it cannot prove (page 15 'RED BULL Energijska pijač
+HELD         p15-15    4.19 Svetlo pivo                              quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p15-16   23.99 Svetlo pivo                              quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p17-17    9.49 Darilni set s skodelico                  quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p17-18    9.99 Classic mleta kava                       quarantine:leaflet-duplicate-of:11256605 (page 17 'BARCAFFÉ Classic mleta kava' 9.99 [ocr+vlm])
+HELD         p17-19    3.19 Instant kava Crema                       quarantine:api-flag:price_record_starts:2026-10-02
+OK           p17-20    9.99 Kava v zrnu                              <- BELLAROM Espresso Extra Dark Roast  [2026-10-01..2026-10-07]
+HELD         p17-21    0.65 Kavni napitek                            quarantine:leaflet-only-unverified: OCR old/% not reconciled (page 17 'PILOS Kavni napitek' 0.65 [ocr+vlm])
+OK           p17-22    0.75 Proteinski kavni napitek                 <- PILOS Proteinski kavni napitek  [2026-10-01..2026-10-07]
+OK           p17-23    0.89 Ledena kava                              <- HELL Ledena kava  [2026-10-01..2026-10-07]
+HELD         p17-24    1.59 Kavni napitek                            quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p19-25    4.89 Zobna krema                              quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p19-26    1.49 Micelarna voda                           quarantine:leaflet-only-no-validity: page 19 validity unknown (page 19 'Cien Micelarna voda' 1.49 [ocr+vlm])
+HELD         p19-27    7.99 Šampon za lase                           quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p19-28    2.49 Osvežilec zraka                          quarantine:leaflet-only-no-validity: page 19 validity unknown (page 19 'AIR BY W5 Osvežilec zraka' 2.49 [ocr+v
+HELD         p19-29    4.49 Čistilo za oblazinjeno pohištvo          quarantine:leaflet-only-no-validity: page 19 validity unknown (page 19 'Dr. Beckmann Čistilo za oblazinjeno po
+HELD         p19-30    1.19 Čistilo za kopalnico in kuhinjo          quarantine:leaflet-only-no-validity: page 19 validity unknown (page 19 'W5 Čistilo za kopalnico in kuhinjo' 1.
+HELD         p24-31    8.99 Ženski bodi, 2 kosa                      quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p24-32    6.99 Ženska majica s tankimi naramnicami, 3 k quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p24-33    6.99 Ženske spodnjice s čipko, 5 kosov        quarantine:api-flag:price_record_starts:2026-10-02
+HELD         p24-34    4.49 Ženski bustje, 2 kosa                    quarantine:api-flag:price_record_starts:2026-10-02
+OK           p42-35    1.89 Blejska salama                           <- NAŠE NAM PAŠE Blejska salama  [2026-10-02..2026-10-03]
+OK           p42-36    1.29 Ribani sir za gratiniranje               <- MILBONA Ribani sir za gratiniranje  [2026-10-02..2026-10-03]
+OK           p42-37    0.75 Sveže vlečeno testo                      <- chef select Vlečeno testo  [2026-10-02..2026-10-03]
+OK           p42-38    1.75 Njoki                                    <- HARVEST BASKET Njoki  [2026-10-02..2026-10-03]
+OK           p42-39    1.49 Stročji fižol                            <- FRESHONA Stročji fižol  [2026-10-02..2026-10-03]
+HELD         p42-40    2.49 Spomladanski zavitki XXL                 quarantine:leaflet-start-unproven: api starts 2026-09-28, leaflet 2026-10-01, page 42 header not proven
+HELD         p44-41    1.49 Sveža piščančja drobovina                quarantine:lidl-plus-disputed: a reader saw Lidl Plus, the vote would clear it (page 44 'NAŠE NAM PAŠE Sveži p
+OK           p44-42    9.99 Svež puranji prsni file                  <- NAŠE NAM PAŠE Puranji prsni file  [2026-10-05..2026-10-07]
+OK           p44-43    2.99 Sveži šiš čevapčiči                      <- ŽAR LEGENDE Sveži šiš čevapčiči  [2026-10-05..2026-10-07]
+OK           p44-44    2.59 Sveži svinjski zrezki                    <- SVEŽE MESO Svinjski zrezki  [2026-10-05..2026-10-07]
+OK           p44-45    1.29 Smetana za kuhanje                       <- PILOS Smetana za kuhanje  [2026-10-05..2026-10-07]
+OK           p44-46    2.69 Sir Edamec                               <- PILOS Sir edamec  [2026-10-05..2026-10-07]
+HELD         p50-47    3.99 Izbor hladnih predjedi                   quarantine:leaflet-only-unverified: OCR saw a badge (flag) it cannot prove (page 50 'ITALIAMO Antipasti medite
+OK           p50-48    2.39 Pikantni sir „Gorgonzola“                <- ITALIAMO Pikantni sir „Gorgonzola“  [2026-10-05..2026-10-07]
+HELD         p50-49    1.99 Sir „Parmigiano Reggiano“                quarantine:leaflet-only-unverified: name has one reader (OCR name None) (page 50 'ITALIAMO Parmigiano Reggiano
+OK           p50-50    2.69 Sir “Burrata”                            <- ITALIAMO Sir “Burrata”  [2026-10-05..2026-10-07]
+OK           p50-51    1.49 Kapre                                    <- ITALIAMO Kapre  [2026-10-05..2026-10-07]
+OK           p50-52    0.89 Kruhki „Bruschette“                      <- ITALIAMO Bruschette con olio d'oliva  [2026-10-05..2026-10-07]
+OK           p50-53    0.89 Začimbe v spreju                         <- ITALIAMO Začimbe in zelišča v spreju  [2026-10-05..2026-10-07]
+OK           p50-54    1.89 Zelene olive „Bella di Cerignola“        <- ITALIAMO Zelene olive „Bella di Cerignol  [2026-10-05..2026-10-07]
+OK           p50-55    2.59 Pikantne olive                           <- ITALIAMO Pikantne olive  [2026-10-05..2026-10-07]
+OK           p50-56    1.49 Balzamični kis v spreju                  <- ITALIAMO Balzamični kis v spreju  [2026-10-05..2026-10-07]
+OK           p60-57    9.99 Moški športni pulover                    <- CRIVIT Moški športni pulover  [2026-10-05..2026-10-07]
+OK           p60-58    6.99 Moške trenirke                           <- CRIVIT Moške trenirke  [2026-10-05..2026-10-07]
+OK           p60-59   12.99 Športni čevlji                           <- CRIVIT Ženski športni čevlji  [2026-10-05..2026-10-07]
+OK           p62-60    5.99 Ženske funkcijske pajkice                <- CRIVIT Ženske funkcijske pajkice  [2026-10-05..2026-10-07]
+OK           p62-61    5.99 Izbor uteži                              <- CRIVIT Izbor uteži  [2026-10-05..2026-10-07]
+HELD         p62-62    6.99 Ženske trenirke                          quarantine:vlm-only-without-ocr-price: page 62 has 1 VLM-only tile(s) at 6.99 and 0 unexplained OCR price(s) (
+OK           p62-63    3.49 Športne nizke nogavice, 5 parov          <- CRIVIT Športne nizke nogavice, 5 parov  [2026-10-05..2026-10-07]
+OK           p62-64    4.99 Funkcijske nogavice                      <- CRIVIT Funkcijske nogavice  [2026-10-05..2026-10-07]
+
+SHIPPED, MATCHING NO TRUTH OFFER (possible wrong price):
+
+SUMMARY kw40: 64 truth offers on 12 pages | ok 30 | wrong-field 0 | held 34 | missing 0 | shipped-unmatched 0
+
+Difference explanation: no new measured result exists to compare with the
+reference. Returning its 30/64 score as a CURRENT-code baseline would be
+unsupported. The available 61 crop entries include later cache state and
+do not solve the missing original API candidate records.
+
+Next step: recover a genuine historical full_inputs_kw40.pkl (cands/readings/kw,
+with all 230 listed candidates and the derived two-reader page_validity map);
+run replay with --inputs PATH, then grade its JSON. If current automatic crop
+selection needs uncached boxes, the replay names them and stops rather than
+inventing evidence. Full raw header replay additionally lacks pages
+6,25,26,27,28,31,32,33,34,35,36,37; historical derived evidence survives.
